@@ -4,12 +4,63 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: true },
+  app: {
+    pageTransition: { name: 'page', mode: 'out-in' }
+  },  
   css: ['~/assets/css/tailwind.css'],
   vite: {
     plugins: [
       tailwindcss(),
     ],
   },  
+  
+  // Runtime configuration for environment variables
+  runtimeConfig: {
+    // Public keys that will be exposed to the client
+    public: {
+      umamiUrl: process.env.NUXT_PUBLIC_UMAMI_URL || '',
+      umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || '',
+      posthogPublicKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
+      posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+    }
+  },
+  
+  // Enhanced Font Configuration
+  fonts: {
+    families: [
+      // Primary UI Font
+      {
+        name: 'Inter',
+        provider: 'google',
+        weights: [300, 400, 500, 600, 700],
+        subsets: ['latin', 'latin-ext'],
+        display: 'swap',
+        preload: true,
+        fallbacks: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
+      },
+      // Code Font
+      {
+        name: 'JetBrains Mono',
+        provider: 'google',
+        weights: [300, 400, 500, 600, 700],
+        subsets: ['latin', 'latin-ext'],
+        display: 'swap',
+        preload: true,
+        fallbacks: ['Fira Code', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'monospace']
+      }
+    ],
+    experimental: {
+      processCSSVariables: true
+    }
+  },
+  
+  // Performance optimizations for fonts
+  nitro: {
+    experimental: {
+      wasm: true
+    }
+  },
+  
   modules: [
     '@nuxt/content',
     '@nuxt/eslint',
