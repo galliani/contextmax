@@ -41,16 +41,14 @@ export interface ContextSetsData {
   fileContextsIndex: Record<string, Array<{ setName: string, lineRanges?: LineRange[] }>>
 }
 
-// Serializable project state for localStorage
+// Serializable project state for localStorage (UI preferences only)
 export interface SerializableProjectState {
   selectedFolderName: string | null
   fileTree: Omit<FileTreeItem, 'handle'>[] // Store complete file tree structure
-  filesManifest: Record<string, FileManifestEntry>
-  contextSets: Record<string, ContextSet>
-  activeContextSetName: string | null
   timestamp: number
   hasOPFSCopy: boolean // Track if we have an OPFS copy
   opfsProjectPath: string | null // Path to the project in OPFS
+  // Note: filesManifest and contextSets are now stored in OPFS, not localStorage
 }
 
 // View states for navigation
@@ -92,10 +90,7 @@ const globalState = reactive({
   // OPFS loading state
   isOPFSCopying: false,
   opfsCopyProgress: 0,
-  opfsCopyingProjectName: null as string | null,
-  
-  // Track if initial load has been attempted to prevent multiple calls
-  hasInitializedFromStorage: false
+  opfsCopyingProjectName: null as string | null
 })
 
 // OPFS support detection and utilities
@@ -123,6 +118,148 @@ class OPFSProjectManager {
       return false
     }
   }
+  
+  // === Context Sets Management (NEW) ===
+  
+  /**
+   * Save context sets to OPFS working copy for a specific project
+   */
+  async saveContextSetsToProject(projectName: string, contextSetsData: ContextSetsData): Promise<boolean> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return false
+    }
+    
+    try {
+      // Get or create project directory
+      const projectDir = await this.projectsDir.getDirectoryHandle(projectName, { create: true })
+      
+      // Get or create .contextmax subdirectory
+      const contextmaxDir = await projectDir.getDirectoryHandle('.contextmax', { create: true })
+      
+      // Save context-sets.json as working copy
+      const contextSetsJSON = JSON.stringify(contextSetsData, null, 2)
+      const fileHandle = await contextmaxDir.getFileHandle('context-sets.json', { create: true })
+      const writable = await fileHandle.createWritable()
+      await writable.write(contextSetsJSON)
+      await writable.close()
+      
+      // Save metadata
+      const metadata = {
+        lastSaved: Date.now(),
+        version: '1.0',
+        isWorkingCopy: true
+      }
+      const metadataHandle = await contextmaxDir.getFileHandle('metadata.json', { create: true })
+      const metadataWritable = await metadataHandle.createWritable()
+      await metadataWritable.write(JSON.stringify(metadata, null, 2))
+      await metadataWritable.close()
+      
+      console.log(`✅ Context sets saved to OPFS working copy: ${projectName}`)
+      return true
+    } catch (error) {
+      console.error(`❌ Failed to save context sets to OPFS for ${projectName}:`, error)
+      return false
+    }
+  }
+  
+  /**
+   * Load context sets from OPFS working copy for a specific project
+   */
+  async loadContextSetsFromProject(projectName: string): Promise<ContextSetsData | null> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return null
+    }
+    
+    try {
+      const projectDir = await this.projectsDir.getDirectoryHandle(projectName)
+      const contextmaxDir = await projectDir.getDirectoryHandle('.contextmax')
+      const fileHandle = await contextmaxDir.getFileHandle('context-sets.json')
+      
+      const file = await fileHandle.getFile()
+      const content = await file.text()
+      const contextSetsData: ContextSetsData = JSON.parse(content)
+      
+      console.log(`✅ Context sets loaded from OPFS working copy: ${projectName}`)
+      return contextSetsData
+    } catch (error) {
+      console.log(`ℹ️ No working copy found in OPFS for ${projectName}:`, error.message)
+      return null
+    }
+  }
+  
+  /**
+   * Check if a project has context sets in OPFS working copy
+   */
+  async hasContextSetsInProject(projectName: string): Promise<boolean> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return false
+    }
+    
+    try {
+      const projectDir = await this.projectsDir.getDirectoryHandle(projectName)
+      const contextmaxDir = await projectDir.getDirectoryHandle('.contextmax')
+      await contextmaxDir.getFileHandle('context-sets.json')
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+  
+  /**
+   * Delete context sets from OPFS working copy for a specific project
+   */
+  async deleteContextSetsFromProject(projectName: string): Promise<boolean> {
+    if (!this.projectsDir) return false
+    
+    try {
+      const projectDir = await this.projectsDir.getDirectoryHandle(projectName)
+      const contextmaxDir = await projectDir.getDirectoryHandle('.contextmax')
+      
+      // Remove context-sets.json and metadata.json
+      await contextmaxDir.removeEntry('context-sets.json')
+      await contextmaxDir.removeEntry('metadata.json')
+      
+      // Remove .contextmax directory if empty
+      try {
+        await projectDir.removeEntry('.contextmax', { recursive: true })
+      } catch (error) {
+        // Directory might not be empty, that's okay
+      }
+      
+      console.log(`✅ Context sets deleted from OPFS working copy: ${projectName}`)
+      return true
+    } catch (error) {
+      console.error(`❌ Failed to delete context sets from OPFS for ${projectName}:`, error)
+      return false
+    }
+  }
+  
+  /**
+   * Get metadata for context sets working copy
+   */
+  async getContextSetsMetadata(projectName: string): Promise<any | null> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return null
+    }
+    
+    try {
+      const projectDir = await this.projectsDir.getDirectoryHandle(projectName)
+      const contextmaxDir = await projectDir.getDirectoryHandle('.contextmax')
+      const metadataHandle = await contextmaxDir.getFileHandle('metadata.json')
+      
+      const file = await metadataHandle.getFile()
+      const content = await file.text()
+      return JSON.parse(content)
+    } catch (error) {
+      return null
+    }
+  }
+  
+  // === Existing Project File Management ===
   
   async copyProjectToOPFS(sourceHandle: FileSystemDirectoryHandle, projectName: string, onProgress?: (progress: number) => void): Promise<string | null> {
     if (!this.projectsDir) {
@@ -267,9 +404,6 @@ export const useProjectStore = () => {
       const serializableState: SerializableProjectState = {
         selectedFolderName: globalState.selectedFolder?.name || null,
         fileTree: globalState.fileTree.map(item => removeHandles(item)),
-        filesManifest: { ...globalState.filesManifest },
-        contextSets: { ...globalState.contextSets },
-        activeContextSetName: globalState.activeContextSetName,
         timestamp: Date.now(),
         hasOPFSCopy: globalState.hasSuccessfulOPFSCopy,
         opfsProjectPath: globalState.selectedFolder?.name || null
@@ -278,9 +412,7 @@ export const useProjectStore = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableState))
       console.log('Project state saved to localStorage', {
         folderName: serializableState.selectedFolderName,
-        filesCount: Object.keys(serializableState.filesManifest).length,
         fileTreeNodes: countFileTreeNodes(serializableState.fileTree),
-        contextSetsCount: Object.keys(serializableState.contextSets).length,
         hasOPFSCopy: serializableState.hasOPFSCopy
       })
     } catch (error) {
@@ -290,34 +422,21 @@ export const useProjectStore = () => {
 
   // Load state from localStorage
   const loadFromLocalStorage = (): boolean => {
-    // Prevent multiple initializations
-    if (globalState.hasInitializedFromStorage) {
-      console.log('Project store already initialized from localStorage, skipping...')
-      return true
-    }
-    
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (!stored) {
-        globalState.hasInitializedFromStorage = true
         return false
       }
 
       const state: SerializableProjectState = JSON.parse(stored)
       
-      // Restore state
+      // Restore only project metadata, not context sets (those come from OPFS)
       globalState.fileTree = state.fileTree as FileTreeItem[]
-      globalState.filesManifest = state.filesManifest
-      globalState.contextSets = state.contextSets
-      globalState.activeContextSetName = state.activeContextSetName
       globalState.hasActiveHandles = false // Initially false, will be set to true if OPFS project is loaded
-      globalState.hasInitializedFromStorage = true
       
-      console.log('Project state loaded from localStorage', {
+      console.log('Project metadata loaded from localStorage', {
         folderName: state.selectedFolderName,
-        filesCount: Object.keys(state.filesManifest).length,
         fileTreeNodes: countFileTreeNodes(state.fileTree),
-        contextSetsCount: Object.keys(state.contextSets).length,
         hasOPFSCopy: state.hasOPFSCopy
       })
       
@@ -328,8 +447,7 @@ export const useProjectStore = () => {
       
       return true
     } catch (error) {
-      console.error('Failed to load project state from localStorage:', error)
-      globalState.hasInitializedFromStorage = true
+      console.error('Failed to load project metadata from localStorage:', error)
       return false
     }
   }
@@ -624,7 +742,7 @@ export const useProjectStore = () => {
     }
     
     console.log('Auto-created new file manifest entry:', { id: newId, path: filePath })
-    saveToLocalStorage() // Auto-save on changes
+    // No longer auto-save to localStorage - only OPFS
     return newId
   }
 
@@ -641,7 +759,12 @@ export const useProjectStore = () => {
       workflow: []
     }
     
-    saveToLocalStorage() // Auto-save when context set is created
+    // Auto-save to OPFS working copy
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
     console.log(`Created new context set: ${name}`)
   }
 
@@ -654,7 +777,13 @@ export const useProjectStore = () => {
     
     globalState.activeContextSetName = name
     console.log('Set active context set:', name)
-    saveToLocalStorage() // Auto-save on changes
+    
+    // Auto-save to OPFS working copy  
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
     return true
   }
 
@@ -686,7 +815,13 @@ export const useProjectStore = () => {
     activeSet.files.push(fileId)
     
     console.log('Added file to active context set:', { file: file.path, setName: globalState.activeContextSetName })
-    saveToLocalStorage() // Auto-save on changes
+    
+    // Auto-save to OPFS working copy
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
     return true
   }
 
@@ -712,7 +847,12 @@ export const useProjectStore = () => {
         console.log(`Cleaned up ${orphanedCount} orphaned files after removal`)
       }
       
-      saveToLocalStorage() // Auto-save on changes
+      // Auto-save to OPFS working copy
+      if (globalState.selectedFolder) {
+        saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+      }
+      
+      // No longer save to localStorage
       return true
     }
     
@@ -763,7 +903,12 @@ export const useProjectStore = () => {
       }
     }
     
-    saveToLocalStorage() // Auto-save on changes
+    // Auto-save to OPFS working copy
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
   }
 
   // Helper function to check if a file is still referenced by any context sets
@@ -833,7 +978,13 @@ export const useProjectStore = () => {
     const orphanedCount = cleanupOrphanedFiles()
     
     console.log('Deleted context set:', name, `- cleaned up ${orphanedCount} orphaned files`)
-    saveToLocalStorage() // Auto-save on changes
+    
+    // Auto-save to OPFS working copy
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
     return true
   }
 
@@ -841,7 +992,13 @@ export const useProjectStore = () => {
   const updateFileComment = (fileId: string, comment: string) => {
     if (globalState.filesManifest[fileId]) {
       globalState.filesManifest[fileId].comment = comment
-      saveToLocalStorage() // Auto-save on changes
+      
+      // Auto-save to OPFS working copy
+      if (globalState.selectedFolder) {
+        saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+      }
+      
+      // No longer save to localStorage
       return true
     }
     return false
@@ -939,13 +1096,21 @@ export const useProjectStore = () => {
       activeSet: globalState.activeContextSetName
     })
     
-    saveToLocalStorage() // Save to localStorage after loading
+    // Auto-save to OPFS working copy (this creates/updates the working copy)
+    if (globalState.selectedFolder) {
+      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+    }
+    
+    // No longer save to localStorage
   }
 
   // Project management functions
   const setSelectedFolder = (folder: FileSystemDirectoryHandle | null) => {
     globalState.selectedFolder = folder
+    
     if (folder) {
+      // Auto-load from OPFS working copy or stable version
+      autoLoadContextSetsFromProject(folder)
       globalState.hasActiveHandles = true // We now have an active folder handle
       saveToLocalStorage() // Auto-save when folder is selected
     }
@@ -978,7 +1143,6 @@ export const useProjectStore = () => {
     globalState.hasActiveHandles = false
     globalState.opfsRestorationAttempted = false
     globalState.hasSuccessfulOPFSCopy = false
-    globalState.hasInitializedFromStorage = false
     clearLocalStorage() // Clear localStorage when project is cleared
   }
 
@@ -1042,32 +1206,161 @@ export const useProjectStore = () => {
     globalState.isFileContentModalOpen = false
   }
 
-  // Auto-load context sets from project
-  const autoLoadContextSetsFromProject = async (directoryHandle: FileSystemDirectoryHandle): Promise<boolean> => {
-    // Always start with a clean slate when loading a new project
-    globalState.contextSets = {}
-    globalState.activeContextSetName = null
-    globalState.filesManifest = {}
-    
-    console.log('Starting with clean slate for new project:', directoryHandle.name)
-    
+  // Helper function to load stable version from project folder
+  const tryLoadStableVersionFromProject = async (directoryHandle: FileSystemDirectoryHandle): Promise<ContextSetsData | null> => {
     try {
       const fileHandle = await directoryHandle.getFileHandle('context-sets.json')
       const file = await fileHandle.getFile()
       const content = await file.text()
       const data = JSON.parse(content) as ContextSetsData
       
-      loadContextSetsData(data)
-      console.log('Successfully loaded context-sets.json from project:', directoryHandle.name)
-      return true
+      console.log(`✅ Loaded stable version from project folder: ${directoryHandle.name}`)
+      return data
     } catch (error) {
-      console.log('No existing context-sets.json found or error loading:', error)
-      console.log('Project will start with empty context sets')
-      
-      // Save the clean state to localStorage
-      saveToLocalStorage()
+      console.log(`ℹ️ No stable version found in project folder: ${directoryHandle.name}`)
+      return null
+    }
+  }
+
+  // Helper function to save current state as working copy to OPFS
+  const saveWorkingCopyToOPFS = async (projectName: string): Promise<boolean> => {
+    if (Object.keys(globalState.contextSets).length === 0) {
+      return false // Nothing to save
+    }
+    
+    try {
+      const contextSetsData = generateContextSetsJSON()
+      return await opfsManager.saveContextSetsToProject(projectName, contextSetsData)
+    } catch (error) {
+      console.error(`❌ Failed to save working copy to OPFS for ${projectName}:`, error)
       return false
     }
+  }
+
+  // Export working copy to stable version in project folder
+  const exportToProjectFolder = async (): Promise<{ success: boolean, error?: string }> => {
+    if (!globalState.selectedFolder) {
+      return { success: false, error: 'No project folder selected' }
+    }
+
+    if (Object.keys(globalState.contextSets).length === 0) {
+      return { success: false, error: 'No context sets to export' }
+    }
+
+    try {
+      // Generate the context sets JSON data
+      const contextSetsData = generateContextSetsJSON()
+      const jsonContent = JSON.stringify(contextSetsData, null, 2)
+
+      // Try to write the file to the project directory
+      const fileHandle = await globalState.selectedFolder.getFileHandle('context-sets.json', { create: true })
+      const writable = await fileHandle.createWritable()
+      await writable.write(jsonContent)
+      await writable.close()
+
+      console.log(`✅ Successfully exported context sets to project folder: ${globalState.selectedFolder.name}`)
+      return { success: true }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        return { 
+          success: false, 
+          error: 'Permission denied. Please allow file system access to export context sets.' 
+        }
+      } else if (error instanceof DOMException && error.name === 'AbortError') {
+        return { 
+          success: false, 
+          error: 'Export cancelled by user.' 
+        }
+      } else {
+        console.error('❌ Failed to export context sets to project folder:', error)
+        return { 
+          success: false, 
+          error: `Failed to export: ${error.message || 'Unknown error'}` 
+        }
+      }
+    }
+  }
+
+  // Check if stable version exists in project folder
+  const hasStableVersionInProject = async (): Promise<boolean> => {
+    if (!globalState.selectedFolder) {
+      return false
+    }
+
+    try {
+      await globalState.selectedFolder.getFileHandle('context-sets.json')
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  // Get metadata about working copy vs stable version
+  const getExportStatus = async (): Promise<{
+    hasWorkingCopy: boolean
+    hasStableVersion: boolean
+    workingCopyMetadata?: any
+    canExport: boolean
+  }> => {
+    const hasWorkingCopy = Object.keys(globalState.contextSets).length > 0
+    const hasStableVersion = await hasStableVersionInProject()
+    
+    let workingCopyMetadata = null
+    if (hasWorkingCopy && globalState.selectedFolder) {
+      workingCopyMetadata = await opfsManager.getContextSetsMetadata(globalState.selectedFolder.name)
+    }
+
+    return {
+      hasWorkingCopy,
+      hasStableVersion,
+      workingCopyMetadata,
+      canExport: hasWorkingCopy && globalState.selectedFolder !== null
+    }
+  }
+
+  // Auto-load context sets from project with priority system
+  const autoLoadContextSetsFromProject = async (directoryHandle: FileSystemDirectoryHandle): Promise<boolean> => {
+    const projectName = directoryHandle.name
+    
+    // Always start with a clean slate when loading a new project
+    globalState.contextSets = {}
+    globalState.activeContextSetName = null
+    globalState.filesManifest = {}
+    
+    console.log(`🔄 Loading context sets for project: ${projectName}`)
+    
+    // Priority 1: Check for working copy in OPFS (source of truth once user has made changes)
+    try {
+      const workingCopy = await opfsManager.loadContextSetsFromProject(projectName)
+      if (workingCopy) {
+        loadContextSetsData(workingCopy)
+        console.log(`✅ Loaded working copy from OPFS: ${projectName}`)
+        return true
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to load working copy from OPFS for ${projectName}:`, error)
+    }
+    
+    // Priority 2: Load stable version from project folder and create working copy
+    try {
+      const stableVersion = await tryLoadStableVersionFromProject(directoryHandle)
+      if (stableVersion) {
+        loadContextSetsData(stableVersion)
+        
+        // Immediately create working copy from stable version
+        await opfsManager.saveContextSetsToProject(projectName, stableVersion)
+        console.log(`✅ Loaded stable version and created working copy: ${projectName}`)
+        return true
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to load stable version for ${projectName}:`, error)
+    }
+    
+    // Priority 3: Start fresh (no context sets found)
+    console.log(`✅ Starting fresh for project: ${projectName}`)
+    
+    // No need to save to localStorage anymore since we're using OPFS
+    return false
   }
 
   // Helper function for testing - allows direct manipulation of files manifest
@@ -1080,34 +1373,15 @@ export const useProjectStore = () => {
     globalState.filesManifest[fileId] = entry
   }
 
-  // Ensure the store is initialized when needed (client-side only)
-  const ensureInitialized = () => {
-    if (import.meta.client && !globalState.hasInitializedFromStorage) {
-      loadFromLocalStorage()
-    }
-  }
-
   return {
     // State (readonly refs and computed)
     currentView: readonly(toRef(globalState, 'currentView')),
     selectedFolder: readonly(toRef(globalState, 'selectedFolder')),
-    fileTree: computed(() => {
-      ensureInitialized()
-      return globalState.fileTree
-    }),
+    fileTree: computed(() => globalState.fileTree),
     isLoadingFiles: readonly(toRef(globalState, 'isLoadingFiles')),
-    filesManifest: computed(() => {
-      ensureInitialized()
-      return globalState.filesManifest
-    }),
-    contextSets: computed(() => {
-      ensureInitialized()
-      return globalState.contextSets
-    }),
-    activeContextSetName: computed(() => {
-      ensureInitialized()
-      return globalState.activeContextSetName
-    }),
+    filesManifest: computed(() => globalState.filesManifest),
+    contextSets: computed(() => globalState.contextSets),
+    activeContextSetName: computed(() => globalState.activeContextSetName),
     currentFileContent: readonly(toRef(globalState, 'currentFileContent')),
     currentFileName: readonly(toRef(globalState, 'currentFileName')),
     isFileContentModalOpen: readonly(toRef(globalState, 'isFileContentModalOpen')),
@@ -1122,7 +1396,6 @@ export const useProjectStore = () => {
 
     // Computed properties
     activeContextSet: computed(() => {
-      ensureInitialized()
       if (!globalState.activeContextSetName || !globalState.contextSets[globalState.activeContextSetName]) {
         return null
       }
@@ -1131,12 +1404,8 @@ export const useProjectStore = () => {
         ...globalState.contextSets[globalState.activeContextSetName]
       }
     }),
-    contextSetNames: computed(() => {
-      ensureInitialized()
-      return Object.keys(globalState.contextSets)
-    }),
+    contextSetNames: computed(() => Object.keys(globalState.contextSets)),
     hasDataLoaded: computed(() => {
-      ensureInitialized()
       return globalState.selectedFolder || 
              Object.keys(globalState.filesManifest).length > 0 || 
              Object.keys(globalState.contextSets).length > 0
@@ -1195,6 +1464,12 @@ export const useProjectStore = () => {
 
     // Helper functions for testing
     setFilesManifestForTesting,
-    addFileToManifestForTesting
+    addFileToManifestForTesting,
+
+    // New functions
+    saveWorkingCopyToOPFS,
+    exportToProjectFolder,
+    hasStableVersionInProject,
+    getExportStatus
   }
 } 

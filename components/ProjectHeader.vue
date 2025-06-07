@@ -17,13 +17,18 @@
       <!-- Primary Export JSON Button - Made Prominent -->
       <Button 
         v-if="hasAnyContextSets"
-        @click="exportContextSets"
+        @click="showExportOptions"
         variant="default" 
         size="default"
-        class="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 ring-2 ring-primary/20 hover:ring-primary/40"
+        :class="[
+          'font-medium px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 ring-2 hover:ring-primary/40',
+          exportStatus.hasStableVersion 
+            ? 'bg-primary hover:bg-primary/90 text-primary-foreground ring-primary/20' 
+            : 'bg-orange-600 hover:bg-orange-700 text-white ring-orange-500/30 hover:ring-orange-500/50 animate-pulse'
+        ]"
       >
-        <Icon name="lucide:download" class="w-5 h-5 mr-2" aria-hidden="true" />
-        Export JSON
+        <Icon name="lucide:save" class="w-5 h-5 mr-2" aria-hidden="true" />
+        {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
       </Button>
       
       <!-- Auto-save Status & Secondary Controls -->
@@ -38,6 +43,21 @@
             :aria-label="autoSaveStatus"
           />
           <span>{{ autoSaveStatus }}</span>
+        </div>
+        
+        <!-- Export Status Indicator -->
+        <div v-if="hasAnyContextSets" class="flex items-center gap-1">
+          <div class="w-px h-4 bg-border" aria-hidden="true" />
+          <div class="flex items-center gap-1">
+            <div 
+              :class="[
+                'w-2 h-2 rounded-full',
+                exportStatus.hasStableVersion ? 'bg-green-500' : 'bg-yellow-500'
+              ]"
+              :aria-label="exportStatusText"
+            />
+            <span class="text-xs">{{ exportStatusText }}</span>
+          </div>
         </div>
         
         <div class="w-px h-4 bg-border" aria-hidden="true" />
@@ -106,6 +126,18 @@
     </div>
   </div>
 
+  <!-- Working Copy Status Message -->
+  <div v-if="hasAnyContextSets" class="flex items-center justify-center gap-3 text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-md border border-muted">
+    <div class="flex items-center gap-1">
+      <Icon name="lucide:check-circle-2" class="w-3 h-3 text-green-600" />
+      <span>Changes auto-saved to workspace</span>
+    </div>
+    <div v-if="!exportStatus.hasStableVersion" class="flex items-center gap-1">
+      <Icon name="lucide:upload" class="w-3 h-3 text-yellow-600" />
+      <span>Click "{{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}" to update project file</span>
+    </div>
+  </div>
+
   <!-- Export Success Modal -->
   <HowToUseModal 
     v-model:open="showExportSuccessModal" 
@@ -114,9 +146,75 @@
     :example-context-set-name="firstContextSetName"
     :show-success-icon="true"
   />
+
+  <!-- Export Menu Modal -->
+  <Dialog v-model:open="showExportMenuModal">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-3">
+          <Icon name="lucide:save" class="w-5 h-5" />
+          Save Context Sets
+        </DialogTitle>
+        <DialogDescription>
+          Your changes are auto-saved to workspace. Choose how to commit them to your project.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div class="space-y-3 mt-6">
+        <!-- Download JSON Option -->
+        <Button
+          @click="handleExportMenuChoice('download')"
+          variant="outline"
+          size="default"
+          class="w-full justify-start p-4 h-auto"
+        >
+          <div class="flex items-center">
+            <Icon name="lucide:download" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
+            <div class="text-left">
+              <div class="font-medium">Download JSON</div>
+              <div class="text-sm text-muted-foreground">Download for sharing across projects or backup</div>
+            </div>
+          </div>
+        </Button>
+        
+        <!-- Export to Project Option -->
+        <Button
+          @click="handleExportMenuChoice('export')"
+          variant="outline"
+          size="default"
+          class="w-full justify-start p-4 h-auto"
+          :disabled="!exportStatus.canExport"
+        >
+          <div class="flex items-center">
+            <Icon name="lucide:folder-check" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
+            <div class="text-left">
+              <div class="font-medium">Commit to Project</div>
+              <div class="text-sm text-muted-foreground">
+                Update the context-sets.json in your project folder
+              </div>
+            </div>
+          </div>
+        </Button>
+      </div>
+      
+      <DialogFooter class="mt-6">
+        <Button variant="ghost" @click="showExportMenuModal = false">
+          Cancel
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface Props {
   autoLoadedFromProject?: boolean
@@ -137,7 +235,10 @@ const { trackDownload } = useAnalyticsHelpers()
 const {
   selectedFolder,
   contextSets,
-  generateContextSetsJSON
+  generateContextSetsJSON,
+  exportToProjectFolder,
+  getExportStatus,
+  hasStableVersionInProject
 } = useProjectStore()
 
 // Check if user has created any context sets (for showing Export button prominently)
@@ -177,6 +278,31 @@ const { announceStatus, announceError } = useAccessibility()
 
 // Modal state
 const showExportSuccessModal = ref(false)
+const showExportMenuModal = ref(false)
+const exportMenuAction = ref<'download' | 'export' | null>(null)
+
+// Export status tracking
+const exportStatus = ref<{
+  hasWorkingCopy: boolean
+  hasStableVersion: boolean
+  workingCopyMetadata?: {
+    lastSaved: number
+    version: string
+    isWorkingCopy: boolean
+  } | null
+  canExport: boolean
+}>({
+  hasWorkingCopy: false,
+  hasStableVersion: false,
+  canExport: false
+})
+
+// Update export status when context sets change
+watch(contextSets, async () => {
+  if (hasAnyContextSets.value) {
+    exportStatus.value = await getExportStatus()
+  }
+}, { immediate: true })
 
 // Auto-save status indicator
 const autoSaveStatus = computed(() => {
@@ -192,8 +318,36 @@ const autoSaveStatus = computed(() => {
   return 'All changes saved'
 })
 
-// Export functionality
-const exportContextSets = () => {
+// Export status indicator
+const exportStatusText = computed(() => {
+  if (!hasAnyContextSets.value) return ''
+  
+  if (exportStatus.value.hasStableVersion) {
+    return 'Committed'
+  } else {
+    return 'Uncommitted'
+  }
+})
+
+// Show export options menu
+const showExportOptions = () => {
+  showExportMenuModal.value = true
+}
+
+// Handle export menu selection
+const handleExportMenuChoice = async (action: 'download' | 'export') => {
+  showExportMenuModal.value = false
+  exportMenuAction.value = action
+  
+  if (action === 'download') {
+    await handleDownloadJSON()
+  } else if (action === 'export') {
+    await handleExportToProject()
+  }
+}
+
+// Download JSON functionality (existing)
+const handleDownloadJSON = async () => {
   try {
     const contextSetsData = generateContextSetsJSON()
     const jsonString = JSON.stringify(contextSetsData, null, 2)
@@ -212,15 +366,88 @@ const exportContextSets = () => {
     // Track the download
     trackDownload('context_sets')
     
-    // Show success modal instead of notification
+    // Show success modal
     showExportSuccessModal.value = true
-    announceStatus('Context sets exported successfully')
+    announceStatus('Context sets downloaded successfully')
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to export context sets'
+    const message = error instanceof Error ? error.message : 'Failed to download context sets'
+    errorWithRetry(
+      'Download Failed',
+      message,
+      handleDownloadJSON
+    )
+    announceError(message)
+  }
+}
+
+// Export to project folder functionality (new)
+const handleExportToProject = async () => {
+  try {
+    // Check if stable version exists and warn user
+    const hasStable = await hasStableVersionInProject()
+    
+    if (hasStable) {
+      warning(
+        'Overwrite Existing File',
+        'A context-sets.json file already exists in your project. Exporting will overwrite it with your current working copy.',
+        {
+          persistent: true,
+          actions: [
+            {
+              label: 'Overwrite',
+              action: async () => await performExportToProject(),
+              style: 'primary'
+            },
+            {
+              label: 'Cancel',
+              action: () => {},
+              style: 'secondary'
+            }
+          ]
+        }
+      )
+    } else {
+      await performExportToProject()
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to export to project'
     errorWithRetry(
       'Export Failed',
       message,
-      exportContextSets
+      handleExportToProject
+    )
+    announceError(message)
+  }
+}
+
+// Perform the actual export to project
+const performExportToProject = async () => {
+  try {
+    const result = await exportToProjectFolder()
+    
+    if (result.success) {
+      success(
+        'Export Successful!',
+        'Your context sets have been saved to context-sets.json in your project folder. This stable version will be loaded when you next open this project.'
+      )
+      announceStatus('Context sets exported to project folder successfully')
+      
+      // Update export status
+      exportStatus.value = await getExportStatus()
+    } else {
+      errorWithRetry(
+        'Export Failed',
+        result.error || 'Unknown error occurred',
+        handleExportToProject
+      )
+      announceError(result.error || 'Failed to export to project')
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to export to project'
+    errorWithRetry(
+      'Export Failed',
+      message,
+      handleExportToProject
     )
     announceError(message)
   }

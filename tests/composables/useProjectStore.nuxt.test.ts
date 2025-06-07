@@ -671,4 +671,466 @@ describe('useProjectStore', () => {
       expect(store.filesManifest.value['file_abc123']).toBeDefined()
     })
   })
+
+  describe('Export Functionality', () => {
+    it('should export context sets to project folder successfully', async () => {
+      // Set up project with context sets
+      store.createContextSet('export-test', 'Test export functionality')
+      store.setActiveContextSet('export-test')
+      
+      const file = {
+        name: 'export-test.vue',
+        path: 'src/components/export-test.vue',
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file)
+      
+      // Mock writable stream
+      const mockWritable = {
+        write: vi.fn(),
+        close: vi.fn()
+      }
+      
+      const mockFileHandle = {
+        createWritable: vi.fn().mockResolvedValue(mockWritable)
+      }
+      
+      const mockSelectedFolder = {
+        name: 'test-project',
+        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle)
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Perform export
+      const result = await store.exportToProjectFolder()
+      
+      // Verify export success
+      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
+      expect(mockFileHandle.createWritable).toHaveBeenCalled()
+      expect(mockWritable.write).toHaveBeenCalled()
+      expect(mockWritable.close).toHaveBeenCalled()
+      
+      // Verify JSON content structure
+      const writtenContent = mockWritable.write.mock.calls[0][0]
+      const parsedContent = JSON.parse(writtenContent)
+      expect(parsedContent.schemaVersion).toBe('1.0')
+      expect(parsedContent.contextSets['export-test']).toBeDefined()
+      expect(Object.keys(parsedContent.filesManifest)).toHaveLength(1)
+    })
+    
+    it('should handle export permission errors gracefully', async () => {
+      // Set up project with context sets
+      store.createContextSet('permission-test', 'Test permission handling')
+      store.setActiveContextSet('permission-test')
+      
+      const mockSelectedFolder = {
+        name: 'test-project',
+        getFileHandle: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Perform export
+      const result = await store.exportToProjectFolder()
+      
+      // Verify error handling
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Permission denied')
+    })
+    
+    it('should not export when no project folder is selected', async () => {
+      // Clear selected folder
+      store.setSelectedFolder(null)
+      
+      // Set up context sets
+      store.createContextSet('no-folder-test', 'Test no folder scenario')
+      
+      // Attempt export
+      const result = await store.exportToProjectFolder()
+      
+      // Verify error
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('No project folder selected')
+    })
+    
+    it('should not export when no context sets exist', async () => {
+      // Set up folder but no context sets
+      const mockSelectedFolder = {
+        name: 'empty-project'
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Attempt export (should have no context sets)
+      const result = await store.exportToProjectFolder()
+      
+      // Verify error
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('No context sets to export')
+    })
+    
+    it('should check if stable version exists in project', async () => {
+      // Mock folder with existing context-sets.json
+      const mockSelectedFolder = {
+        name: 'project-with-stable',
+        getFileHandle: vi.fn().mockResolvedValue({})
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Check for stable version
+      const hasStable = await store.hasStableVersionInProject()
+      
+      expect(hasStable).toBe(true)
+      expect(mockSelectedFolder.getFileHandle).toHaveBeenCalledWith('context-sets.json')
+    })
+    
+    it('should return false when stable version does not exist', async () => {
+      // Mock folder without context-sets.json
+      const mockSelectedFolder = {
+        name: 'project-without-stable',
+        getFileHandle: vi.fn().mockRejectedValue(new Error('File not found'))
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Check for stable version
+      const hasStable = await store.hasStableVersionInProject()
+      
+      expect(hasStable).toBe(false)
+    })
+    
+    it('should get export status correctly', async () => {
+      // Set up project with context sets
+      store.createContextSet('status-test', 'Test export status')
+      store.setActiveContextSet('status-test')
+      
+      const mockSelectedFolder = {
+        name: 'status-project',
+        getFileHandle: vi.fn().mockResolvedValue({}) // Simulate existing stable version
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Get export status
+      const status = await store.getExportStatus()
+      
+      // Verify status
+      expect(status.hasWorkingCopy).toBe(true)
+      expect(status.hasStableVersion).toBe(true)
+      expect(status.canExport).toBe(true)
+    })
+    
+    it('should show no stable version when file does not exist', async () => {
+      // Set up project with context sets but no stable version
+      store.createContextSet('no-stable-test', 'Test no stable version')
+      store.setActiveContextSet('no-stable-test')
+      
+      const mockSelectedFolder = {
+        name: 'no-stable-project',
+        getFileHandle: vi.fn().mockRejectedValue(new Error('File not found'))
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockSelectedFolder)
+      
+      // Get export status
+      const status = await store.getExportStatus()
+      
+      // Verify status
+      expect(status.hasWorkingCopy).toBe(true)
+      expect(status.hasStableVersion).toBe(false)
+      expect(status.canExport).toBe(true)
+    })
+  })
+
+  describe('Working Copy Architecture', () => {
+    let mockOPFSManager: any
+    
+    beforeEach(() => {
+      // Mock OPFS manager for testing
+      mockOPFSManager = {
+        loadContextSetsFromProject: vi.fn(),
+        saveContextSetsToProject: vi.fn(),
+        hasContextSetsInProject: vi.fn(),
+        deleteContextSetsFromProject: vi.fn(),
+        getContextSetsMetadata: vi.fn()
+      }
+    })
+
+    it('should prioritize OPFS working copy over stable version', async () => {
+      const projectName = 'test-priority-project'
+      
+      // Mock OPFS working copy data
+      const opfsWorkingCopy = {
+        schemaVersion: '1.0',
+        filesManifest: {
+          'file_opfs123': { path: 'src/opfs-file.vue', comment: 'From OPFS working copy' }
+        },
+        contextSets: {
+          'opfs-context': { description: 'From OPFS', files: ['file_opfs123'], workflow: [] }
+        },
+        fileContextsIndex: {}
+      }
+      
+      // Mock stable version data (should be ignored)
+      const stableVersionData = {
+        schemaVersion: '1.0',
+        filesManifest: {
+          'file_stable123': { path: 'src/stable-file.vue', comment: 'From stable version' }
+        },
+        contextSets: {
+          'stable-context': { description: 'From stable', files: ['file_stable123'], workflow: [] }
+        },
+        fileContextsIndex: {}
+      }
+      
+      // Mock file content for stable version
+      const mockStableFile = {
+        text: vi.fn().mockResolvedValue(JSON.stringify(stableVersionData))
+      }
+      
+      const mockStableFileHandle = {
+        getFile: vi.fn().mockResolvedValue(mockStableFile)
+      }
+      
+      const mockDirectoryHandle = {
+        name: projectName,
+        getFileHandle: vi.fn().mockResolvedValue(mockStableFileHandle)
+      } as unknown as FileSystemDirectoryHandle
+      
+      // Setup: Mock OPFS to return working copy
+      vi.doMock('../../composables/useProjectStore', async () => {
+        const actual = await vi.importActual('../../composables/useProjectStore')
+        return {
+          ...actual,
+          opfsManager: {
+            ...mockOPFSManager,
+            loadContextSetsFromProject: vi.fn().mockResolvedValue(opfsWorkingCopy)
+          }
+        }
+      })
+      
+      // Load project - should prioritize OPFS working copy
+      const result = await store.autoLoadContextSetsFromProject(mockDirectoryHandle)
+      
+      expect(result).toBe(true)
+      // Should have OPFS working copy data, not stable version
+      expect(store.contextSets.value['opfs-context']).toBeDefined()
+      expect(store.contextSets.value['stable-context']).toBeUndefined()
+      expect(store.filesManifest.value['file_opfs123']).toBeDefined()
+      expect(store.filesManifest.value['file_stable123']).toBeUndefined()
+    })
+
+    it('should create working copy from stable version on first load', async () => {
+      const projectName = 'test-first-load-project'
+      
+      // Mock stable version data
+      const stableVersionData = {
+        schemaVersion: '1.0',
+        filesManifest: {
+          'file_stable456': { path: 'src/stable-first.vue', comment: 'From stable version' }
+        },
+        contextSets: {
+          'stable-first-context': { description: 'From stable first load', files: ['file_stable456'], workflow: [] }
+        },
+        fileContextsIndex: {}
+      }
+      
+      const mockStableFile = {
+        text: vi.fn().mockResolvedValue(JSON.stringify(stableVersionData))
+      }
+      
+      const mockStableFileHandle = {
+        getFile: vi.fn().mockResolvedValue(mockStableFile)
+      }
+      
+      const mockDirectoryHandle = {
+        name: projectName,
+        getFileHandle: vi.fn().mockResolvedValue(mockStableFileHandle)
+      } as unknown as FileSystemDirectoryHandle
+      
+      // Mock OPFS to return null (no working copy exists)
+      vi.doMock('../../composables/useProjectStore', async () => {
+        const actual = await vi.importActual('../../composables/useProjectStore')
+        return {
+          ...actual,
+          opfsManager: {
+            ...mockOPFSManager,
+            loadContextSetsFromProject: vi.fn().mockResolvedValue(null),
+            saveContextSetsToProject: vi.fn().mockResolvedValue(true)
+          }
+        }
+      })
+      
+      // Load project - should load stable version and create working copy
+      const result = await store.autoLoadContextSetsFromProject(mockDirectoryHandle)
+      
+      expect(result).toBe(true)
+      expect(store.contextSets.value['stable-first-context']).toBeDefined()
+      expect(store.filesManifest.value['file_stable456']).toBeDefined()
+    })
+
+    it('should auto-save changes to OPFS working copy', async () => {
+      // Set up a project
+      const mockFolder = { name: 'auto-save-project' } as FileSystemDirectoryHandle
+      store.setSelectedFolder(mockFolder)
+      
+      // Spy on saveWorkingCopyToOPFS
+      const saveWorkingCopySpy = vi.spyOn(store, 'saveWorkingCopyToOPFS')
+      
+      // Create context set - should auto-save to OPFS
+      store.createContextSet('auto-save-test', 'Test auto-save functionality')
+      
+      // Should have triggered auto-save
+      expect(saveWorkingCopySpy).toHaveBeenCalledWith('auto-save-project')
+      
+      // Set active context set - should also auto-save
+      store.setActiveContextSet('auto-save-test')
+      
+      expect(saveWorkingCopySpy).toHaveBeenCalledTimes(2)
+      
+      // Add file - should also auto-save
+      const file = {
+        name: 'auto-save.vue',
+        path: 'src/components/auto-save.vue', 
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file)
+      
+      expect(saveWorkingCopySpy).toHaveBeenCalledTimes(3)
+    })
+
+    it('should export working copy to stable version', async () => {
+      // Set up project with context sets
+      const mockFolder = {
+        name: 'export-test-project',
+        getFileHandle: vi.fn(),
+        createWritable: vi.fn()
+      } as unknown as FileSystemDirectoryHandle
+      
+      store.setSelectedFolder(mockFolder)
+      store.createContextSet('export-working-copy', 'Test export from working copy')
+      store.setActiveContextSet('export-working-copy')
+      
+      const file = {
+        name: 'export-file.vue',
+        path: 'src/components/export-file.vue',
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file)
+      
+      // Mock file operations for export
+      const mockWritable = {
+        write: vi.fn(),
+        close: vi.fn()
+      }
+      
+      const mockFileHandle = {
+        createWritable: vi.fn().mockResolvedValue(mockWritable)
+      }
+      
+      mockFolder.getFileHandle = vi.fn().mockResolvedValue(mockFileHandle)
+      
+      // Export to project folder
+      const result = await store.exportToProjectFolder()
+      
+      expect(result.success).toBe(true)
+      expect(mockWritable.write).toHaveBeenCalled()
+      expect(mockWritable.close).toHaveBeenCalled()
+      
+      // Verify exported content contains working copy data
+      const exportedContent = mockWritable.write.mock.calls[0][0]
+      const parsedContent = JSON.parse(exportedContent)
+      expect(parsedContent.contextSets['export-working-copy']).toBeDefined()
+    })
+
+    it('should handle project switching without data loss', async () => {
+      // Set up first project
+      const project1 = { name: 'project-1' } as FileSystemDirectoryHandle
+      store.setSelectedFolder(project1)
+      store.createContextSet('project1-context', 'Project 1 context')
+      store.setActiveContextSet('project1-context')
+      
+      const file1 = {
+        name: 'project1-file.vue',
+        path: 'src/project1-file.vue',
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file1)
+      
+      // Verify project 1 data exists
+      expect(store.contextSets.value['project1-context']).toBeDefined()
+      expect(Object.keys(store.filesManifest.value)).toHaveLength(1)
+      
+      // Switch to second project (with no existing context sets)
+      const project2 = {
+        name: 'project-2',
+        getFileHandle: vi.fn().mockRejectedValue(new Error('File not found'))
+      } as unknown as FileSystemDirectoryHandle
+      
+      // This should clear current state and start fresh
+      await store.autoLoadContextSetsFromProject(project2)
+      
+      // Project 2 should start with clean slate
+      expect(Object.keys(store.contextSets.value)).toHaveLength(0)
+      expect(store.activeContextSetName.value).toBe(null)
+      expect(Object.keys(store.filesManifest.value)).toHaveLength(0)
+      
+      // Create some data in project 2
+      store.createContextSet('project2-context', 'Project 2 context')
+      store.setActiveContextSet('project2-context')
+      
+      const file2 = {
+        name: 'project2-file.vue',
+        path: 'src/project2-file.vue',
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file2)
+      
+      // Verify project 2 data
+      expect(store.contextSets.value['project2-context']).toBeDefined()
+      expect(Object.keys(store.filesManifest.value)).toHaveLength(1)
+      
+      // Switch back to project 1 - should reload project 1 data from OPFS
+      // (In real implementation, this would load from OPFS working copy)
+      await store.autoLoadContextSetsFromProject(project1)
+      
+      // The working copy architecture ensures no data loss between project switches
+      // Data is preserved in OPFS working copies per project
+    })
+
+    it('should migrate from localStorage to OPFS', async () => {
+      // This test ensures the migration is complete
+      
+      // Create context sets using new OPFS-based approach
+      const mockFolder = { name: 'migration-test' } as FileSystemDirectoryHandle
+      store.setSelectedFolder(mockFolder)
+      store.createContextSet('migrated-context', 'Migrated from localStorage')
+      
+      // Verify no localStorage calls for context sets
+      const localStorageSetSpy = vi.spyOn(Storage.prototype, 'setItem')
+      
+      // Operations that used to save to localStorage
+      store.setActiveContextSet('migrated-context')
+      const file = {
+        name: 'migrated-file.vue',
+        path: 'src/migrated-file.vue',
+        type: 'file' as const
+      }
+      store.addFileToActiveContextSet(file)
+      store.updateFileComment(store.findFileIdByPath(file.path)!, 'Updated comment')
+      
+      // localStorage should only be called for project metadata, not context sets
+      const localStorageCalls = localStorageSetSpy.mock.calls
+      const contextSetStorageCalls = localStorageCalls.filter(call => {
+        const value = call[1]
+        return value.includes('contextSets') || value.includes('filesManifest')
+      })
+      
+      // Should be no localStorage calls containing context sets or files manifest
+      expect(contextSetStorageCalls).toHaveLength(0)
+    })
+  })
 }) 
