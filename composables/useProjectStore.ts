@@ -421,7 +421,7 @@ export const useProjectStore = () => {
   }
 
   // Load state from localStorage
-  const loadFromLocalStorage = (): boolean => {
+  const loadFromLocalStorage = async (): Promise<boolean> => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (!stored) {
@@ -440,9 +440,9 @@ export const useProjectStore = () => {
         hasOPFSCopy: state.hasOPFSCopy
       })
       
-      // Try to load from OPFS if available
+      // Try to load from OPFS if available - NOW AWAITING IT
       if (state.hasOPFSCopy && state.opfsProjectPath) {
-        tryLoadFromOPFS(state.opfsProjectPath)
+        await tryLoadFromOPFS(state.opfsProjectPath)
       }
       
       return true
@@ -484,6 +484,9 @@ export const useProjectStore = () => {
         
         // Rebuild file tree with actual handles from OPFS
         await rebuildFileTreeFromOPFS(opfsHandle)
+        
+        // CRITICAL FIX: Also load context sets from OPFS working copy
+        await autoLoadContextSetsFromProject(opfsHandle)
         
         // Notify success (only once per session)
         if (import.meta.client) {

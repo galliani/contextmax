@@ -129,6 +129,7 @@ const {
   goToWorkspace,
   hasSavedData,
   getSavedProjectName,
+  loadFromLocalStorage,
   isOPFSAvailable,
   copyProjectToOPFS,
   // OPFS loading state
@@ -191,18 +192,30 @@ const faqData = ref([
 ])
 
 // Check support only on client side to avoid hydration issues
-onMounted(() => {
+onMounted(async () => {
   isFileSystemSupported.value = typeof window !== 'undefined' && 'showDirectoryPicker' in window
   
   // Check if we have saved data and should show workspace
   if (hasSavedData()) {
+    console.log('🔄 Found saved data, attempting auto-restoration...')
+    
     // Track data restoration
     trackDataRestored(savedProjectName.value)
     
+    // CRITICAL FIX: Properly await the entire restoration process
+    try {
+      const restored = await loadFromLocalStorage()
+      if (restored) {
+        console.log('✅ Project fully restored including OPFS data')
+      } else {
+        console.warn('⚠️ Failed to restore project metadata from localStorage')
+      }
+    } catch (error) {
+      console.error('❌ Error during restoration:', error)
+    }
+    
     // Always go to workspace if we have saved data
     goToWorkspace()
-    
-    // OPFS will handle automatic restoration, no need for complex fallback logic
   }
 })
 
