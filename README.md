@@ -1,114 +1,102 @@
-# Nuxt Minimal Starter
+# ContextMax
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Stop AI Guesswork. Make Your LLM Finally Understand Your Complex, Mature Codebase.
 
-## Setup
+ContextMax is a free, browser-based, privacy-first tool that empowers developers to create, manage, and share highly-specific, reusable context sets for Large Language Models (LLMs). Guide your AI with pinpoint accuracy to get more relevant, consistent, and architecturally-aware assistance on your most complex projects.
 
-Make sure to install dependencies:
+
+## The Problem: Is Your LLM Lost in Your Code?
+
+Even the most powerful LLMs can struggle when faced with large, mature, or domain-specific codebases. Without deep, specific knowledge, AI assistants often provide:
+
+- **Generic**, unhelpful suggestions that miss the nuances of your architecture.
+- **Inconsistent code** that doesn't follow your established patterns.
+- Responses that **require you to waste valuable time re-explaining context** or correcting mistakes.
+
+Your team's expertise and your project's architectural integrity are your most valuable assets. Your AI tools should respect and leverage them, not ignore them.
+
+## The Solution: You Conduct the AI
+
+ContextMax puts your project experts in control. It allows your most knowledgeable developers to visually create "Context Sets"—precise instruction packets that act as a guidebook for your AI assistant.
+
+By defining exactly what files, specific line ranges, and operational workflows are relevant for a given task, you transform your LLM from a generalist into a specialized, highly effective partner for your unique codebase.
+
+
+## Key Features
+
+- **Visual Context Builder**: Intuitively create and manage context-sets.json files without writing JSON by hand.
+- **Privacy First**: Runs entirely in your browser using the File System Access API. Your code is never uploaded and never leaves your machine.
+- **Pinpoint Accuracy**: Go beyond whole-file context. Select multiple, non-contiguous line ranges across different files to give the LLM surgical focus.
+**Workflow Definition**: Explain complex processes by mapping out the sequence of file interactions, helping the AI understand data flow and interdependencies.
+**Reusable & Shareable Context**: The output is a clean context-sets.json file that you can commit to your repository. This allows your entire team to provide consistent, expert-level context to their LLMs.
+**Auto-Generated Indexes**: Automatically creates a filesManifest for robust file referencing and a fileContextsIndex to help other tools understand how files and context sets relate.
+
+
+## How It Works
+
+1. **Load Your Project**: Open the ContextMax web app and select your local project folder. Your code stays local.
+2. **Define Context Sets**: Visually create named sets (e.g., "UserAuth_Flow"). Add relevant files to each set, implicitly populating a central filesManifest.
+3. **Refine with Precision**: For each file in a set, specify whether to include the whole file or pinpoint exact line ranges.
+4. **Map Workflows**: Define step-by-step workflows to explain how different code parts work together.
+5. **Export & Use**: Download your context-sets.json file. Use it with your favorite IDE and LLM (e.g., via .cursorrules in Cursor) to provide powerful, curated context in your prompts.
+
+
+## The context-sets.json Artifact
+
+The core output of ContextMax is a single, version-controllable JSON file with four main parts:
+
+- **filesManifest**: An ID-based registry of all files you've deemed relevant, with paths and comments.
+
+- **contextSets**: Your named context sets, defining which files (via IDs), line ranges, and workflows are included.
+
+- **fileContextsIndex**: 
+An auto-generated index mapping file IDs to the context sets that use them, useful for tooling and analysis.
+
+- **schemaVersion**: Versions the file structure itself.
+
+
+## Tech Stack
+
+- Nuxt.js (Vue.js 3)
+- Tailwind CSS (or your preferred CSS framework)
+- Pinia for state management
+- File System Access API for local file interaction
+
+
+## Getting Started
+
+To run ContextMax locally for development:
+
+### Prerequisites:
+
+- Node.js (v18.x or later recommended)
+- npm or yarn or pnpm
+
+### Installation & Running Locally
+
+Clone the repository:
 
 ```bash
-# npm
+git clone https://github.com/galliani/contextmax.git
+cd contextmax
+
 npm install
 
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Analytics Configuration
-
-This project supports both Umami and PostHog analytics. To enable them, create a `.env` file in the project root with the following variables:
-
-```bash
-# Umami Analytics Configuration
-# Get these values from your Umami dashboard
-NUXT_PUBLIC_UMAMI_URL=https://your-umami-instance.com/script.js
-NUXT_PUBLIC_UMAMI_WEBSITE_ID=your-website-id-here
-
-# PostHog Analytics Configuration  
-# Get these values from your PostHog project settings
-NUXT_PUBLIC_POSTHOG_KEY=your-posthog-public-key-here
-NUXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
-
-# Note: For EU users, use https://eu.i.posthog.com for PostHog host
-# Leave any value empty to disable that analytics service
-```
-
-### Umami Setup
-1. Set up your Umami instance or use Umami Cloud
-2. Create a website in your Umami dashboard
-3. Copy the tracking script URL and website ID
-4. Add them to your `.env` file
-
-### PostHog Setup
-1. Create a PostHog account (free tier available)
-2. Get your public API key from Project Settings
-3. Choose the appropriate host (US or EU)
-4. Add them to your `.env` file
-
-The analytics will automatically:
-- Track page views on route changes
-- Provide helper functions for custom event tracking
-- Respect user privacy settings (Do Not Track)
-- Only load and track when environment variables are configured
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
+# or yarn install or pnpm install
+# Run the development server:
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-**Note:** To enable analytics tracking, create a `.env` file in the project root with the environment variables listed in the Analytics Configuration section above.
+Open http://localhost:3000 in a compatible browser (e.g., Chrome, Edge) that supports the File System Access API.
 
-## Production
 
-Build the application for production:
+## Contributing
 
-```bash
-# npm
-npm run build
+We believe in empowering developers and are excited to build this tool with the community. Contributions are welcome!
 
-# pnpm
-pnpm build
+Whether it's bug reports, feature suggestions, or code contributions, we appreciate your help!
 
-# yarn
-yarn build
 
-# bun
-bun run build
-```
+## License
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+This project is licensed under the Mozilla Public License 2.0. See the [LICENSE](LICENSE) file for details.
