@@ -9,8 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "coverage:badge": "coverage-badges"
   },
   "dependencies": {
     "@nuxt/content": "^3.5.1",
@@ -42,7 +42,9 @@
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.45",
     "@testing-library/vue": "^8.1.0",
+    "@vitest/coverage-v8": "^3.2.0",
     "@vue/test-utils": "^2.4.6",
+    "coverage-badges": "^1.0.7",
     "happy-dom": "^17.6.1",
     "playwright-core": "^1.52.0",
     "vitest": "^3.2.0"

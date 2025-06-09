@@ -1,4 +1,4 @@
-# ContextMax
+# ContextMax ![Coverage Status](badges/coverage.svg)
 
 Stop AI Guesswork. Make Your LLM Finally Understand Your Complex, Mature Codebase.
 
