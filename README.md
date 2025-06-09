@@ -1,3 +1,5 @@
+[![Coverage Status](coverage/coverage.svg)](coverage/index.html)
+
 # ContextMax
 
 Stop AI Guesswork. Make Your LLM Finally Understand Your Complex, Mature Codebase.
