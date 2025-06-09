@@ -1,3 +1,8 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
 <template>
   <!-- Secondary Call to Action Section -->
   <section id="cta" class="py-20 bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/5">

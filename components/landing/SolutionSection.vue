@@ -1,3 +1,8 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
 <template>
   <!-- Solution Section -->
   <section id="solution" class="py-20 bg-gradient-to-b from-muted/10 to-background">
