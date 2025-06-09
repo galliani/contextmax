@@ -1,6 +1,6 @@
-[![Coverage Status](coverage/coverage.svg)](coverage/index.html)
-
 # ContextMax
+
+[![Coverage Status](coverage/coverage.svg)](coverage/index.html)
 
 Stop AI Guesswork. Make Your LLM Finally Understand Your Complex, Mature Codebase.
 

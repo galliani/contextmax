@@ -6,16 +6,7 @@ export default defineVitestConfig({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     coverage: {
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        '.nuxt/',
-        '.output/',
-        'coverage/',
-        'tests/',
-        '**/*.d.ts',
-        '**/*.config.*'
-      ]
+      reporter: ['text', 'json-summary', 'html']
     },
     environmentOptions: {
       nuxt: {
