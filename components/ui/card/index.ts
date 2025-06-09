@@ -1,3 +1,8 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
 export { default as Card } from './Card.vue'
 export { default as CardAction } from './CardAction.vue'
 export { default as CardContent } from './CardContent.vue'
