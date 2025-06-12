@@ -13,20 +13,15 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'out-in' }
   },  
   css: ['~/assets/css/tailwind.css'],
-  vite: {
-    plugins: [
-      tailwindcss(),
-    ],
-  },  
   
   // Runtime configuration for environment variables
   runtimeConfig: {
     // Public keys that will be exposed to the client
     public: {
-      umamiUrl: process.env.NUXT_PUBLIC_UMAMI_URL || '',
-      umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || '',
-      posthogPublicKey: process.env.NUXT_PUBLIC_POSTHOG_KEY || '',
-      posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+      umamiUrl: process.env.NUXT_PUBLIC_UMAMI_URL,
+      umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID,
+      posthogPublicKey: process.env.NUXT_PUBLIC_POSTHOG_KEY,
+      posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST,
     }
   },
   
@@ -58,11 +53,39 @@ export default defineNuxtConfig({
       processCSSVariables: true
     }
   },
-  
-  // Performance optimizations for fonts
+
+  // Performance optimizations for fonts and WASM support
   nitro: {
     experimental: {
       wasm: true
+    }
+  },
+  
+  // Vite configuration for web-tree-sitter and Hugging Face Transformers
+  vite: {
+    plugins: [
+      tailwindcss(),
+    ],
+    optimizeDeps: {
+      exclude: ['web-tree-sitter', '@huggingface/transformers']
+    },
+    server: {
+      fs: {
+        allow: ['..']
+      }
+    },
+    define: {
+      // Required for @huggingface/transformers
+      global: 'globalThis',
+    },
+    build: {
+      rollupOptions: {
+        external: (id) => {
+          // Externalize ONNX runtime for client-side
+          if (id.includes('onnxruntime-')) return true
+          return false
+        }
+      }
     }
   },
   

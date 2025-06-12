@@ -2,3 +2,7 @@
 
 - Use the shadcn/vue as the component generator, use the "shadcn-vue docs" tool to know which component to add and how to add it. 
 - The command to import the component is like this: `npx shadcn-vue@latest add COMPONENT`.
+
+# About server
+
+DO NOT run command to run or restart the server, always assume that server is running at port 3000.

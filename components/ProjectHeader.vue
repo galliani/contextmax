@@ -19,18 +19,39 @@
     </div>
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
+      <!-- Refresh Files Button -->
+      <Button
+        variant="outline"
+        size="sm"
+        class="px-3 py-2 hover:shadow-sm transition-all duration-200"
+        :disabled="isRefreshingFiles"
+        :aria-label="isRefreshingFiles ? 'Refreshing files...' : 'Refresh files from local folder'"
+        title="Refresh Files"
+        @click="handleRefreshFiles"
+      >
+        <Icon 
+          :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
+          :class="[
+            'w-4 h-4 mr-2',
+            isRefreshingFiles ? 'animate-spin' : ''
+          ]" 
+          aria-hidden="true" 
+        />
+        {{ isRefreshingFiles ? 'Refreshing...' : 'Refresh Files' }}
+      </Button>
+      
       <!-- Primary Export JSON Button - Made Prominent -->
       <Button 
         v-if="hasAnyContextSets"
-        @click="showExportOptions"
-        variant="default" 
-        size="default"
+        variant="default"
+        size="default" 
         :class="[
           'font-medium px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 ring-2 hover:ring-primary/40',
           exportStatus.hasStableVersion 
             ? 'bg-primary hover:bg-primary/90 text-primary-foreground ring-primary/20' 
             : 'bg-orange-600 hover:bg-orange-700 text-white ring-orange-500/30 hover:ring-orange-500/50 animate-pulse'
         ]"
+        @click="showExportOptions"
       >
         <Icon name="lucide:save" class="w-5 h-5 mr-2" aria-hidden="true" />
         {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
@@ -74,9 +95,9 @@
             size="sm"
             class="h-6 w-6 p-0 text-xs"
             :disabled="!autoSaveState.canUndo"
-            @click="handleUndo"
             title="Undo (Ctrl+Z)"
             :aria-label="autoSaveState.canUndo ? 'Undo last action' : 'No actions to undo'"
+            @click="handleUndo"
           >
             <Icon name="lucide:undo" class="w-3 h-3" aria-hidden="true" />
           </Button>
@@ -85,9 +106,9 @@
             size="sm"
             class="h-6 w-6 p-0 text-xs"
             :disabled="!autoSaveState.canRedo"
-            @click="handleRedo"
             title="Redo (Ctrl+Y)"
             :aria-label="autoSaveState.canRedo ? 'Redo last action' : 'No actions to redo'"
+            @click="handleRedo"
           >
             <Icon name="lucide:redo" class="w-3 h-3" aria-hidden="true" />
           </Button>
@@ -97,13 +118,13 @@
       <!-- Force Save Button (when there are unsaved changes) -->
       <Button
         v-if="autoSaveState.isDirty"
-        @click="handleForceSave"
         variant="outline"
         size="sm"
         class="px-3 py-2 sm:px-4 hover:shadow-sm transition-all duration-200"
         :disabled="autoSaveState.isSaving"
         :aria-label="autoSaveState.isSaving ? 'Saving...' : 'Save changes now'"
         title="Save Now (Ctrl+S)"
+        @click="handleForceSave"
       >
         <Icon 
           :name="autoSaveState.isSaving ? 'lucide:loader-2' : 'lucide:save'" 
@@ -118,12 +139,12 @@
       
       <!-- Clear Project Button -->
       <Button
-        @click="handleClearProjectWithConfirmation"
         variant="ghost"
         size="sm"
         class="p-2 hover:bg-destructive/10 transition-colors duration-200"
         :aria-label="`Clear current project`"
         title="Clear project"
+        @click="handleClearProjectWithConfirmation"
       >
         <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
         <span class="sr-only">Clear project</span>
@@ -168,10 +189,10 @@
       <div class="space-y-3 mt-6">
         <!-- Download JSON Option -->
         <Button
-          @click="handleExportMenuChoice('download')"
           variant="outline"
           size="default"
           class="w-full justify-start p-4 h-auto"
+          @click="handleExportMenuChoice('download')"
         >
           <div class="flex items-center">
             <Icon name="lucide:download" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
@@ -184,11 +205,11 @@
         
         <!-- Export to Project Option -->
         <Button
-          @click="handleExportMenuChoice('export')"
           variant="outline"
           size="default"
           class="w-full justify-start p-4 h-auto"
           :disabled="!exportStatus.canExport"
+          @click="handleExportMenuChoice('export')"
         >
           <div class="flex items-center">
             <Icon name="lucide:folder-check" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
@@ -243,8 +264,13 @@ const {
   generateContextSetsJSON,
   exportToProjectFolder,
   getExportStatus,
-  hasStableVersionInProject
+  hasStableVersionInProject,
+  refreshFilesFromLocal,
+  fileTree
 } = useProjectStore()
+
+// Hybrid Analysis
+const { performHybridAnalysis } = useHybridAnalysis()
 
 // Check if user has created any context sets (for showing Export button prominently)
 const hasAnyContextSets = computed(() => {
@@ -286,15 +312,14 @@ const showExportSuccessModal = ref(false)
 const showExportMenuModal = ref(false)
 const exportMenuAction = ref<'download' | 'export' | null>(null)
 
+// Project management state
+const isRefreshingFiles = ref(false)
+
 // Export status tracking
 const exportStatus = ref<{
   hasWorkingCopy: boolean
   hasStableVersion: boolean
-  workingCopyMetadata?: {
-    lastSaved: number
-    version: string
-    isWorkingCopy: boolean
-  } | null
+  workingCopyMetadata?: unknown
   canExport: boolean
 }>({
   hasWorkingCopy: false,
@@ -337,6 +362,55 @@ const exportStatusText = computed(() => {
 // Show export options menu
 const showExportOptions = () => {
   showExportMenuModal.value = true
+}
+
+// Handle file refresh
+const handleRefreshFiles = async () => {
+  isRefreshingFiles.value = true
+  
+  try {
+    const refreshSuccess = await refreshFilesFromLocal()
+    
+    if (refreshSuccess) {
+      success(
+        'Files Refreshed',
+        'Project files have been refreshed from your local folder'
+      )
+      announceStatus('Project files refreshed successfully')
+      
+      // Auto-trigger hybrid analysis for refreshed projects
+      try {
+        console.log('🚀 Auto-triggering hybrid analysis for refreshed project...')
+        
+        // Convert file tree to simple format for analysis
+        const treeValue = fileTree?.value || []
+        const analysisResult = await performHybridAnalysis(treeValue, { silent: false })
+        
+        if (analysisResult.success) {
+          console.log('✅ Automatic hybrid analysis completed after refresh')
+        } else {
+          console.warn('⚠️ Automatic hybrid analysis failed after refresh, but continuing')
+        }
+      } catch (error) {
+        console.warn('⚠️ Error during automatic hybrid analysis after refresh:', error)
+      }
+    } else {
+      warning(
+        'Refresh Cancelled',
+        'File refresh was cancelled or failed'
+      )
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    errorWithRetry(
+      'Refresh Failed',
+      `Error refreshing files: ${message}`,
+      handleRefreshFiles
+    )
+    announceError(`Error refreshing files: ${message}`)
+  } finally {
+    isRefreshingFiles.value = false
+  }
 }
 
 // Handle export menu selection

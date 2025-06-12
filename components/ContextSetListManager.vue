@@ -379,7 +379,7 @@ const cancelDelete = () => {
 const safeFocus = (element: HTMLElement | undefined) => {
   try {
     element?.focus?.()
-  } catch (error) {
+  } catch {
     // Silently ignore focus errors in test environment
   }
 }
