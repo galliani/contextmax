@@ -5,7 +5,14 @@
  */
 <template>
   <div class="min-h-screen-dynamic">
-    <div class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-3xl xl:max-w-screen-4xl space-y-6 lg:space-y-8 py-4 lg:py-6">
+    <!-- LLM Loading Screen -->
+    <LLMLoadingScreen v-if="isLoading" />
+    
+    <!-- Main Content -->
+    <div 
+      v-show="!isLoading" 
+      class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-3xl xl:max-w-screen-4xl space-y-6 lg:space-y-8 py-4 lg:py-6"
+    >
       <!-- Two-Column Layout: Project Header + Context Set Composition -->
       <section role="region" aria-labelledby="main-workspace-heading">
         <h2 id="main-workspace-heading" class="sr-only">Main Workspace</h2>
@@ -123,6 +130,36 @@ const { info, errorWithRetry } = useNotifications()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
+
+// LLM Loading state
+const { isLoading, isReady, hasError, initializeLLM } = useLLMLoader()
+
+// Initialize LLM after component is mounted
+onMounted(() => {
+  // Start LLM initialization asynchronously
+  initializeLLM()
+})
+
+// Watch for LLM initialization feedback
+watch(isReady, (ready) => {
+  if (ready) {
+    info('AI Ready', 'Local AI model initialized successfully')
+    announceStatus('Local AI model ready')
+  }
+})
+
+watch(hasError, (error) => {
+  if (error) {
+    errorWithRetry(
+      'AI Initialization Failed',
+      'Failed to initialize local AI model. Some features may be limited.',
+      () => {
+        initializeLLM()
+      }
+    )
+    announceError('Local AI model initialization failed')
+  }
+})
 
 // Watch for auto-load announcements with enhanced feedback
 watch(() => _props.autoLoadedFromProject, (loaded) => {

@@ -1,17 +1,18 @@
-import { pipeline, env } from '@huggingface/transformers';
+import { pipeline, env, Pipeline } from '@huggingface/transformers';
 
 // Skip local model check for this browser-based example.
 env.allowLocalModels = false;
 
-// Pipeline type for feature extraction
-type FeatureExtractionPipeline = any;
-type ProgressCallbackFunction = (data: any) => void;
+// Proper pipeline type for feature extraction
+type FeatureExtractionPipeline = Pipeline;
+type ProgressCallbackFunction = (data: { status: string; name: string; file?: string; progress?: number; loaded?: number; total?: number }) => void;
 
 // Use a singleton pattern to ensure the model is only loaded once.
-export class LLMService {
+class LLMServiceImpl {
   private static instance: FeatureExtractionPipeline | null = null;
   public static status: 'loading' | 'ready' | 'error' = 'loading';
   public static modelName: string = 'Xenova/jina-embeddings-v2-small-en';
+  public static error: string | null = null;
 
   static async getInstance(progress_callback?: ProgressCallbackFunction): Promise<FeatureExtractionPipeline> {
     if (this.instance === null) {
@@ -19,9 +20,10 @@ export class LLMService {
       try {
         this.instance = await pipeline('feature-extraction', this.modelName, { 
           progress_callback,
-          device: 'webgpu' as any, // Try WebGPU first, fallback to CPU
+          device: 'webgpu',
         });
         this.status = 'ready';
+        this.error = null;
         console.log('LLM Service initialized successfully');
       } catch (error) {
         console.warn('WebGPU failed, falling back to CPU:', error);
@@ -31,10 +33,12 @@ export class LLMService {
             device: 'cpu',
           });
           this.status = 'ready';
+          this.error = null;
           console.log('LLM Service initialized successfully (CPU fallback)');
         } catch (cpuError) {
           console.error('Failed to initialize LLM Service:', cpuError);
           this.status = 'error';
+          this.error = cpuError instanceof Error ? cpuError.message : 'Unknown error';
           throw cpuError;
         }
       }
@@ -45,31 +49,33 @@ export class LLMService {
   static getStatus() {
     return this.status;
   }
+
+  static getError() {
+    return this.error;
+  }
+
+  static async initializeAsync(progress_callback?: ProgressCallbackFunction): Promise<void> {
+    try {
+      await this.getInstance(progress_callback);
+    } catch (error) {
+      // Error is already handled in getInstance
+      console.error('Async LLM initialization failed:', error);
+    }
+  }
 }
 
-export default defineNuxtPlugin(async (_nuxtApp) => {
-  try {
-    const llm = await LLMService.getInstance();
-    
-    return {
-      provide: {
-        llm: {
-          engine: llm,
-          status: LLMService.getStatus(),
-          service: LLMService
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to initialize LLM plugin:', error);
-    return {
-      provide: {
-        llm: {
-          engine: null,
-          status: 'error' as const,
-          service: LLMService,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
+// Export the service for external use
+export const LLMService = LLMServiceImpl;
+
+export default defineNuxtPlugin((_nuxtApp) => {
+  // Don't block on initialization - return immediately with loading state
+  return {
+    provide: {
+      llm: {
+        engine: null,
+        status: LLMService.getStatus(),
+        service: LLMService,
+        error: null
       }
     }
   }
