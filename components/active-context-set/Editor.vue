@@ -81,6 +81,34 @@
               @update:workflow="updateWorkflow"
             />
           </div>
+
+          <!-- Entry Points Tab -->
+          <div
+            v-show="activeTab === 'entryPoints'"
+            id="tab-panel-entryPoints"
+            class="h-full overflow-y-auto p-6"
+            role="tabpanel"
+            aria-labelledby="tab-entryPoints"
+          >
+            <EntryPointsEditor 
+              :entry-points="activeContextSet.entryPoints || []"
+              @update:entry-points="updateEntryPoints"
+            />
+          </div>
+
+          <!-- System Behavior Tab -->
+          <div
+            v-show="activeTab === 'systemBehavior'"
+            id="tab-panel-systemBehavior"  
+            class="h-full overflow-y-auto p-6"
+            role="tabpanel"
+            aria-labelledby="tab-systemBehavior"
+          >
+            <SystemBehaviorEditor 
+              :system-behavior="activeContextSet.systemBehavior || {}"
+              @update:system-behavior="updateSystemBehavior"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -88,9 +116,11 @@
 </template>
 
 <script setup lang="ts">
-import type { WorkflowStep } from '~/composables/useProjectStore'
+import type { WorkflowStep, EntryPoint } from '~/composables/useProjectStore'
 import FilesList from './FilesList.vue'
 import WorkflowEditor from './WorkflowEditor.vue'
+import EntryPointsEditor from './EntryPointsEditor.vue'
+import SystemBehaviorEditor from './SystemBehaviorEditor.vue'
 
 const {
   activeContextSet,
@@ -115,6 +145,18 @@ const tabs = computed(() => [
     label: 'Workflow',
     icon: 'lucide:workflow',
     count: activeContextSet.value?.workflow.length || 0
+  },
+  {
+    id: 'entryPoints',
+    label: 'Entry Points',
+    icon: 'lucide:zap',
+    count: activeContextSet.value?.entryPoints?.length || 0
+  },
+  {
+    id: 'systemBehavior',
+    label: 'System Behavior',
+    icon: 'lucide:settings',
+    count: activeContextSet.value?.systemBehavior?.processing?.mode ? 1 : 0
   }
 ])
 
@@ -127,6 +169,30 @@ const updateWorkflow = (newWorkflow: WorkflowStep[]) => {
     announceStatus('Workflow updated')
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update workflow'
+    announceError(message)
+  }
+}
+
+const updateEntryPoints = (newEntryPoints: EntryPoint[]) => {
+  if (!activeContextSet.value) return
+  
+  try {
+    updateActiveContextSet({ entryPoints: newEntryPoints })
+    announceStatus('Entry points updated')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update entry points'
+    announceError(message)
+  }
+}
+
+const updateSystemBehavior = (newSystemBehavior: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } }) => {
+  if (!activeContextSet.value) return
+  
+  try {
+    updateActiveContextSet({ systemBehavior: newSystemBehavior })
+    announceStatus('System behavior updated')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update system behavior'
     announceError(message)
   }
 }

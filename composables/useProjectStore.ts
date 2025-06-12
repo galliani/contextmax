@@ -33,10 +33,24 @@ export interface WorkflowStep {
   description: string
 }
 
+export interface EntryPoint {
+  fileRef: string
+  function: string
+  protocol: 'http' | 'ui' | 'cli' | 'function' | 'queue' | 'file' | 'hook' | 'websocket' | 'sse'
+  method: string
+  identifier: string
+}
+
 export interface ContextSet {
   description: string
   files: (string | FileRef)[]
   workflow: WorkflowStep[]
+  entryPoints?: EntryPoint[]
+  systemBehavior?: {
+    processing?: {
+      mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
+    }
+  }
 }
 
 export interface ContextSetsData {
@@ -1084,7 +1098,13 @@ export const useProjectStore = () => {
   }
 
   // Update active context set details
-  const updateActiveContextSet = (updates: { name?: string, description?: string, workflow?: WorkflowStep[] }) => {
+  const updateActiveContextSet = (updates: { 
+    name?: string, 
+    description?: string, 
+    workflow?: WorkflowStep[], 
+    entryPoints?: EntryPoint[],
+    systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } }
+  }) => {
     if (!globalState.activeContextSetName) {
       throw new Error('No active context set selected')
     }
@@ -1108,6 +1128,12 @@ export const useProjectStore = () => {
       if (updates.workflow !== undefined) {
         globalState.contextSets[updates.name].workflow = [...updates.workflow]
       }
+      if (updates.entryPoints !== undefined) {
+        globalState.contextSets[updates.name].entryPoints = [...updates.entryPoints]
+      }
+      if (updates.systemBehavior !== undefined) {
+        globalState.contextSets[updates.name].systemBehavior = { ...updates.systemBehavior }
+      }
       
       // Remove old entry
       const { [currentName]: removed, ...rest } = globalState.contextSets
@@ -1124,6 +1150,12 @@ export const useProjectStore = () => {
       }
       if (updates.workflow !== undefined) {
         currentSet.workflow = [...updates.workflow]
+      }
+      if (updates.entryPoints !== undefined) {
+        currentSet.entryPoints = [...updates.entryPoints]
+      }
+      if (updates.systemBehavior !== undefined) {
+        currentSet.systemBehavior = { ...updates.systemBehavior }
       }
     }
     
