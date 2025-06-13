@@ -685,6 +685,12 @@ describe('useProjectStore', () => {
     })
 
     it('should export context sets to project folder successfully', async () => {
+      // Mock File System Access API support
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        value: vi.fn(),
+        writable: true
+      })
+
       // CRITICAL: Set up folder FIRST, then create context sets
       // This prevents autoLoadContextSetsFromProject from clearing them
       const mockWritable = {
@@ -698,7 +704,8 @@ describe('useProjectStore', () => {
       
       const mockSelectedFolder = {
         name: 'test-project',
-        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle)
+        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle),
+        queryPermission: vi.fn().mockResolvedValue('granted')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockSelectedFolder)
@@ -733,10 +740,23 @@ describe('useProjectStore', () => {
     })
     
     it('should handle export permission errors gracefully', async () => {
-      // Set up folder FIRST
+      // Mock DOM operations for fallback
+      const mockClick = vi.fn()
+      const mockAnchor = {
+        href: '',
+        download: '',
+        click: mockClick
+      }
+      const mockCreateElement = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+      const mockCreateObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('mock-url')
+      const mockRevokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      
+      // Set up folder with permission error
       const mockSelectedFolder = {
         name: 'test-project',
-        getFileHandle: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
+        getFileHandle: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError')),
+        queryPermission: vi.fn().mockResolvedValue('denied'),
+        requestPermission: vi.fn().mockResolvedValue('denied')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockSelectedFolder)
@@ -755,9 +775,15 @@ describe('useProjectStore', () => {
       // Perform export
       const result = await store.exportToProjectFolder()
       
-      // Verify error handling
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Permission denied')
+      // Verify fallback handling - should succeed with warning
+      expect(result.success).toBe(true)
+      expect(result.warning).toContain('Downloads folder')
+      expect(mockClick).toHaveBeenCalled()
+      
+      // Cleanup
+      mockCreateElement.mockRestore()
+      mockCreateObjectURL.mockRestore()
+      mockRevokeObjectURL.mockRestore()
     })
     
     it('should not export when no project folder is selected', async () => {
@@ -1028,11 +1054,18 @@ describe('useProjectStore', () => {
     })
 
     it('should export working copy to stable version', async () => {
+      // Mock File System Access API support
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        value: vi.fn(),
+        writable: true
+      })
+
       // Set up project with context sets
       const mockFolder = {
         name: 'export-test-project',
         getFileHandle: vi.fn(),
-        createWritable: vi.fn()
+        createWritable: vi.fn(),
+        queryPermission: vi.fn().mockResolvedValue('granted')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockFolder)

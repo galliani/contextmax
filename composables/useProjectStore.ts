@@ -16,15 +16,14 @@ export interface FileManifestEntry {
   comment: string
 }
 
-export interface LineRange {
-  start: number
-  end: number
+export interface FunctionRef {
+  name: string
   comment?: string
 }
 
 export interface FileRef {
   fileRef: string
-  lineRanges?: LineRange[]
+  functionRefs?: FunctionRef[]
   comment?: string
 }
 
@@ -57,7 +56,7 @@ export interface ContextSetsData {
   schemaVersion: string
   filesManifest: Record<string, FileManifestEntry>
   contextSets: Record<string, ContextSet>
-  fileContextsIndex: Record<string, Array<{ setName: string, lineRanges?: LineRange[] }>>
+  fileContextsIndex: Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>>
 }
 
 // Serializable project state for localStorage (UI preferences only)
@@ -1266,8 +1265,8 @@ export const useProjectStore = () => {
   }
 
   // Generate file contexts index
-  const generateFileContextsIndex = (): Record<string, Array<{ setName: string, lineRanges?: LineRange[] }>> => {
-    const index: Record<string, Array<{ setName: string, lineRanges?: LineRange[] }>> = {}
+  const generateFileContextsIndex = (): Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>> => {
+    const index: Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>> = {}
     
     for (const [setName, set] of Object.entries(globalState.contextSets)) {
       for (const fileEntry of set.files) {
@@ -1279,10 +1278,10 @@ export const useProjectStore = () => {
           index[fileId] = []
         }
         
-        const contextReference: { setName: string, lineRanges?: LineRange[] } = { setName }
+        const contextReference: { setName: string, functionRefs?: FunctionRef[] } = { setName }
         
-        if (typeof fileEntry === 'object' && fileEntry.lineRanges) {
-          contextReference.lineRanges = fileEntry.lineRanges
+        if (typeof fileEntry === 'object' && fileEntry.functionRefs) {
+          contextReference.functionRefs = fileEntry.functionRefs
         }
         
         index[fileId].push(contextReference)
@@ -1523,10 +1522,10 @@ export const useProjectStore = () => {
       }
 
       // Check if we have write permissions
-      const permissionStatus = await globalState.selectedFolder.queryPermission({ mode: 'readwrite' })
+      const permissionStatus = await (globalState.selectedFolder as any).queryPermission({ mode: 'readwrite' })
       if (permissionStatus !== 'granted') {
         // Request write permission
-        const newPermissionStatus = await globalState.selectedFolder.requestPermission({ mode: 'readwrite' })
+        const newPermissionStatus = await (globalState.selectedFolder as any).requestPermission({ mode: 'readwrite' })
         if (newPermissionStatus !== 'granted') {
           // Fallback to regular download if permission not granted
           const contextSetsData = generateContextSetsJSON()

@@ -154,7 +154,7 @@ describe('FilesList', () => {
       const viewButtons = component.findAll('button[title="View file content"]')
       expect(viewButtons.length).toBeGreaterThan(0)
 
-      const specifyButtons = component.findAll('button[title="Specify line ranges"]')
+      const specifyButtons = component.findAll('button[title="Specify functions"]')
       expect(specifyButtons.length).toBeGreaterThan(0)
 
       const removeButtons = component.findAll('button[title="Remove from context set"]')
@@ -188,10 +188,10 @@ describe('FilesList', () => {
       expect(mockProjectStore.removeFileFromActiveContextSet).toHaveBeenCalled()
     })
 
-    test('specify lines action triggers accessibility announcement', async () => {
+    test('specify functions action triggers accessibility announcement', async () => {
       const component = await mountSuspended(FilesList)
 
-      const specifyButton = component.find('button[title="Specify line ranges"]')
+      const specifyButton = component.find('button[title="Specify functions"]')
       await specifyButton.trigger('click')
 
       expect(mockAccessibility.announceStatus).toHaveBeenCalled()
@@ -199,10 +199,10 @@ describe('FilesList', () => {
   })
 
   describe('Modal Integration', () => {
-    test('includes LineRangeSelectionModal component', async () => {
+    test('includes FunctionSelectorModal component', async () => {
       const component = await mountSuspended(FilesList)
 
-      const modal = component.findComponent({ name: 'LineRangeSelectionModal' })
+      const modal = component.findComponent({ name: 'FunctionSelectorModal' })
       expect(modal.exists()).toBe(true)
     })
   })

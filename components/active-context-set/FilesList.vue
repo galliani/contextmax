@@ -24,7 +24,7 @@
       </p>
       <div class="space-y-2 text-sm text-muted-foreground">
         <p>💡 <strong>Tip:</strong> Use the project file browser to select and add files</p>
-        <p>📝 You can specify line ranges for each file after adding them</p>
+        <p>📝 You can specify functions for each file after adding them</p>
       </div>
     </div>
 
@@ -63,18 +63,18 @@
               {{ getFilePath(fileEntry) }}
             </p>
 
-            <!-- Line Ranges Display -->
-            <div v-if="hasLineRanges(fileEntry)" class="mb-3">
-              <p class="text-xs font-medium text-foreground mb-1">Specific Line Ranges:</p>
+            <!-- Function Refs Display -->
+            <div v-if="hasFunctionRefs(fileEntry)" class="mb-3">
+              <p class="text-xs font-medium text-foreground mb-1">Specific Functions:</p>
               <div class="flex flex-wrap gap-1">
                 <span
-                  v-for="(range, rangeIndex) in getLineRanges(fileEntry)"
-                  :key="rangeIndex"
+                  v-for="(func, funcIndex) in getFunctionRefs(fileEntry)"
+                  :key="funcIndex"
                   class="px-2 py-1 text-xs bg-primary/10 text-primary rounded border border-primary/20"
                 >
-                  Lines {{ range.start }}-{{ range.end }}
-                  <span v-if="range.comment" class="text-primary/70">
-                    • {{ range.comment }}
+                  {{ func.name }}
+                  <span v-if="func.comment" class="text-primary/70">
+                    • {{ func.comment }}
                   </span>
                 </span>
               </div>
@@ -92,11 +92,11 @@
             <div class="flex items-center space-x-4 text-xs text-muted-foreground">
               <span class="flex items-center">
                 <Icon 
-                  :name="hasLineRanges(fileEntry) ? 'lucide:scissors' : 'lucide:file'" 
+                  :name="hasFunctionRefs(fileEntry) ? 'lucide:function-square' : 'lucide:file'" 
                   class="w-3 h-3 mr-1" 
                   aria-hidden="true" 
                 />
-                {{ hasLineRanges(fileEntry) ? 'Specific lines' : 'Whole file' }}
+                {{ hasFunctionRefs(fileEntry) ? 'Specific functions' : 'Whole file' }}
               </span>
             </div>
           </div>
@@ -115,16 +115,16 @@
               <Icon name="lucide:eye" class="w-4 h-4" aria-hidden="true" />
             </Button>
 
-            <!-- Specify Lines -->
+            <!-- Specify Functions -->
             <Button
-              @click="specifyLines(fileEntry)"
+              @click="selectFunctions(fileEntry)"
               variant="ghost"
               size="sm"
               class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              :aria-label="`Specify line ranges for ${getFileName(fileEntry)}`"
-              title="Specify line ranges"
+              :aria-label="`Specify functions for ${getFileName(fileEntry)}`"
+              title="Specify functions"
             >
-              <Icon name="lucide:scissors" class="w-4 h-4" aria-hidden="true" />
+              <Icon name="lucide:function-square" class="w-4 h-4" aria-hidden="true" />
             </Button>
 
             <!-- Remove from Context Set -->
@@ -157,34 +157,36 @@
       </div>
     </div>
 
-    <!-- Line Range Selection Modal -->
-    <LineRangeSelectionModal
-      v-model:open="isLineRangeModalOpen"
+    <!-- Function Selection Modal -->
+    <FunctionSelectorModal
+      v-model:open="isFunctionModalOpen"
       :file-id="selectedFileId"
-      :existing-ranges="selectedFileRanges"
-      @ranges-updated="handleRangesUpdated"
+      :existing-functions="selectedFileFunctions"
+      @functions-updated="handleFunctionsUpdated"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { FileRef, LineRange } from '~/composables/useProjectStore'
-import LineRangeSelectionModal from './LineRangeSelectionModal.vue'
+import type { FileRef, FunctionRef } from '~/composables/useProjectStore'
+import FunctionSelectorModal from './FunctionSelectorModal.vue'
 
 const {
   activeContextSet,
   filesManifest,
   removeFileFromActiveContextSet,
   loadFileContent,
-  fileTree
+  fileTree,
+  saveWorkingCopyToOPFS,
+  selectedFolder
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
 
-// Reactive state for line range modal
-const isLineRangeModalOpen = ref(false)
+// Reactive state for function selection modal
+const isFunctionModalOpen = ref(false)
 const selectedFileId = ref('')
-const selectedFileRanges = ref<LineRange[]>([])
+const selectedFileFunctions = ref<FunctionRef[]>([])
 
 // Computed file list with resolved paths
 const fileList = computed(() => {
@@ -213,13 +215,13 @@ const getFileExtension = (fileEntry: string | FileRef): string => {
   return ext || ''
 }
 
-const hasLineRanges = (fileEntry: string | FileRef): boolean => {
-  return typeof fileEntry === 'object' && !!fileEntry.lineRanges?.length
+const hasFunctionRefs = (fileEntry: string | FileRef): boolean => {
+  return typeof fileEntry === 'object' && !!fileEntry.functionRefs?.length
 }
 
-const getLineRanges = (fileEntry: string | FileRef): LineRange[] => {
-  if (typeof fileEntry === 'object' && fileEntry.lineRanges) {
-    return fileEntry.lineRanges
+const getFunctionRefs = (fileEntry: string | FileRef): FunctionRef[] => {
+  if (typeof fileEntry === 'object' && fileEntry.functionRefs) {
+    return fileEntry.functionRefs
   }
   return []
 }
@@ -325,19 +327,19 @@ const viewFile = async (fileEntry: string | FileRef) => {
   }
 }
 
-const specifyLines = (fileEntry: string | FileRef) => {
+const selectFunctions = (fileEntry: string | FileRef) => {
   const fileId = getFileId(fileEntry)
   const fileName = getFileName(fileEntry)
   
   // Set up modal state
   selectedFileId.value = fileId
-  selectedFileRanges.value = getLineRanges(fileEntry)
-  isLineRangeModalOpen.value = true
+  selectedFileFunctions.value = getFunctionRefs(fileEntry)
+  isFunctionModalOpen.value = true
   
-  announceStatus(`Opening line range selector for: ${fileName}`)
+  announceStatus(`Opening function selector for: ${fileName}`)
 }
 
-const handleRangesUpdated = (newRanges: LineRange[]) => {
+const handleFunctionsUpdated = async (newFunctions: FunctionRef[]) => {
   if (!activeContextSet.value || !selectedFileId.value) return
   
   const fileId = selectedFileId.value
@@ -354,15 +356,15 @@ const handleRangesUpdated = (newRanges: LineRange[]) => {
     return
   }
   
-  // Update the file entry with new line ranges
-  if (newRanges.length === 0) {
+  // Update the file entry with new function refs (direct mutation)
+  if (newFunctions.length === 0) {
     // Convert back to simple string reference (whole file)
     activeContextSet.value.files[fileIndex] = fileId
   } else {
-    // Create or update FileRef object with line ranges
+    // Create or update FileRef object with function refs
     const fileRef: FileRef = {
       fileRef: fileId,
-      lineRanges: [...newRanges],
+      functionRefs: [...newFunctions],
       comment: typeof activeContextSet.value.files[fileIndex] === 'object' 
         ? activeContextSet.value.files[fileIndex].comment 
         : ''
@@ -370,15 +372,20 @@ const handleRangesUpdated = (newRanges: LineRange[]) => {
     activeContextSet.value.files[fileIndex] = fileRef
   }
   
-  // Close modal and announce success
-  isLineRangeModalOpen.value = false
-  selectedFileId.value = ''
-  selectedFileRanges.value = []
+  // Explicitly save to OPFS
+  if (selectedFolder.value) {
+    await saveWorkingCopyToOPFS(selectedFolder.value.name)
+  }
   
-  if (newRanges.length === 0) {
-    announceStatus(`Removed line ranges for ${fileName} - now including whole file`)
+  // Close modal and announce success
+  isFunctionModalOpen.value = false
+  selectedFileId.value = ''
+  selectedFileFunctions.value = []
+  
+  if (newFunctions.length === 0) {
+    announceStatus(`Removed function selections for ${fileName} - now including whole file`)
   } else {
-    announceStatus(`Updated line ranges for ${fileName}: ${newRanges.length} range${newRanges.length !== 1 ? 's' : ''}`)
+    announceStatus(`Updated functions for ${fileName}: ${newFunctions.length} function${newFunctions.length !== 1 ? 's' : ''} selected`)
   }
 }
 

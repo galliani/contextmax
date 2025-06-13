@@ -259,8 +259,11 @@ describe('WorkflowEditor', () => {
         }
       })
 
-      const addButton = component.find('button')
-      await addButton.trigger('click')
+      // Find the "Add Step" button by its text content
+      const buttons = component.findAll('button')
+      const addButton = buttons.find(button => button.text().includes('Add Step'))
+      expect(addButton).toBeTruthy()
+      await addButton!.trigger('click')
 
       expect(component.emitted('update:workflow')).toBeTruthy()
     })
