@@ -226,7 +226,7 @@ async function selectProjectFolder() {
     console.log('Calling showDirectoryPicker for new project...')
     
     const directoryHandle = await window.showDirectoryPicker({
-      mode: 'read'
+      mode: 'readwrite'
     })
     
     console.log('Directory selected for new project:', directoryHandle)
