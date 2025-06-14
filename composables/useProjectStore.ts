@@ -59,6 +59,11 @@ export interface ContextSetsData {
   fileContextsIndex: Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>>
 }
 
+export interface FileSystemDirectoryHandleWithPermission extends FileSystemDirectoryHandle {
+  queryPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>
+  requestPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>
+}
+
 // Serializable project state for localStorage (UI preferences only)
 export interface SerializableProjectState {
   selectedFolderName: string | null
@@ -555,8 +560,8 @@ export const useProjectStore = () => {
     }
   }
 
-  // Refresh files from local folder (file picker functionality)
-  const refreshFilesFromLocal = async (): Promise<boolean> => {
+  // Reload files from local folder (file picker functionality)
+  const reloadFilesFromLocal = async (): Promise<boolean> => {
     console.log('🔄 Starting file refresh from local folder...')
     
     if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
@@ -1521,10 +1526,10 @@ export const useProjectStore = () => {
       }
 
       // Check if we have write permissions
-      const permissionStatus = await (globalState.selectedFolder as any).queryPermission({ mode: 'readwrite' })
+      const permissionStatus = await (globalState.selectedFolder as FileSystemDirectoryHandleWithPermission).queryPermission({ mode: 'readwrite' })
       if (permissionStatus !== 'granted') {
         // Request write permission
-        const newPermissionStatus = await (globalState.selectedFolder as any).requestPermission({ mode: 'readwrite' })
+        const newPermissionStatus = await (globalState.selectedFolder as FileSystemDirectoryHandleWithPermission).requestPermission({ mode: 'readwrite' })
         if (newPermissionStatus !== 'granted') {
           // Fallback to regular download if permission not granted
           const contextSetsData = generateContextSetsJSON()
@@ -1686,6 +1691,35 @@ export const useProjectStore = () => {
     globalState.filesManifest[fileId] = entry
   }
 
+  const previewContextSetsJSON = () => {
+    if (Object.keys(globalState.contextSets).length === 0) {
+      if (import.meta.client) {
+        const { warning } = useNotifications()
+        warning('No Content', 'There are no context sets to preview.')
+      } else {
+        console.warn('No context sets to preview.')
+      }
+      return
+    }
+
+    try {
+      const contextSetsData = generateContextSetsJSON()
+      const jsonString = JSON.stringify(contextSetsData, null, 2)
+
+      globalState.currentFileContent = jsonString
+      globalState.currentFileName = 'context-sets.json (Preview)'
+      globalState.isFileContentModalOpen = true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      if (import.meta.client) {
+        const { errorWithRetry } = useNotifications()
+        errorWithRetry('Preview Failed', `Could not generate JSON preview: ${message}`, previewContextSetsJSON)
+      } else {
+        console.error('Error generating context sets JSON for preview:', error)
+      }
+    }
+  }
+
   return {
     // State (readonly refs and computed)
     currentView: readonly(toRef(globalState, 'currentView')),
@@ -1787,6 +1821,7 @@ export const useProjectStore = () => {
     exportToProjectFolder,
     hasStableVersionInProject,
     getExportStatus,
+    previewContextSetsJSON,
 
     // Saved projects management
     loadSavedProjectsFromStorage,
@@ -1795,6 +1830,6 @@ export const useProjectStore = () => {
     removeFromSavedProjects,
     hasSavedProjects,
     switchToProject,
-    refreshFilesFromLocal
+    reloadFilesFromLocal
   }
 } 

@@ -19,14 +19,14 @@
     </div>
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
-      <!-- Refresh Files Button -->
+      <!-- Refresh Project Button -->
       <Button
         variant="outline"
         size="sm"
         class="px-3 py-2 hover:shadow-sm transition-all duration-200"
         :disabled="isRefreshingFiles"
-        :aria-label="isRefreshingFiles ? 'Refreshing files...' : 'Refresh files from local folder'"
-        title="Refresh Files"
+        :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
+        title="Refresh Project"
         @click="handleRefreshFiles"
       >
         <Icon 
@@ -37,7 +37,7 @@
           ]" 
           aria-hidden="true" 
         />
-        {{ isRefreshingFiles ? 'Refreshing...' : 'Refresh Files' }}
+        {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
       </Button>
       
       <!-- Primary Export JSON Button - Made Prominent -->
@@ -55,6 +55,19 @@
       >
         <Icon name="lucide:save" class="w-5 h-5 mr-2" aria-hidden="true" />
         {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
+      </Button>
+      
+      <!-- Preview JSON Output Button -->
+      <Button 
+        v-if="hasAnyContextSets"
+        variant="outline"
+        size="sm"
+        class="px-3 py-2"
+        title="Preview context-sets.json output"
+        @click="previewContextSetsJSON"
+      >
+        <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
+        Preview JSON
       </Button>
       
       <!-- Auto-save Status & Secondary Controls -->
@@ -265,8 +278,9 @@ const {
   exportToProjectFolder,
   getExportStatus,
   hasStableVersionInProject,
-  refreshFilesFromLocal,
-  fileTree
+  reloadFilesFromLocal,
+  fileTree,
+  previewContextSetsJSON
 } = useProjectStore()
 
 // Hybrid Analysis
@@ -369,7 +383,7 @@ const handleRefreshFiles = async () => {
   isRefreshingFiles.value = true
   
   try {
-    const refreshSuccess = await refreshFilesFromLocal()
+    const refreshSuccess = await reloadFilesFromLocal()
     
     if (refreshSuccess) {
       success(
