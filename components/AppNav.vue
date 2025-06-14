@@ -8,27 +8,15 @@
   <nav class="absolute top-6 left-1/2 transform -translate-x-1/2 z-50 bg-card/90 backdrop-blur-xl border border-muted-foreground/20 rounded-full shadow-2xl max-w-4xl">
     <div class="flex items-center justify-between px-8 py-4">
       <!-- Logo/Brand -->
-      <button 
-        @click="goToLanding"
-        class="text-2xl font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
+      <a 
+        href="https://contextmax.ai" target="_blank" rel="noopener noreferrer"
+        class="text-2xl mr-12 font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
       >
         contextMax
-      </button>
-      
+      </a>
+
       <!-- Navigation Items -->
-      <div class="flex items-center gap-4">
-        <!-- Home Button -->
-        <Button
-          @click="goToLanding"
-          variant="ghost"
-          size="sm"
-          :class="currentView === 'landing' ? 'bg-primary/10 text-primary' : ''"
-          class="px-4 py-2"
-        >
-          <Icon name="lucide:home" class="w-4 h-4 mr-2" />
-          Home
-        </Button>
-        
+      <div class="flex items-center gap-4">        
         <!-- Divider -->
         <div v-if="hasSavedProjects()" class="w-px h-6 bg-border"></div>
         
