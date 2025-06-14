@@ -5,6 +5,12 @@
  */
 <template>
   <div class="min-h-screen-dynamic">
+    <!-- Navigation -->
+    <AppNav 
+      :is-file-system-supported="isFileSystemSupported"
+      @select-project="emit('select-project')"
+    />
+    
     <!-- LLM Loading Screen -->
     <LLMLoadingScreen v-if="isLoading" />
     
@@ -109,15 +115,18 @@ import AIToolsPanel from '~/components/AIToolsPanel.vue'
 interface Props {
   autoLoadedFromProject?: boolean
   autoLoadError?: string
+  isFileSystemSupported?: boolean
 }
 
 const _props = withDefaults(defineProps<Props>(), {
   autoLoadedFromProject: false,
-  autoLoadError: ''
+  autoLoadError: '',
+  isFileSystemSupported: false
 })
 
 const emit = defineEmits<{
   (e: 'clear-project'): void
+  (e: 'select-project'): void
 }>()
 
 // Use the project store

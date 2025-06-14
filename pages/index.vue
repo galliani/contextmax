@@ -5,44 +5,12 @@
  */
 <template>
   <div class="mobile-safe-area min-h-screen-dynamic bg-gradient-to-b from-background via-muted/5 to-background">
-    <!-- Navigation Component -->
-    <AppNav 
-      :is-file-system-supported="isFileSystemSupported"
-      @select-project="selectProjectFolder"
-    />
-
-    <!-- Landing Page Content -->
+    <!-- Empty State - No Project Selected -->
     <template v-if="currentView === 'landing'">
-      <!-- Hero Section -->
-      <LandingHeroSection 
+      <EmptyState 
         :is-file-system-supported="isFileSystemSupported"
         @select-project="selectProjectFolder"
-        @scroll-to-features="scrollToFeatures"
       />
-
-      <!-- Problem Section -->
-      <LandingProblemSection />
-
-      <!-- Solution Section -->
-      <LandingSolutionSection />
-
-      <!-- Features Section -->
-      <LandingFeaturesSection />
-
-      <!-- Benefits Section -->
-      <LandingBenefitsSection />
-
-      <!-- Target Audience Section -->
-      <LandingAudienceSection />
-
-      <!-- FAQ Section -->
-      <LandingFaqSection :faqs="faqData" />
-
-      <!-- Secondary CTA Section -->
-      <LandingCtaSection @scroll-to-top="scrollToTop" />
-
-      <!-- Footer -->
-      <LandingFooter />
     </template>
 
     <!-- Main Tool Interface -->
@@ -50,14 +18,14 @@
       <MainInterface
         :auto-loaded-from-project="autoLoadedFromProject"
         :auto-load-error="autoLoadError"
+        :is-file-system-supported="isFileSystemSupported"
         @clear-project="clearProjectAndState"
+        @select-project="selectProjectFolder"
       />
     </template>
 
     <!-- File Content Modal -->
     <FileContentModal />
-    
-
     
     <!-- OPFS Loading Screen -->
     <FullScreenLoader
@@ -125,48 +93,6 @@ const autoLoadError = ref('')
 
 // Computed properties
 const savedProjectName = computed(() => getSavedProjectName())
-
-
-
-// FAQ data - easily modifiable
-const faqData = ref([
-  {
-    question: "Is my code uploaded anywhere when I use this tool? Is it secure?",
-    answer: "No, your code is never uploaded to any server. contextMax runs entirely in your web browser. It uses the modern File System Access API, which allows the tool (running on your computer) to read your project files locally. All processing and context set definition happens on your machine. Your code and the generated context-sets.json file remain private to you unless you choose to share the JSON file yourself. We encourage you to verify this by checking your browser's Network tab – you'll see no code is transmitted."
-  },
-  {
-    question: "How is this different from just copy-pasting code into my LLM or using my IDE's basic \"@file\" feature?",
-    answer: "While basic methods allow you to show files to an LLM, contextMax helps you create highly structured, precise, and reusable \"Context Sets.\" You can pinpoint exact line ranges (even non-contiguous ones across multiple files), define crucial workflows (how different code parts interact), and name these sets for consistent use by your whole team. This level of detail and reusability leads to significantly more accurate and context-aware LLM responses, especially on large, mature codebases where general file references or whole file contexts aren't enough."
-  },
-  {
-    question: "Will this really make my LLM interactions better and more accurate?",
-    answer: "Yes. By providing LLMs with curated, expert-defined context that highlights critical code sections, specific line numbers, and their operational relationships (via workflows), you eliminate much of the guesswork for the AI. This allows it to generate more relevant, accurate, and architecturally consistent code, suggestions, or explanations for your specific project. The goal is to transform your LLM from a generalist into a specialist for your codebase."
-  },
-  {
-    question: "Is this tool complicated to learn or time-consuming to use?",
-    answer: "contextMax is designed with a visual interface to be intuitive for technical users. While defining truly effective context for a complex feature does require thought (as you, the expert, know what's important), the tool aims to make the process of capturing, structuring, and reusing that knowledge straightforward. The initial time investment in creating a context set for a key feature can save significant time and frustration later by improving LLM accuracy for everyone on your team."
-  },
-  {
-    question: "What does the tool actually produce, and how do I use that output?",
-    answer: "The tool helps you create and then lets you download a single configuration file named context-sets.json. This JSON file contains:\n• filesManifest: A list of all project files you've decided are relevant, each with a unique ID and a comment.\n• contextSets: Your named sets, detailing which files (via their IDs), specific line ranges, and workflows belong to each.\n• fileContextsIndex: An auto-generated index that helps relate file IDs back to the context sets they're used in.\nYou then instruct your IDE's LLM (e.g., via custom rules like .cursorrules for Cursor with Claude, or other methods depending on your LLM tool and IDE) to read and use this context-sets.json file. When you reference a context set name in your prompts, the LLM (guided by the rules) uses the JSON to fetch the precise, curated context."
-  },
-  {
-    question: "Is this tool really free? What's the plan for the future?",
-    answer: "Yes, contextMax is completely free to use. We have plans of monetization from other avenues, so this main tool will remain free."
-  },
-  {
-    question: "How does a web page access my local project files? That sounds like a security risk.",
-    answer: "The tool uses a standard, modern web technology called the File System Access API. This API is designed with security in mind and is supported by most modern browsers. Crucially, it requires your explicit permission through your browser's native file/folder picker before the application can access any files or folders. Access is granted only to the specific directory you select and is typically limited to the current session or until you close the tab (depending on browser implementation and permissions granted). The processing happens locally in your browser, not on a remote server.\n\nFor seamless project persistence across browser sessions, we also use OPFS (Origin Private File System) - a secure browser storage system that creates a local copy of your project files within your browser's private storage area. This allows the tool to restore your projects automatically when you return, without requiring re-upload or re-permission. OPFS data is isolated per website origin and cannot be accessed by other websites, ensuring your project data remains private and secure."
-  },
-  {
-    question: "Does this tool \"talk\" to the LLM for me, or automatically update the context sets if my code changes?",
-    answer: "For this version, contextMax is a dedicated tool to help you create and manage the context-sets.json configuration file. It does not directly send prompts to or receive responses from LLMs.\nRegarding updates: The tool itself doesn't automatically detect code changes in your repository and update the line numbers in your context-sets.json file on disk. We've discussed instructions for your IDE's LLM agent (like Claude via .cursorrules) to track line number changes in its memory during an active coding session and only update the JSON file when you explicitly ask it to. The maintenance of the context-sets.json file to reflect committed code changes is a process managed by you (by editing through this tool) and your team, though future versions or CI/CD integrations could explore more automation."
-  },
-  {
-    question: "Do you track usage or collect data?",
-    answer: "We do collect data in the form of anonymous usage metrics to help us develop the tool better and improve it. We are not in the business of selling your data."
-  }
-])
 
 // Check support only on client side to avoid hydration issues
 onMounted(async () => {
@@ -411,8 +337,6 @@ async function readDirectoryRecursively(
   })
 }
 
-
-
 // Clear project and auto-detection state
 function clearProjectAndState() {
   clearProject()
@@ -422,43 +346,26 @@ function clearProjectAndState() {
   goToLanding()
 }
 
-// Scroll to features section
-function scrollToFeatures() {
-  if (import.meta.client) {
-    const element = document.getElementById('features')
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
-    }
-  }
-}
-
-// Scroll to top
-function scrollToTop() {
-  if (import.meta.client) {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-}
-
-// Set page title and SEO meta tags
+// Set page title and SEO meta tags for the tool
 useHead({
-  title: 'Make Your LLM Finally Understand Your Complex, Mature Codebase.',
+  title: 'contextMax - Create Context Sets for Your LLM',
   meta: [
-    { name: 'description', content: 'Improve the speed and accuracy, whilst saving tokens, of your LLM coder when working on complex, mature codebases by providing it with precise, reusable context definitions that acts a GPS to the LLM for your codebases.' },
-    { name: 'keywords', content: 'LLM, context, AI, development, coding, tools, Large Language Models, project management, code context, AI assistant' },
+    { name: 'description', content: 'Create precise, reusable context sets for Large Language Models from your codebase. Privacy-first tool that runs entirely in your browser.' },
+    { name: 'keywords', content: 'LLM, context, AI, development, coding, tools, Large Language Models, code context, AI assistant' },
     { name: 'author', content: 'contextMax' },
     { name: 'robots', content: 'index, follow' },
     
     // Open Graph tags
-    { property: 'og:title', content: 'Make Your LLM Finally Understand Your Complex, Mature Codebase - contextMax' },
-    { property: 'og:description', content: 'Improve the speed and accuracy, whilst saving tokens, of your LLM coder when working on complex, mature codebases by providing it with precise, reusable context definitions that acts a GPS to the LLM for your codebases.' },
+    { property: 'og:title', content: 'contextMax - Create Context Sets for Your LLM' },
+    { property: 'og:description', content: 'Create precise, reusable context sets for Large Language Models from your codebase. Privacy-first tool that runs entirely in your browser.' },
     { property: 'og:type', content: 'website' },
     { property: 'og:site_name', content: 'contextMax' },
     { property: 'og:locale', content: 'en_US' },
     
     // Twitter Card tags
     { name: 'twitter:card', content: 'summary_large_image' },
-    { name: 'twitter:title', content: 'contextMax - Smart Project Snippet Manager' },
-    { name: 'twitter:description', content: 'Create curated context sets for Large Language Models from your codebase. Streamline your AI-assisted development workflow.' },
+    { name: 'twitter:title', content: 'contextMax - Create Context Sets for Your LLM' },
+    { name: 'twitter:description', content: 'Create precise, reusable context sets for Large Language Models from your codebase.' },
     
     // Additional meta tags for better SEO
     { name: 'theme-color', content: '#6366f1' },
@@ -484,37 +391,13 @@ useHead({
   }
 }
 
-.animate-fadeInUp {
-  animation: fadeInUp 0.6s ease-out forwards;
-  opacity: 0;
+.mobile-safe-area {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-@keyframes pulseSubtle {
-  0%, 100% {
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 0 rgba(var(--primary), 0.4);
-  }
-  50% {
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 8px rgba(var(--primary), 0.1);
-  }
+.min-h-screen-dynamic {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
-
-@keyframes bounceGentle {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-3px);
-  }
-  60% {
-    transform: translateY(-1px);
-  }
-}
-
-.animate-pulse-subtle {
-  animation: pulseSubtle 3s ease-in-out infinite;
-}
-
-.animate-bounce-gentle {
-  animation: bounceGentle 4s ease-in-out infinite;
-}
-</style> 
+</style>
