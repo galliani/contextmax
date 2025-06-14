@@ -1207,7 +1207,7 @@ export const useProjectStore = () => {
   }
 
   // Delete context set with proper cleanup
-  const deleteContextSet = (name: string) => {
+  const deleteContextSet = async (name: string) => {
     if (!globalState.contextSets[name]) {
       return false
     }
@@ -1236,11 +1236,12 @@ export const useProjectStore = () => {
     
     // Auto-save to OPFS working copy
     if (globalState.selectedFolder) {
-      saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+      const saveResult = await saveWorkingCopyToOPFS(globalState.selectedFolder.name)
+      return saveResult
+    } else {
+      console.warn('No selected folder, cannot save to OPFS')
+      return false
     }
-    
-    // No longer save to localStorage
-    return true
   }
 
   // Update file comment in files manifest
@@ -1479,15 +1480,13 @@ export const useProjectStore = () => {
 
   // Helper function to save current state as working copy to OPFS
   const saveWorkingCopyToOPFS = async (projectName: string): Promise<boolean> => {
-    if (Object.keys(globalState.contextSets).length === 0) {
-      return false // Nothing to save
-    }
-    
+    // Always save the current state, even if empty (important for deletions)
     try {
       const contextSetsData = generateContextSetsJSON()
-      return await opfsManager.saveContextSetsToProject(projectName, contextSetsData)
+      const result = await opfsManager.saveContextSetsToProject(projectName, contextSetsData)
+      return result
     } catch (error) {
-      console.error(`❌ Failed to save working copy to OPFS for ${projectName}:`, error)
+      console.error(`Failed to save working copy to OPFS for ${projectName}:`, error)
       return false
     }
   }

@@ -139,7 +139,7 @@
             <!-- Delete Button (appears on hover) -->
             <button
               @click.stop="confirmDelete(setName)"
-              class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 text-destructive hover:text-destructive rounded-lg transition-all duration-200 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1"
+              class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 text-destructive hover:text-destructive rounded-lg transition-all duration-200 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1 z-10"
               :aria-label="`Delete context set: ${setName}`"
               title="Delete context set"
               tabindex="-1"
@@ -357,13 +357,19 @@ const confirmDelete = (setName: string) => {
   showDeleteModal.value = true
 }
 
-const handleDeleteContextSet = () => {
+const handleDeleteContextSet = async () => {
   const setName = contextSetToDelete.value
-  const success = deleteContextSet(setName)
   
-  if (success) {
-    announceStatus(`Deleted context set: ${setName}`)
-  } else {
+  try {
+    const success = await deleteContextSet(setName)
+    
+    if (success) {
+      announceStatus(`Deleted context set: ${setName}`)
+    } else {
+      announceError(`Failed to delete context set: ${setName}`)
+    }
+  } catch (error) {
+    console.error('Error deleting context set:', error)
     announceError(`Failed to delete context set: ${setName}`)
   }
   
