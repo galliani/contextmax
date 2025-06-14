@@ -5,58 +5,11 @@
  */
 <template>
   <div class="mobile-safe-area min-h-screen-dynamic bg-gradient-to-b from-background via-muted/5 to-background">
-    <!-- Enhanced Floating Navbar with Navigation -->
-    <nav class="absolute top-6 left-1/2 transform -translate-x-1/2 z-50 bg-card/90 backdrop-blur-xl border border-muted-foreground/20 rounded-full shadow-2xl max-w-4xl">
-      <div class="flex items-center justify-between px-8 py-4">
-        <!-- Logo/Brand -->
-        <button 
-          @click="goToLanding"
-          class="text-2xl font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
-        >
-          contextMax
-        </button>
-        
-        <!-- Navigation Items (only show if there's saved data) -->
-        <div v-if="hasSavedData()" class="flex items-center gap-4">
-          <!-- Navigation Buttons -->
-          <div class="flex items-center gap-2">
-            <Button
-              @click="goToLanding"
-              variant="ghost"
-              size="sm"
-              :class="currentView === 'landing' ? 'bg-primary/10 text-primary' : ''"
-              class="px-4 py-2"
-            >
-              <Icon name="lucide:home" class="w-4 h-4 mr-2" />
-              Home
-            </Button>
-            
-            <Button
-              @click="goToWorkspace"
-              variant="ghost" 
-              size="sm"
-              :class="currentView === 'workspace' ? 'bg-primary/10 text-primary' : ''"
-              class="px-4 py-2"
-            >
-              <Icon name="lucide:code" class="w-4 h-4 mr-2" />
-              Workspace
-            </Button>
-            
-            <!-- Change Project Button -->
-            <Button
-              @click="selectProjectFolder"
-              :disabled="!isFileSystemSupported"
-              variant="outline"
-              size="sm"
-              class="px-4 py-2 bg-primary/5 hover:bg-primary/10 border-primary/20"
-            >
-              <Icon name="lucide:folder-plus" class="w-4 h-4 mr-2" />
-              Change Project
-            </Button>
-          </div>
-        </div>
-      </div>
-    </nav>
+    <!-- Navigation Component -->
+    <AppNav 
+      :is-file-system-supported="isFileSystemSupported"
+      @select-project="selectProjectFolder"
+    />
 
     <!-- Landing Page Content -->
     <template v-if="currentView === 'landing'">
@@ -104,6 +57,8 @@
     <!-- File Content Modal -->
     <FileContentModal />
     
+
+    
     <!-- OPFS Loading Screen -->
     <FullScreenLoader
       :is-visible="isOPFSCopying"
@@ -125,6 +80,7 @@ import FullScreenLoader from '~/components/ui/FullScreenLoader.vue'
 // Use the project store
 const {
   currentView,
+  selectedFolder: _selectedFolder,
   setSelectedFolder,
   setFileTree,
   setIsLoadingFiles,
@@ -133,10 +89,15 @@ const {
   goToLanding,
   goToWorkspace,
   hasSavedData,
+  hasSavedProjects,
   getSavedProjectName,
+
   loadFromLocalStorage,
   isOPFSAvailable,
   copyProjectToOPFS,
+  getOPFSProjects,
+  loadSavedProjectsFromStorage,
+
   // OPFS loading state
   isOPFSCopying,
   opfsCopyProgress,
@@ -145,6 +106,15 @@ const {
 
 // Analytics helpers
 const { trackProjectSelection, trackDataRestored, trackProjectRestored } = useAnalyticsHelpers()
+
+// Advanced UX Systems
+const { success: _success } = useNotifications()
+
+// Accessibility support
+const { announceStatus: _announceStatus } = useAccessibility()
+
+// Hybrid Analysis
+const { performHybridAnalysis } = useHybridAnalysis()
 
 // Check if File System Access API is supported
 const isFileSystemSupported = ref(false)
@@ -155,6 +125,8 @@ const autoLoadError = ref('')
 
 // Computed properties
 const savedProjectName = computed(() => getSavedProjectName())
+
+
 
 // FAQ data - easily modifiable
 const faqData = ref([
@@ -200,33 +172,50 @@ const faqData = ref([
 onMounted(async () => {
   isFileSystemSupported.value = typeof window !== 'undefined' && 'showDirectoryPicker' in window
   
-  // Check if we have saved data and should show workspace
-  if (hasSavedData()) {
-    console.log('🔄 Found saved data, attempting auto-restoration...')
-    
-    // Track data restoration
-    trackDataRestored(savedProjectName.value)
-    
-    // CRITICAL FIX: Properly await the entire restoration process
-    try {
-      const restored = await loadFromLocalStorage()
-      if (restored) {
-        console.log('✅ Project fully restored including OPFS data')
-      } else {
-        console.warn('⚠️ Failed to restore project metadata from localStorage')
+  // Load saved projects from localStorage into reactive state
+  loadSavedProjectsFromStorage()
+  
+  // Check if we have any saved projects
+  if (hasSavedProjects()) {
+    // Check if we have saved data and should show workspace
+    if (hasSavedData()) {
+      console.log('🔄 Found saved data, attempting auto-restoration...')
+      
+      // Track data restoration
+      trackDataRestored(savedProjectName.value)
+      
+      // CRITICAL FIX: Properly await the entire restoration process
+      try {
+        const { metadataLoaded, opfsRestored } = await loadFromLocalStorage()
+        if (metadataLoaded && opfsRestored) {
+          console.log('✅ Project fully restored including OPFS data')
+        } else if (metadataLoaded && !opfsRestored) {
+          console.log('⚠️ Project metadata restored from localStorage, but OPFS data unavailable')
+          console.log('ℹ️ You will need to reconnect to the project folder to browse files')
+        } else {
+          console.warn('⚠️ Failed to restore project metadata from localStorage')
+        }
+      } catch (error) {
+        console.error('❌ Error during restoration:', error)
       }
-    } catch (error) {
-      console.error('❌ Error during restoration:', error)
+      
+      // Always go to workspace if we have saved data
+      goToWorkspace()
+    } else {
+      // We have saved projects but no current project data - stay on landing
+      console.log('ℹ️ Saved projects found, but no current project data - staying on landing page')
+      goToLanding()
     }
-    
-    // Always go to workspace if we have saved data
-    goToWorkspace()
+  } else {
+    // No saved projects - force to landing page
+    console.log('ℹ️ No saved projects found - showing landing page')
+    goToLanding()
   }
 })
 
-// File handling functions
+// File handling functions (now used for adding new projects)
 async function selectProjectFolder() {
-  console.log('selectProjectFolder called, isFileSystemSupported:', isFileSystemSupported.value)
+  console.log('selectProjectFolder called (Add Project), isFileSystemSupported:', isFileSystemSupported.value)
   
   if (!isFileSystemSupported.value) {
     console.log('File System Access API not supported')
@@ -234,33 +223,25 @@ async function selectProjectFolder() {
   }
 
   try {
-    console.log('Calling showDirectoryPicker...')
-    
-    // Check if this is a fresh selection (no saved data before we start)
-    const hadSavedDataBefore = hasSavedData()
+    console.log('Calling showDirectoryPicker for new project...')
     
     const directoryHandle = await window.showDirectoryPicker({
-      mode: 'read'
+      mode: 'readwrite'
     })
     
-    console.log('Directory selected:', directoryHandle)
+    console.log('Directory selected for new project:', directoryHandle)
     
     // Track successful project selection
     trackProjectSelection()
     
     setSelectedFolder(directoryHandle)
-    await loadProjectFiles(directoryHandle, hadSavedDataBefore)
+    await loadProjectFiles(directoryHandle, false) // Always treat as fresh selection
     
-    // Navigate to workspace for fresh selections, or if explicitly restoring
-    if (!hadSavedDataBefore) {
-      console.log('Fresh project selection - navigating to workspace')
-      goToWorkspace()
-    } else {
-      console.log('Folder reconnected for existing project')
-    }
+    console.log('✅ New project added successfully - navigating to workspace')
+    goToWorkspace()
   } catch (error: unknown) {
     if (error instanceof Error && error.name !== 'AbortError') {
-      console.error('Error selecting folder:', error)
+      console.error('Error selecting folder for new project:', error)
       // Clear auto-detection state on error
       autoLoadedFromProject.value = false
       autoLoadError.value = ''
@@ -291,18 +272,56 @@ async function loadProjectFiles(directoryHandle: FileSystemDirectoryHandle, hadS
     const files = await readDirectoryRecursively(directoryHandle, '')
     setFileTree(files)
     
-    // Copy to OPFS for persistent access (if OPFS is supported and it's a new project)
-    if (isOPFSAvailable() && !hadSavedDataBefore) {
-      console.log('Copying project to OPFS for persistent access...')
-      try {
-        const copied = await copyProjectToOPFS(directoryHandle)
-        if (copied) {
+    // Copy to OPFS for persistent access (always try if OPFS is supported and we don't have a copy)
+    if (isOPFSAvailable()) {
+      const projectName = directoryHandle.name
+      let shouldCopyToOPFS = false
+      
+      if (!hadSavedDataBefore) {
+        // Fresh project selection - always copy
+        shouldCopyToOPFS = true
+        console.log('Copying new project to OPFS for persistent access...')
+      } else {
+        // Reconnecting to existing project - check if OPFS copy exists
+        try {
+          const opfsProjects = await getOPFSProjects()
+          const hasOPFSCopy = opfsProjects.includes(projectName)
+          if (!hasOPFSCopy) {
+            shouldCopyToOPFS = true
+            console.log('No OPFS copy found for existing project, creating one...')
+          } else {
+            console.log('OPFS copy already exists for project, skipping copy')
+          }
+        } catch (error) {
+          console.warn('Failed to check OPFS projects, will attempt copy anyway:', error)
+          shouldCopyToOPFS = true
+        }
+      }
+      
+      if (shouldCopyToOPFS) {
+        try {
+          const copied = await copyProjectToOPFS(directoryHandle)
+                  if (copied) {
           console.log('Project successfully copied to OPFS')
+          
+          // Auto-trigger hybrid analysis for new projects
+          try {
+            console.log('🚀 Auto-triggering hybrid analysis for new project...')
+            const analysisResult = await performHybridAnalysis(files, { silent: false })
+            if (analysisResult.success) {
+              console.log('✅ Automatic hybrid analysis completed successfully')
+            } else {
+              console.warn('⚠️ Automatic hybrid analysis failed, but continuing')
+            }
+          } catch (error) {
+            console.warn('⚠️ Error during automatic hybrid analysis:', error)
+          }
         } else {
           console.warn('Failed to copy project to OPFS, but continuing with regular functionality')
         }
-      } catch (error) {
-        console.warn('OPFS copy failed, but continuing with regular functionality:', error)
+        } catch (error) {
+          console.warn('OPFS copy failed, but continuing with regular functionality:', error)
+        }
       }
     }
     
@@ -391,6 +410,8 @@ async function readDirectoryRecursively(
     return a.name.localeCompare(b.name)
   })
 }
+
+
 
 // Clear project and auto-detection state
 function clearProjectAndState() {

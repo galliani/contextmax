@@ -15,7 +15,7 @@ const mockProjectStore = {
   activeContextSetName: ref(''),
   createContextSet: vi.fn(),
   setActiveContextSet: vi.fn().mockReturnValue(true),
-  deleteContextSet: vi.fn().mockReturnValue(true)
+  deleteContextSet: vi.fn().mockResolvedValue(true)
 }
 
 // Mock the accessibility composable
@@ -407,6 +407,10 @@ describe('ContextSetListManager', () => {
         
         if (deleteBtn) {
           (deleteBtn as HTMLButtonElement).click()
+          
+          // Wait for async operation to complete
+          await new Promise(resolve => setTimeout(resolve, 10))
+          
           expect(mockProjectStore.deleteContextSet).toHaveBeenCalledWith('testSet')
           expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Deleted context set: testSet')
         }

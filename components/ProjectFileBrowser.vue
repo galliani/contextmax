@@ -10,11 +10,24 @@
       <!-- No Project State -->
       <div v-if="!selectedFolder" class="flex-1 flex items-center justify-center py-8">
         <div class="text-center max-w-sm mx-auto">
-          <Icon name="lucide:folder-x" class="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" aria-hidden="true" />
-          <p class="visual-hierarchy-body mb-2 text-mobile-body sm:text-base">No Project Loaded</p>
-          <p class="visual-hierarchy-caption opacity-75 text-mobile-caption sm:text-sm">
-            Select a project folder to browse files
-          </p>
+          <!-- Different states based on whether we have metadata without handles -->
+          <div v-if="fileTree.length > 0 && !hasActiveHandles">
+            <Icon name="lucide:folder-open" class="w-12 h-12 mx-auto mb-4 text-amber-500 opacity-75" aria-hidden="true" />
+            <p class="visual-hierarchy-body mb-2 text-mobile-body sm:text-base">Project Cached</p>
+            <p class="visual-hierarchy-caption opacity-75 text-mobile-caption sm:text-sm mb-3">
+              Your project structure is saved, but file browsing is unavailable
+            </p>
+            <p class="visual-hierarchy-caption opacity-60 text-mobile-caption sm:text-sm">
+              Select the project folder again to enable file browsing
+            </p>
+          </div>
+          <div v-else>
+            <Icon name="lucide:folder-x" class="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" aria-hidden="true" />
+            <p class="visual-hierarchy-body mb-2 text-mobile-body sm:text-base">No Project Loaded</p>
+            <p class="visual-hierarchy-caption opacity-75 text-mobile-caption sm:text-sm">
+              Select a project folder to browse files
+            </p>
+          </div>
         </div>
       </div>
 
@@ -58,6 +71,7 @@ const {
   selectedFolder,
   fileTree,
   isLoadingFiles,
+  hasActiveHandles,
   activeContextSetName,
   addFileToActiveContextSet
 } = useProjectStore()

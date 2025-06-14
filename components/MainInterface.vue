@@ -5,7 +5,14 @@
  */
 <template>
   <div class="min-h-screen-dynamic">
-    <div class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-xl xl:max-w-screen-2xl space-y-6 lg:space-y-8 py-4 lg:py-6">
+    <!-- LLM Loading Screen -->
+    <LLMLoadingScreen v-if="isLoading" />
+    
+    <!-- Main Content -->
+    <div 
+      v-show="!isLoading" 
+      class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-3xl xl:max-w-screen-4xl space-y-6 lg:space-y-8 py-4 lg:py-6"
+    >
       <!-- Two-Column Layout: Project Header + Context Set Composition -->
       <section role="region" aria-labelledby="main-workspace-heading">
         <h2 id="main-workspace-heading" class="sr-only">Main Workspace</h2>
@@ -31,10 +38,10 @@
           </div>
         </div>
 
-        <!-- Two-Column Content Area -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-0 min-h-[800px]">
+        <!-- Three-Column Content Area -->
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-0 min-h-[800px]">
           
-          <!-- Left Column: Context Sets Management (1/3 width) -->
+          <!-- Left Column: Context Sets Management (1/4 width) -->
           <div class="xl:col-span-1 bg-gradient-surface rounded-bl-lg border border-t-0 border-r-0 shadow-sophisticated backdrop-blur-sm">
             <div class="p-4 lg:p-6">
               <!-- Context Sets Management -->
@@ -45,9 +52,17 @@
             </div>
           </div>
 
-          <!-- Right Column: Context Set Composition (2/3 width) -->
-          <div class="xl:col-span-2 bg-card rounded-br-lg border border-t-0 shadow-lg overflow-hidden">
+          <!-- Middle Column: Context Set Composition (2/4 width) -->
+          <div class="xl:col-span-2 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
             <ActiveContextComposer />
+          </div>
+
+          <!-- Right Column: AI Tools (1/4 width) -->
+          <div class="xl:col-span-1 bg-gradient-surface rounded-br-lg border border-t-0 shadow-sophisticated backdrop-blur-sm">
+            <div role="region" aria-labelledby="ai-tools-heading">
+              <h3 id="ai-tools-heading" class="sr-only">AI Tools</h3>
+              <AIToolsPanel />
+            </div>
           </div>
 
         </div>
@@ -89,6 +104,8 @@
 </template>
 
 <script setup lang="ts">
+import AIToolsPanel from '~/components/AIToolsPanel.vue'
+
 interface Props {
   autoLoadedFromProject?: boolean
   autoLoadError?: string
@@ -113,6 +130,36 @@ const { info, errorWithRetry } = useNotifications()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
+
+// LLM Loading state
+const { isLoading, isReady, hasError, initializeLLM } = useLLMLoader()
+
+// Initialize LLM after component is mounted
+onMounted(() => {
+  // Start LLM initialization asynchronously
+  initializeLLM()
+})
+
+// Watch for LLM initialization feedback
+watch(isReady, (ready) => {
+  if (ready) {
+    info('AI Ready', 'Local AI model initialized successfully')
+    announceStatus('Local AI model ready')
+  }
+})
+
+watch(hasError, (error) => {
+  if (error) {
+    errorWithRetry(
+      'AI Initialization Failed',
+      'Failed to initialize local AI model. Some features may be limited.',
+      () => {
+        initializeLLM()
+      }
+    )
+    announceError('Local AI model initialization failed')
+  }
+})
 
 // Watch for auto-load announcements with enhanced feedback
 watch(() => _props.autoLoadedFromProject, (loaded) => {

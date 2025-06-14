@@ -16,9 +16,27 @@ const mockProjectStore = {
   closeFileContentModal: vi.fn()
 }
 
+// Mock useNotifications
+const mockNotifications = {
+  success: vi.fn(),
+  error: vi.fn()
+}
+
 vi.mock('~/composables/useProjectStore', () => ({
   useProjectStore: () => mockProjectStore
 }))
+
+vi.mock('~/composables/useNotifications', () => ({
+  useNotifications: () => mockNotifications
+}))
+
+// Mock navigator.clipboard
+Object.defineProperty(global.navigator, 'clipboard', {
+  value: {
+    writeText: vi.fn()
+  },
+  writable: true
+})
 
 // Helper function to find teleported dialog content
 const findDialogInBody = () => {
@@ -46,6 +64,12 @@ const findAllInDialog = (selector: string) => {
   return dialog ? dialog.querySelectorAll(selector) : []
 }
 
+// Helper to find the copy button
+const findCopyButton = () => {
+  const buttons = findAllInDialog('button')
+  return Array.from(buttons).find(b => b.textContent?.includes('Copy to Clipboard'))
+}
+
 describe('FileContentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -53,6 +77,8 @@ describe('FileContentModal', () => {
     mockProjectStore.currentFileContent.value = ''
     mockProjectStore.currentFileName.value = ''
     mockProjectStore.isFileContentModalOpen.value = false
+    // Reset clipboard mock
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
   })
 
   describe('Modal Visibility', () => {
@@ -174,7 +200,7 @@ describe('FileContentModal', () => {
       const _component = await mountSuspended(FileContentModal)
       await new Promise(resolve => setTimeout(resolve, 50))
       
-      const closeButton = findInDialog('button')
+      const closeButton = Array.from(findAllInDialog('button')).find(b => b.textContent?.includes('Close'))
       expect(closeButton).not.toBeNull()
       expect(closeButton?.textContent).toContain('Close')
     })
@@ -185,12 +211,69 @@ describe('FileContentModal', () => {
       const _component = await mountSuspended(FileContentModal)
       await new Promise(resolve => setTimeout(resolve, 50))
       
-      const closeButton = findInDialog('button') as HTMLButtonElement
+      const closeButton = Array.from(findAllInDialog('button')).find(b => b.textContent?.includes('Close')) as HTMLButtonElement
       expect(closeButton).not.toBeNull()
       
       closeButton.click()
       
       expect(mockProjectStore.closeFileContentModal).toHaveBeenCalledOnce()
+    })
+
+    it('should render "Copy to Clipboard" button when content exists', async () => {
+      mockProjectStore.isFileContentModalOpen.value = true
+      mockProjectStore.currentFileContent.value = 'some content'
+
+      const _component = await mountSuspended(FileContentModal)
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const copyButton = findCopyButton()
+      expect(copyButton).not.toBeUndefined()
+      expect(copyButton?.textContent).toContain('Copy to Clipboard')
+    })
+
+    it('should NOT render "Copy to Clipboard" button when content is empty', async () => {
+      mockProjectStore.isFileContentModalOpen.value = true
+      mockProjectStore.currentFileContent.value = ''
+
+      const _component = await mountSuspended(FileContentModal)
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const copyButton = findCopyButton()
+      expect(copyButton).toBeUndefined()
+    })
+
+    it('should call clipboard.writeText with content when copy button is clicked', async () => {
+      mockProjectStore.isFileContentModalOpen.value = true
+      const content = 'Hello, Clipboard!'
+      mockProjectStore.currentFileContent.value = content
+
+      const _component = await mountSuspended(FileContentModal)
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const copyButton = findCopyButton() as HTMLButtonElement
+      copyButton.click()
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(content)
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(mockNotifications.success).toHaveBeenCalledWith('Copied', 'Content copied to clipboard.')
+    })
+
+    it('should show error notification if clipboard write fails', async () => {
+      mockProjectStore.isFileContentModalOpen.value = true
+      const content = 'This will fail.'
+      mockProjectStore.currentFileContent.value = content
+
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('Copy failed'))
+
+      const _component = await mountSuspended(FileContentModal)
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const copyButton = findCopyButton() as HTMLButtonElement
+      copyButton.click()
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(content)
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(mockNotifications.error).toHaveBeenCalledWith('Copy Failed', 'Could not copy content to clipboard.')
     })
   })
 

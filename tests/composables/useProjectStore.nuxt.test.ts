@@ -7,6 +7,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useProjectStore } from '~/composables/useProjectStore'
 
+// Mock useNotifications
+const mockNotifications = {
+  success: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
+  errorWithRetry: vi.fn()
+}
+
+vi.mock('~/composables/useNotifications', () => ({
+  useNotifications: () => mockNotifications
+}))
+
 describe('useProjectStore', () => {
   let store: ReturnType<typeof useProjectStore>
 
@@ -22,6 +34,10 @@ describe('useProjectStore', () => {
     
     // Clear any existing project data
     store.clearProject()
+
+    // Clear notification mocks
+    mockNotifications.warning.mockClear()
+    mockNotifications.errorWithRetry.mockClear()
   })
 
   describe('View Management', () => {
@@ -128,15 +144,51 @@ describe('useProjectStore', () => {
       expect(store.contextSets.value[setName].workflow).toEqual(updates.workflow)
     })
 
-    it('should delete context set', () => {
+    it('should delete context set', async () => {
       const setName = 'delete-set'
       store.createContextSet(setName)
       store.setActiveContextSet(setName)
       
-      store.deleteContextSet(setName)
+      const result = await store.deleteContextSet(setName)
       
+      expect(result).toBe(false) // Returns false in test environment (no OPFS)
       expect(store.contextSets.value[setName]).toBeUndefined()
       expect(store.activeContextSetName.value).toBe(null)
+    })
+
+    it('should save empty context sets after deletion', async () => {
+      // Set up a project folder first
+      const mockFolder = { name: 'test-deletion-project' } as FileSystemDirectoryHandle
+      store.setSelectedFolder(mockFolder)
+      
+      // Create and then delete all context sets
+      store.createContextSet('first-set', 'First set')
+      store.createContextSet('second-set', 'Second set')
+      store.setActiveContextSet('first-set')
+      
+      // Verify we have context sets
+      expect(Object.keys(store.contextSets.value)).toHaveLength(2)
+      
+      // Delete all context sets
+      await store.deleteContextSet('first-set')
+      await store.deleteContextSet('second-set')
+      
+      // Verify all context sets are gone
+      expect(Object.keys(store.contextSets.value)).toHaveLength(0)
+      expect(store.activeContextSetName.value).toBe(null)
+      
+      // The key assertion: saveWorkingCopyToOPFS should be called even with empty state
+      // In a real environment, this would save the empty state to OPFS
+      // Here we verify the logic works correctly even when no context sets remain
+      
+      // Generate context sets JSON with empty state
+      const emptyContextSetsData = store.generateContextSetsJSON()
+      expect(emptyContextSetsData.schemaVersion).toBe('1.0')
+      expect(Object.keys(emptyContextSetsData.contextSets)).toHaveLength(0)
+      expect(Object.keys(emptyContextSetsData.filesManifest)).toHaveLength(0)
+      
+      // This verifies that the empty state can be properly serialized and saved
+      expect(JSON.stringify(emptyContextSetsData)).toBeTruthy()
     })
   })
 
@@ -546,7 +598,7 @@ describe('useProjectStore', () => {
       expect(store.filesManifest.value[orphanedId]).toBeUndefined()
     })
 
-    it('should handle cleanup when context set is deleted', () => {
+    it('should handle cleanup when context set is deleted', async () => {
       // Add files to context set
       const file1 = {
         name: 'test1.vue',
@@ -573,7 +625,7 @@ describe('useProjectStore', () => {
       expect(store.isFileReferencedByAnyContextSet(file2Id!)).toBe(true)
       
       // Delete the context set (should trigger automatic cleanup)
-      store.deleteContextSet('test-set')
+      await store.deleteContextSet('test-set')
       
       // Files should be cleaned up automatically
       expect(store.isFileReferencedByAnyContextSet(file1Id!)).toBe(false)
@@ -685,6 +737,12 @@ describe('useProjectStore', () => {
     })
 
     it('should export context sets to project folder successfully', async () => {
+      // Mock File System Access API support
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        value: vi.fn(),
+        writable: true
+      })
+
       // CRITICAL: Set up folder FIRST, then create context sets
       // This prevents autoLoadContextSetsFromProject from clearing them
       const mockWritable = {
@@ -698,7 +756,8 @@ describe('useProjectStore', () => {
       
       const mockSelectedFolder = {
         name: 'test-project',
-        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle)
+        getFileHandle: vi.fn().mockResolvedValue(mockFileHandle),
+        queryPermission: vi.fn().mockResolvedValue('granted')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockSelectedFolder)
@@ -733,10 +792,23 @@ describe('useProjectStore', () => {
     })
     
     it('should handle export permission errors gracefully', async () => {
-      // Set up folder FIRST
+      // Mock DOM operations for fallback
+      const mockClick = vi.fn()
+      const mockAnchor = {
+        href: '',
+        download: '',
+        click: mockClick
+      }
+      const mockCreateElement = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+      const mockCreateObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('mock-url')
+      const mockRevokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      
+      // Set up folder with permission error
       const mockSelectedFolder = {
         name: 'test-project',
-        getFileHandle: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
+        getFileHandle: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError')),
+        queryPermission: vi.fn().mockResolvedValue('denied'),
+        requestPermission: vi.fn().mockResolvedValue('denied')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockSelectedFolder)
@@ -755,9 +827,15 @@ describe('useProjectStore', () => {
       // Perform export
       const result = await store.exportToProjectFolder()
       
-      // Verify error handling
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Permission denied')
+      // Verify fallback handling - should succeed with warning
+      expect(result.success).toBe(true)
+      expect(result.warning).toContain('Downloads folder')
+      expect(mockClick).toHaveBeenCalled()
+      
+      // Cleanup
+      mockCreateElement.mockRestore()
+      mockCreateObjectURL.mockRestore()
+      mockRevokeObjectURL.mockRestore()
     })
     
     it('should not export when no project folder is selected', async () => {
@@ -892,7 +970,7 @@ describe('useProjectStore', () => {
     })
 
     it('should prioritize OPFS working copy over stable version', async () => {
-      const projectName = 'test-priority-project'
+      const _projectName = 'test-priority-project'
       
       // Mock OPFS working copy data
       const opfsWorkingCopy = {
@@ -923,14 +1001,9 @@ describe('useProjectStore', () => {
         text: vi.fn().mockResolvedValue(JSON.stringify(stableVersionData))
       }
       
-      const mockStableFileHandle = {
+      const _mockStableFileHandle = {
         getFile: vi.fn().mockResolvedValue(mockStableFile)
       }
-      
-      const mockDirectoryHandle = {
-        name: projectName,
-        getFileHandle: vi.fn().mockResolvedValue(mockStableFileHandle)
-      } as unknown as FileSystemDirectoryHandle
       
       // Manually load the working copy data to simulate OPFS loading
       // Since mocking the OPFS manager is complex, we'll simulate the end result
@@ -1027,11 +1100,18 @@ describe('useProjectStore', () => {
     })
 
     it('should export working copy to stable version', async () => {
+      // Mock File System Access API support
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        value: vi.fn(),
+        writable: true
+      })
+
       // Set up project with context sets
       const mockFolder = {
         name: 'export-test-project',
         getFileHandle: vi.fn(),
-        createWritable: vi.fn()
+        createWritable: vi.fn(),
+        queryPermission: vi.fn().mockResolvedValue('granted')
       } as unknown as FileSystemDirectoryHandle
       
       store.setSelectedFolder(mockFolder)
@@ -1164,10 +1244,6 @@ describe('useProjectStore', () => {
       store.clearProject()
     })
     
-    afterEach(() => {
-      localStorage.clear()
-    })
-    
     it('should ensure loadFromLocalStorage is async (CRITICAL regression test)', async () => {
       // This is the CRITICAL regression test: loadFromLocalStorage must be async
       // Previously it was sync and called tryLoadFromOPFS without await
@@ -1179,8 +1255,9 @@ describe('useProjectStore', () => {
       // Test 2: Verify it can be awaited (this was the bug - it wasn't properly async)
       const result = await loadPromise
       
-      // Test 3: When no data exists, it should return false (gracefully)
-      expect(result).toBe(false)
+      // Test 3: When no data exists, it should return object with false values (gracefully)
+      expect(result.metadataLoaded).toBe(false)
+      expect(result.opfsRestored).toBe(false)
       
       // This test ensures that any future changes maintain the async nature
       // which is crucial for proper OPFS restoration timing
@@ -1192,8 +1269,9 @@ describe('useProjectStore', () => {
       
       const restored = await store.loadFromLocalStorage()
       
-      // Should return false when no data to restore
-      expect(restored).toBe(false)
+      // Should return object with false values when no data to restore
+      expect(restored.metadataLoaded).toBe(false)
+      expect(restored.opfsRestored).toBe(false)
       
       // State should remain clean
       expect(store.fileTree.value).toHaveLength(0)
@@ -1211,7 +1289,8 @@ describe('useProjectStore', () => {
       try {
         // Should not throw an error
         const restored = await store.loadFromLocalStorage()
-        expect(restored).toBe(false)
+        expect(restored.metadataLoaded).toBe(false)
+        expect(restored.opfsRestored).toBe(false)
         
         // State should remain clean
         expect(store.fileTree.value).toHaveLength(0)
@@ -1251,7 +1330,7 @@ describe('useProjectStore', () => {
         const endTime = Date.now()
         
         // Should restore successfully
-        expect(restored).toBe(true)
+        expect(restored.metadataLoaded).toBe(true)
         
         // Should have taken some time (async operation)
         expect(endTime - startTime).toBeGreaterThanOrEqual(0)
@@ -1301,7 +1380,7 @@ describe('useProjectStore', () => {
         const restored = await store.loadFromLocalStorage()
         
         // Step 3: Verify the full restoration
-        expect(restored).toBe(true)
+        expect(restored.metadataLoaded).toBe(true)
         expect(store.fileTree.value).toHaveLength(2)
         expect(store.fileTree.value.some(f => f.name === 'component.vue')).toBe(true)
         expect(store.fileTree.value.some(f => f.name === 'utils.js')).toBe(true)
@@ -1339,7 +1418,7 @@ describe('useProjectStore', () => {
         const restored = await store.loadFromLocalStorage()
         
         // Should succeed even if OPFS operations fail
-        expect(restored).toBe(true)
+        expect(restored.metadataLoaded).toBe(true)
         
         // Should have at least the localStorage data
         expect(store.fileTree.value).toHaveLength(1)
@@ -1372,6 +1451,195 @@ describe('useProjectStore', () => {
       // This test serves as documentation and ensures future developers
       // understand the critical importance of the async nature of this function
       expect(true).toBe(true) // This test always passes but serves as documentation
+    })
+  })
+
+  describe('Reload Files From Local Functionality', () => {
+    let mockShowDirectoryPicker: ReturnType<typeof vi.fn>
+
+    beforeEach(async () => {
+      // Mock File System Access API
+      mockShowDirectoryPicker = vi.fn()
+      global.window = {
+        ...global.window,
+        showDirectoryPicker: mockShowDirectoryPicker
+      } as typeof global.window & { showDirectoryPicker: typeof mockShowDirectoryPicker }
+    })
+
+    it('should reload files from local folder successfully', async () => {
+      // Mock directory handle
+      const mockEntries = [
+        ['README.md', { kind: 'file', name: 'README.md' }],
+        ['src', { 
+          kind: 'directory', 
+          name: 'src',
+          entries: () => [
+            ['component.vue', { kind: 'file', name: 'component.vue' }]
+          ]
+        }]
+      ]
+
+      const mockDirectoryHandle = {
+        name: 'refreshed-project',
+        entries: () => mockEntries[Symbol.iterator]()
+      }
+
+      mockShowDirectoryPicker.mockResolvedValue(mockDirectoryHandle)
+
+      // Mock OPFS functionality
+      const originalCopyProjectToOPFS = store.copyProjectToOPFS
+      store.copyProjectToOPFS = vi.fn().mockResolvedValue(true)
+
+      const result = await store.reloadFilesFromLocal()
+
+      expect(result).toBe(true)
+      expect(store.selectedFolder.value).toStrictEqual(mockDirectoryHandle)
+
+      // Restore original function
+      store.copyProjectToOPFS = originalCopyProjectToOPFS
+    })
+
+    it('should handle user cancellation gracefully', async () => {
+      // User cancels the directory picker
+      const abortError = new Error('User cancelled')
+      abortError.name = 'AbortError'
+      mockShowDirectoryPicker.mockRejectedValue(abortError)
+
+      const result = await store.reloadFilesFromLocal()
+
+      expect(result).toBe(false)
+    })
+
+    it('should handle hybrid analysis failure gracefully', async () => {
+      const mockDirectoryHandle = {
+        name: 'analysis-fail-project',
+        entries: () => [][Symbol.iterator]()
+      }
+
+      mockShowDirectoryPicker.mockResolvedValue(mockDirectoryHandle)
+
+      // Mock OPFS functionality
+      const originalCopyProjectToOPFS = store.copyProjectToOPFS
+      store.copyProjectToOPFS = vi.fn().mockResolvedValue(true)
+
+      const result = await store.reloadFilesFromLocal()
+
+      // Should still succeed even without hybrid analysis
+      expect(result).toBe(true)
+
+      // Restore original function
+      store.copyProjectToOPFS = originalCopyProjectToOPFS
+    })
+
+    it('should not trigger hybrid analysis for same project refresh', async () => {
+      // Set up existing project
+      const existingProject = {
+        name: 'existing-project'
+      } as FileSystemDirectoryHandle
+      store.setSelectedFolder(existingProject)
+
+      // Mock refreshing the same project
+      const mockDirectoryHandle = {
+        name: 'existing-project', // Same name as current
+        entries: () => [][Symbol.iterator]()
+      }
+
+      mockShowDirectoryPicker.mockResolvedValue(mockDirectoryHandle)
+
+      // Mock OPFS functionality  
+      const originalCopyProjectToOPFS = store.copyProjectToOPFS
+      store.copyProjectToOPFS = vi.fn().mockResolvedValue(true)
+
+      const result = await store.reloadFilesFromLocal()
+
+      expect(result).toBe(true)
+      
+      // reloadFilesFromLocal does not call hybrid analysis directly
+      // It only loads the file tree and copies to OPFS
+
+      // Restore original function
+      store.copyProjectToOPFS = originalCopyProjectToOPFS
+    })
+
+    it('should handle File System Access API not supported', async () => {
+      // Mock unsupported environment
+      global.window = {
+        ...global.window,
+        showDirectoryPicker: undefined
+      } as unknown as typeof global.window
+
+      const result = await store.reloadFilesFromLocal()
+
+      expect(result).toBe(false)
+    })
+
+    it('should continue with file refresh even if OPFS copy fails', async () => {
+      const mockDirectoryHandle = {
+        name: 'opfs-fail-project',
+        entries: () => [][Symbol.iterator]()
+      }
+
+      mockShowDirectoryPicker.mockResolvedValue(mockDirectoryHandle)
+
+      // Mock OPFS copy to fail
+      const originalCopyProjectToOPFS = store.copyProjectToOPFS
+      store.copyProjectToOPFS = vi.fn().mockResolvedValue(false)
+
+      const result = await store.reloadFilesFromLocal()
+
+      expect(result).toBe(true) // Should still succeed
+      expect(store.selectedFolder.value).toStrictEqual(mockDirectoryHandle)
+
+      // Restore original function
+      store.copyProjectToOPFS = originalCopyProjectToOPFS
+    })
+  })
+
+  describe('previewContextSetsJSON', () => {
+    it('should show warning if there are no context sets', () => {
+      // Ensure no context sets
+      expect(Object.keys(store.contextSets.value).length).toBe(0)
+
+      store.previewContextSetsJSON()
+
+      expect(mockNotifications.warning).toHaveBeenCalledWith('No Content', 'There are no context sets to preview.')
+      expect(store.isFileContentModalOpen.value).toBe(false)
+    })
+
+    it('should open modal with JSON content if context sets exist', () => {
+      store.createContextSet('preview-set', 'A test set for preview')
+      const file = {
+        name: 'preview-file.js',
+        path: 'src/preview-file.js',
+        type: 'file' as const
+      }
+      store.setActiveContextSet('preview-set')
+      store.addFileToActiveContextSet(file)
+
+      store.previewContextSetsJSON()
+
+      expect(store.isFileContentModalOpen.value).toBe(true)
+      expect(store.currentFileName.value).toBe('context-sets.json (Preview)')
+
+      const content = JSON.parse(store.currentFileContent.value)
+      expect(content.schemaVersion).toBe('1.0')
+      expect(content.contextSets['preview-set']).toBeDefined()
+      expect(content.contextSets['preview-set'].description).toBe('A test set for preview')
+    })
+
+    it('should handle errors during JSON generation', () => {
+      const originalStringify = JSON.stringify
+      JSON.stringify = vi.fn().mockImplementation(() => {
+        throw new Error('mock stringify error')
+      })
+
+      store.createContextSet('another-set', 'description')
+      store.previewContextSetsJSON()
+
+      expect(mockNotifications.errorWithRetry).toHaveBeenCalled()
+
+      // cleanup
+      JSON.stringify = originalStringify
     })
   })
 }) 

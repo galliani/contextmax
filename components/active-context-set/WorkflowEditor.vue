@@ -4,7 +4,45 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 <template>
-  <div class="space-y-4">
+  <div class="space-y-6">
+    <!-- Explanation Section -->
+    <div class="bg-muted/30 rounded-lg p-4 space-y-3">
+      <div class="flex items-start space-x-3">
+        <Icon name="lucide:workflow" class="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+        <div class="flex-1 space-y-2">
+          <!-- Collapsible Toggle -->
+          <button
+            @click="showExplanation = !showExplanation"
+            class="flex items-center justify-between w-full text-left hover:text-primary transition-colors"
+          >
+            <h4 class="text-sm font-medium text-foreground">Why specify workflow steps?</h4>
+            <Icon 
+              :name="showExplanation ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
+              class="w-4 h-4 text-muted-foreground transition-transform"
+            />
+          </button>
+          
+          <!-- Collapsible Content -->
+          <div v-show="showExplanation" class="space-y-2">
+            <p class="text-sm text-muted-foreground leading-relaxed">
+              The workflow describes the step-by-step data flow through your feature. When you ask "add salary extraction to job clipping", 
+              AI assistants can see exactly which step handles data processing and needs modification.
+            </p>
+            <p class="text-sm text-muted-foreground leading-relaxed">
+              This helps AI assistants <strong>understand the big picture</strong> of how files work together, 
+              <strong>make smarter changes</strong> by knowing which files to modify, <strong>avoid breaking changes</strong> 
+              by understanding dependencies, and <strong>debug issues faster</strong> by following the data flow.
+            </p>
+            <div class="bg-background/50 rounded p-3 mt-3">
+              <p class="text-xs text-muted-foreground">
+                <strong>Example:</strong> User clicks button → API receives request → Background job starts → AI processes data → User gets notified
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Header with Add Step Button -->
     <div class="flex items-center justify-between">
       <p class="text-sm text-muted-foreground">
@@ -150,7 +188,8 @@ const emit = defineEmits<{
 
 const { filesManifest } = useProjectStore()
 
-// Local state for file selection
+// Local state
+const showExplanation = ref(false)
 const selectedFileForStep = ref<Record<number, string>>({})
 
 // Computed

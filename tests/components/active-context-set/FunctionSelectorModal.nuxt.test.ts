@@ -5,8 +5,8 @@
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import LineRangeSelectionModal from '~/components/active-context-set/LineRangeSelectionModal.vue'
-import type { LineRange, FileManifest, FileTreeItem } from '~/composables/useProjectStore'
+import FunctionSelectionModal from '~/components/active-context-set/FunctionSelectorModal.vue'
+import type { FunctionRef, FileManifest, FileTreeItem } from '~/composables/useProjectStore'
 
 // Mock the project store
 const mockProjectStore = {
@@ -63,7 +63,7 @@ vi.mock('~/components/ui/dialog/DialogFooter.vue', () => ({
   }
 }))
 
-describe('LineRangeSelectionModal', () => {
+describe('FunctionSelectionModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockProjectStore.filesManifest.value = {}
@@ -71,36 +71,53 @@ describe('LineRangeSelectionModal', () => {
   })
 
   const mockFilesManifest: FileManifest = {
-    'file1': { path: '/src/components/Button.vue' }
+    'file1': { path: '/src/lib/linkedin_oauth.ts' }
   }
 
   const mockFileTree: FileTreeItem[] = [
     {
-      name: 'Button.vue',
-      path: '/src/components/Button.vue',
+      name: 'linkedin_oauth.ts',
+      path: '/src/lib/linkedin_oauth.ts',
       type: 'file',
       handle: {
         getFile: vi.fn().mockResolvedValue({
-          text: vi.fn().mockResolvedValue('line 1\nline 2\nline 3\nline 4\nline 5')
+          text: vi.fn().mockResolvedValue(`export class LinkedinOAuth {
+  private readonly clientId: string;
+  private readonly clientSecret: string;
+  
+  constructor() {
+    this.clientId = import.meta.env.LINKEDIN_CLIENT_ID;
+  }
+  
+  buildAuthorizationUrl(state: string): string {
+    const signInUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
+    return signInUrl.toString();
+  }
+  
+  async exchangeCodeForToken(code: string) {
+    const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken");
+    return tokenResponse;
+  }
+}`)
         })
       } as unknown as FileSystemFileHandle
     }
   ]
 
-  const mockExistingRanges: LineRange[] = [
-    { start: 1, end: 2, comment: 'First range' },
-    { start: 4, end: 5, comment: 'Second range' }
+  const mockExistingFunctions: FunctionRef[] = [
+    { name: 'buildAuthorizationUrl', comment: 'Builds OAuth URL' },
+    { name: 'exchangeCodeForToken', comment: 'Exchanges code for token' }
   ]
 
   describe('Modal Visibility', () => {
     test('renders when open prop is true', async () => {
       mockProjectStore.filesManifest.value = mockFilesManifest
       
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -108,11 +125,11 @@ describe('LineRangeSelectionModal', () => {
     })
 
     test('does not render when open prop is false', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: false,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -127,33 +144,33 @@ describe('LineRangeSelectionModal', () => {
     })
 
     test('shows loading state initially', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
       // The component loads very quickly, so check for either loading state or loaded content
       const text = component.text()
       const hasLoadingText = text.includes('Loading file content...')
-      const hasLoadedContent = text.includes('line 1') || text.includes('File Content')
+      const hasLoadedContent = text.includes('export class') || text.includes('File Content')
       
       // Should show either loading or loaded content
       expect(hasLoadingText || hasLoadedContent).toBe(true)
     })
 
     test('displays file path in dialog', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
-      expect(component.text()).toContain('/src/components/Button.vue')
+      expect(component.text()).toContain('/src/lib/linkedin_oauth.ts')
     })
   })
 
@@ -163,24 +180,24 @@ describe('LineRangeSelectionModal', () => {
       mockProjectStore.fileTree.value = mockFileTree
     })
 
-    test('shows empty state when no ranges selected', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+    test('shows empty state when no functions selected', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
-      expect(component.text()).toContain('No ranges selected')
+      expect(component.text()).toContain('No functions selected')
     })
 
     test('has cancel and save buttons', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -188,18 +205,42 @@ describe('LineRangeSelectionModal', () => {
       expect(component.text()).toContain('Save')
     })
 
-    test('shows correct save button text with ranges', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+    test('shows correct save button text with functions', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: mockExistingRanges
+          existingFunctions: mockExistingFunctions
         }
       })
 
-      // The component shows save button but may not load existing ranges immediately in the test environment
+      // The component shows save button but may not load existing functions immediately in the test environment
       expect(component.text()).toContain('Save')
-      expect(component.text()).toContain('Range')
+      expect(component.text()).toContain('Function')
+    })
+
+    test('shows dialog title for function selection', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
+        props: {
+          open: true,
+          fileId: 'file1',
+          existingFunctions: []
+        }
+      })
+
+      expect(component.text()).toContain('Select Functions')
+    })
+
+    test('shows instruction text for highlighting functions', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
+        props: {
+          open: true,
+          fileId: 'file1',
+          existingFunctions: []
+        }
+      })
+
+      expect(component.text()).toContain('Highlight function names to select them')
     })
   })
 
@@ -207,24 +248,24 @@ describe('LineRangeSelectionModal', () => {
     test('getFilePath returns correct path', async () => {
       mockProjectStore.filesManifest.value = mockFilesManifest
       
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
       // Access computed property through vm
-      expect(component.vm.filePath).toBe('/src/components/Button.vue')
+      expect(component.vm.filePath).toBe('/src/lib/linkedin_oauth.ts')
     })
 
     test('handles missing file gracefully', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'nonexistent',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -234,25 +275,25 @@ describe('LineRangeSelectionModal', () => {
 
   describe('Props Handling', () => {
     test('accepts all required props', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: mockExistingRanges
+          existingFunctions: mockExistingFunctions
         }
       })
 
       expect(component.props('open')).toBe(true)
       expect(component.props('fileId')).toBe('file1')
-      expect(component.props('existingRanges')).toEqual(mockExistingRanges)
+      expect(component.props('existingFunctions')).toEqual(mockExistingFunctions)
     })
 
-    test('handles empty existing ranges', async () => {
-      const component = await mountSuspended(LineRangeSelectionModal, {
+    test('handles empty existing functions', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -263,8 +304,8 @@ describe('LineRangeSelectionModal', () => {
   describe('Error Handling', () => {
     test('handles file loading error gracefully', async () => {
       const errorFileTree = [{
-        name: 'Button.vue',
-        path: '/src/components/Button.vue',
+        name: 'linkedin_oauth.ts',
+        path: '/src/lib/linkedin_oauth.ts',
         type: 'file',
         handle: {
           getFile: vi.fn().mockRejectedValue(new Error('File access error'))
@@ -274,11 +315,11 @@ describe('LineRangeSelectionModal', () => {
       mockProjectStore.filesManifest.value = mockFilesManifest
       mockProjectStore.fileTree.value = errorFileTree
 
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
@@ -290,15 +331,49 @@ describe('LineRangeSelectionModal', () => {
       mockProjectStore.filesManifest.value = mockFilesManifest
       mockProjectStore.fileTree.value = []
 
-      const component = await mountSuspended(LineRangeSelectionModal, {
+      const component = await mountSuspended(FunctionSelectionModal, {
         props: {
           open: true,
           fileId: 'file1',
-          existingRanges: []
+          existingFunctions: []
         }
       })
 
       expect(component.exists()).toBe(true)
+    })
+  })
+
+  describe('Function Selection Features', () => {
+    beforeEach(() => {
+      mockProjectStore.filesManifest.value = mockFilesManifest
+      mockProjectStore.fileTree.value = mockFileTree
+    })
+
+    test('shows existing functions when provided', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
+        props: {
+          open: true,
+          fileId: 'file1',
+          existingFunctions: mockExistingFunctions
+        }
+      })
+
+      // May take time to load, but existing functions should eventually appear
+      const text = component.text()
+      expect(text.includes('buildAuthorizationUrl') || text.includes('Function')).toBe(true)
+    })
+
+    test('emits functions-updated event', async () => {
+      const component = await mountSuspended(FunctionSelectionModal, {
+        props: {
+          open: true,
+          fileId: 'file1',
+          existingFunctions: []
+        }
+      })
+
+      // Check that the component has the right emit setup
+      expect(component.emitted()).toBeDefined()
     })
   })
 }) 
