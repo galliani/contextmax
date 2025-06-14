@@ -184,14 +184,27 @@
                 <span class="font-mono text-sm font-semibold break-all">Score: {{ result.finalScore.toFixed(3) }}</span>
               </div>
               <div class="text-xs font-medium">
-              <Button
-                size="sm"
-                variant="outline"
-                @click="addFileToContext(result.file)"
-              >
-                <Icon name="lucide:plus" class="w-4 h-4 mr-1" />
-                Add to Context
-              </Button>                
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <span class="inline-block">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        :disabled="!hasActiveContextSet"
+                        @click="addFileToContext(result.file)"
+                      >
+                        <Icon name="lucide:plus" class="w-4 h-4 mr-1" />
+                        Add to Context
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p v-if="!hasActiveContextSet">Create or select a context set first from the left sidebar</p>
+                    <p v-else>Add this file to the active context set</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               </div>
             </div>
           </div>
@@ -220,6 +233,7 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SmartSuggestion, KeywordSearchSuggestion } from '@/composables/useSmartContextSuggestions'
 
 // Get shared state from smart suggestions composable (this is the source of truth)
@@ -238,6 +252,7 @@ const { performHybridAnalysis } = hybridAnalysis
 
 const projectStore = useProjectStore()
 const fileTree = projectStore?.fileTree || ref([])
+const activeContextSetName = projectStore?.activeContextSetName || ref('')
 const createContextSet = projectStore?.createContextSet || (() => {})
 const setActiveContextSet = projectStore?.setActiveContextSet || (() => {})
 const addFileToActiveContextSet = projectStore?.addFileToActiveContextSet || (() => false)
@@ -318,6 +333,15 @@ const hasFiles = computed(() => {
     return allFiles.value.length > 0
   } catch (error) {
     console.warn('Error accessing files:', error)
+    return false
+  }
+})
+
+const hasActiveContextSet = computed(() => {
+  try {
+    return !!(activeContextSetName.value && activeContextSetName.value.trim())
+  } catch (error) {
+    console.warn('Error checking active context set:', error)
     return false
   }
 })
