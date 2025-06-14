@@ -19,56 +19,95 @@
     </div>
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
-      <!-- Refresh Project Button -->
-      <Button
-        variant="outline"
-        size="sm"
-        class="px-3 py-2 hover:shadow-sm transition-all duration-200"
-        :disabled="isRefreshingFiles"
-        :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
-        title="Refresh Project"
-        @click="handleRefreshFiles"
-      >
-        <Icon 
-          :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
+      <!-- Primary Actions Group - Save and Preview -->
+      <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">
+        <!-- Save to Project Button - Primary Action -->
+        <Button 
+          variant="default"
+          size="default" 
           :class="[
-            'w-4 h-4 mr-2',
-            isRefreshingFiles ? 'animate-spin' : ''
-          ]" 
-          aria-hidden="true" 
-        />
-        {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
-      </Button>
+            'font-medium px-5 py-2.5 shadow-md hover:shadow-lg transition-all duration-200',
+            exportStatus.hasStableVersion 
+              ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
+              : 'bg-orange-600 hover:bg-orange-700 text-white animate-pulse'
+          ]"
+          @click="showExportOptions"
+        >
+          <Icon name="lucide:save" class="w-4 h-4 mr-2" aria-hidden="true" />
+          {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
+        </Button>
+        
+        <!-- Preview JSON Button - Secondary Action -->
+        <Button 
+          variant="outline"
+          size="default"
+          class="px-4 py-2.5 font-medium hover:bg-muted/50 transition-all duration-200"
+          title="Preview context-sets.json output"
+          @click="previewContextSetsJSON"
+        >
+          <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
+          Preview JSON
+        </Button>
+      </div>
       
-      <!-- Primary Export JSON Button - Made Prominent -->
-      <Button 
-        v-if="hasAnyContextSets"
-        variant="default"
-        size="default" 
-        :class="[
-          'font-medium px-6 py-2.5 shadow-lg hover:shadow-xl transition-all duration-200 ring-2 hover:ring-primary/40',
-          exportStatus.hasStableVersion 
-            ? 'bg-primary hover:bg-primary/90 text-primary-foreground ring-primary/20' 
-            : 'bg-orange-600 hover:bg-orange-700 text-white ring-orange-500/30 hover:ring-orange-500/50 animate-pulse'
-        ]"
-        @click="showExportOptions"
-      >
-        <Icon name="lucide:save" class="w-5 h-5 mr-2" aria-hidden="true" />
-        {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
-      </Button>
-      
-      <!-- Preview JSON Output Button -->
-      <Button 
-        v-if="hasAnyContextSets"
-        variant="outline"
-        size="sm"
-        class="px-3 py-2"
-        title="Preview context-sets.json output"
-        @click="previewContextSetsJSON"
-      >
-        <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
-        Preview JSON
-      </Button>
+      <!-- Secondary Actions Group -->
+      <div class="flex items-center gap-2">
+        <!-- Refresh Project Button -->
+        <Button
+          variant="outline"
+          size="sm"
+          class="px-3 py-2 hover:shadow-sm transition-all duration-200"
+          :disabled="isRefreshingFiles"
+          :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
+          title="Refresh Project"
+          @click="handleRefreshFiles"
+        >
+          <Icon 
+            :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
+            :class="[
+              'w-4 h-4 mr-2',
+              isRefreshingFiles ? 'animate-spin' : ''
+            ]" 
+            aria-hidden="true" 
+          />
+          {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
+        </Button>
+        
+        <!-- Force Save Button (when there are unsaved changes) -->
+        <Button
+          v-if="autoSaveState.isDirty"
+          variant="outline"
+          size="sm"
+          class="px-3 py-2 sm:px-4 hover:shadow-sm transition-all duration-200"
+          :disabled="autoSaveState.isSaving"
+          :aria-label="autoSaveState.isSaving ? 'Saving...' : 'Save changes now'"
+          title="Save Now (Ctrl+S)"
+          @click="handleForceSave"
+        >
+          <Icon 
+            :name="autoSaveState.isSaving ? 'lucide:loader-2' : 'lucide:save'" 
+            :class="[
+              'w-4 h-4 mr-2',
+              autoSaveState.isSaving ? 'animate-spin' : ''
+            ]" 
+            aria-hidden="true" 
+          />
+          {{ autoSaveState.isSaving ? 'Saving...' : 'Save' }}
+        </Button>
+        
+        <!-- Clear Project Button -->
+        <Button
+          variant="ghost"
+          size="sm"
+          class="p-2 hover:bg-destructive/10 transition-colors duration-200"
+          :aria-label="`Clear current project`"
+          title="Clear project"
+          @click="handleClearProjectWithConfirmation"
+        >
+          <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
+          <span class="sr-only">Clear project</span>
+        </Button>
+      </div>
       
       <!-- Auto-save Status & Secondary Controls -->
       <div class="hidden lg:flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md text-xs xl:text-sm text-muted-foreground">
@@ -85,13 +124,13 @@
         </div>
         
         <!-- Export Status Indicator -->
-        <div v-if="hasAnyContextSets" class="flex items-center gap-1">
+        <div v-if="hasAnyContextSets && exportStatus.hasStableVersion" class="flex items-center gap-1">
           <div class="w-px h-4 bg-border" aria-hidden="true" />
           <div class="flex items-center gap-1">
-            <div 
+            <div
               :class="[
                 'w-2 h-2 rounded-full',
-                exportStatus.hasStableVersion ? 'bg-green-500' : 'bg-yellow-500'
+                'bg-green-500',
               ]"
               :aria-label="exportStatusText"
             />
@@ -127,41 +166,6 @@
           </Button>
         </div>
       </div>
-      
-      <!-- Force Save Button (when there are unsaved changes) -->
-      <Button
-        v-if="autoSaveState.isDirty"
-        variant="outline"
-        size="sm"
-        class="px-3 py-2 sm:px-4 hover:shadow-sm transition-all duration-200"
-        :disabled="autoSaveState.isSaving"
-        :aria-label="autoSaveState.isSaving ? 'Saving...' : 'Save changes now'"
-        title="Save Now (Ctrl+S)"
-        @click="handleForceSave"
-      >
-        <Icon 
-          :name="autoSaveState.isSaving ? 'lucide:loader-2' : 'lucide:save'" 
-          :class="[
-            'w-4 h-4 mr-2',
-            autoSaveState.isSaving ? 'animate-spin' : ''
-          ]" 
-          aria-hidden="true" 
-        />
-        {{ autoSaveState.isSaving ? 'Saving...' : 'Save' }}
-      </Button>
-      
-      <!-- Clear Project Button -->
-      <Button
-        variant="ghost"
-        size="sm"
-        class="p-2 hover:bg-destructive/10 transition-colors duration-200"
-        :aria-label="`Clear current project`"
-        title="Clear project"
-        @click="handleClearProjectWithConfirmation"
-      >
-        <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
-        <span class="sr-only">Clear project</span>
-      </Button>
     </div>
   </div>
 
@@ -364,13 +368,13 @@ const autoSaveStatus = computed(() => {
 
 // Export status indicator
 const exportStatusText = computed(() => {
-  if (!hasAnyContextSets.value) return ''
-  
+  if (!hasAnyContextSets.value) { return '' }
+
   if (exportStatus.value.hasStableVersion) {
     return 'Committed'
-  } else {
-    return 'Uncommitted'
   }
+
+  return ''
 })
 
 // Show export options menu
