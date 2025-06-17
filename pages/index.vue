@@ -42,18 +42,12 @@
 </template>
 
 <script setup lang="ts">
-import type { FileTreeItem } from '~/composables/useProjectStore'
 import FullScreenLoader from '~/components/ui/FullScreenLoader.vue'
 
 // Use the project store
 const {
   currentView,
-  selectedFolder: _selectedFolder,
-  setSelectedFolder,
-  setFileTree,
-  setIsLoadingFiles,
   clearProject,
-  autoLoadContextSetsFromProject,
   goToLanding,
   goToWorkspace,
   hasSavedData,
@@ -61,9 +55,6 @@ const {
   getSavedProjectName,
 
   loadFromLocalStorage,
-  isOPFSAvailable,
-  copyProjectToOPFS,
-  getOPFSProjects,
   loadSavedProjectsFromStorage,
 
   // OPFS loading state
@@ -72,8 +63,17 @@ const {
   opfsCopyingProjectName
 } = useProjectStore()
 
+// Use the project manager
+const {
+  isFileSystemSupported,
+  autoLoadedFromProject,
+  autoLoadError,
+  selectProjectFolder,
+  resetState: resetProjectManagerState
+} = useProjectManager()
+
 // Analytics helpers
-const { trackProjectSelection, trackDataRestored, trackProjectRestored } = useAnalyticsHelpers()
+const { trackDataRestored } = useAnalyticsHelpers()
 
 // Advanced UX Systems
 const { success: _success } = useNotifications()
@@ -81,23 +81,11 @@ const { success: _success } = useNotifications()
 // Accessibility support
 const { announceStatus: _announceStatus } = useAccessibility()
 
-// Hybrid Analysis
-const { performHybridAnalysis } = useHybridAnalysis()
-
-// Check if File System Access API is supported
-const isFileSystemSupported = ref(false)
-
-// Auto-detection state
-const autoLoadedFromProject = ref(false)
-const autoLoadError = ref('')
-
 // Computed properties
 const savedProjectName = computed(() => getSavedProjectName())
 
 // Check support only on client side to avoid hydration issues
 onMounted(async () => {
-  isFileSystemSupported.value = typeof window !== 'undefined' && 'showDirectoryPicker' in window
-  
   // Load saved projects from localStorage into reactive state
   loadSavedProjectsFromStorage()
   
@@ -139,209 +127,10 @@ onMounted(async () => {
   }
 })
 
-// File handling functions (now used for adding new projects)
-async function selectProjectFolder() {
-  console.log('selectProjectFolder called (Add Project), isFileSystemSupported:', isFileSystemSupported.value)
-  
-  if (!isFileSystemSupported.value) {
-    console.log('File System Access API not supported')
-    return
-  }
-
-  try {
-    console.log('Calling showDirectoryPicker for new project...')
-    
-    const directoryHandle = await window.showDirectoryPicker({
-      mode: 'readwrite'
-    })
-    
-    console.log('Directory selected for new project:', directoryHandle)
-    
-    // Track successful project selection
-    trackProjectSelection()
-    
-    setSelectedFolder(directoryHandle)
-    await loadProjectFiles(directoryHandle, false) // Always treat as fresh selection
-    
-    console.log('✅ New project added successfully - navigating to workspace')
-    goToWorkspace()
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name !== 'AbortError') {
-      console.error('Error selecting folder for new project:', error)
-      // Clear auto-detection state on error
-      autoLoadedFromProject.value = false
-      autoLoadError.value = ''
-      // TODO: Show user-friendly error message
-    }
-  }
-}
-
-async function loadProjectFiles(directoryHandle: FileSystemDirectoryHandle, hadSavedDataBefore: boolean) {
-  setIsLoadingFiles(true)
-  autoLoadedFromProject.value = false
-  autoLoadError.value = ''
-  
-  try {
-    // Only try to auto-load context-sets.json if we don't already have saved data
-    if (!hadSavedDataBefore) {
-      console.log('Attempting to auto-load context-sets.json...')
-      const autoLoaded = await autoLoadContextSetsFromProject(directoryHandle)
-      if (autoLoaded) {
-        autoLoadedFromProject.value = true
-        console.log('Successfully auto-loaded existing context-sets.json')
-      }
-    } else {
-      console.log('Skipping auto-load from project file - using saved localStorage data')
-    }
-    
-    // Always load the file tree to enable file browsing
-    const files = await readDirectoryRecursively(directoryHandle, '')
-    setFileTree(files)
-    
-    // Copy to OPFS for persistent access (always try if OPFS is supported and we don't have a copy)
-    if (isOPFSAvailable()) {
-      const projectName = directoryHandle.name
-      let shouldCopyToOPFS = false
-      
-      if (!hadSavedDataBefore) {
-        // Fresh project selection - always copy
-        shouldCopyToOPFS = true
-        console.log('Copying new project to OPFS for persistent access...')
-      } else {
-        // Reconnecting to existing project - check if OPFS copy exists
-        try {
-          const opfsProjects = await getOPFSProjects()
-          const hasOPFSCopy = opfsProjects.includes(projectName)
-          if (!hasOPFSCopy) {
-            shouldCopyToOPFS = true
-            console.log('No OPFS copy found for existing project, creating one...')
-          } else {
-            console.log('OPFS copy already exists for project, skipping copy')
-          }
-        } catch (error) {
-          console.warn('Failed to check OPFS projects, will attempt copy anyway:', error)
-          shouldCopyToOPFS = true
-        }
-      }
-      
-      if (shouldCopyToOPFS) {
-        try {
-          const copied = await copyProjectToOPFS(directoryHandle)
-                  if (copied) {
-          console.log('Project successfully copied to OPFS')
-          
-          // Auto-trigger hybrid analysis for new projects
-          try {
-            console.log('🚀 Auto-triggering hybrid analysis for new project...')
-            const analysisResult = await performHybridAnalysis(files, { silent: false })
-            if (analysisResult.success) {
-              console.log('✅ Automatic hybrid analysis completed successfully')
-            } else {
-              console.warn('⚠️ Automatic hybrid analysis failed, but continuing')
-            }
-          } catch (error) {
-            console.warn('⚠️ Error during automatic hybrid analysis:', error)
-          }
-        } else {
-          console.warn('Failed to copy project to OPFS, but continuing with regular functionality')
-        }
-        } catch (error) {
-          console.warn('OPFS copy failed, but continuing with regular functionality:', error)
-        }
-      }
-    }
-    
-    // If we restored from localStorage, show success message
-    if (hadSavedDataBefore) {
-      const { success } = useNotifications()
-      success(
-        'Project Restored Successfully',
-        `Your project "${directoryHandle.name}" has been reconnected with your saved work.`
-      )
-      
-      // Track project restoration
-      trackProjectRestored(directoryHandle.name)
-    }
-  } catch (error) {
-    console.error('Error loading project:', error)
-    if (error instanceof Error) {
-      autoLoadError.value = error.message
-    }
-    setFileTree([])
-  } finally {
-    setIsLoadingFiles(false)
-  }
-}
-
-async function readDirectoryRecursively(
-  directoryHandle: FileSystemDirectoryHandle, 
-  currentPath: string
-): Promise<FileTreeItem[]> {
-  const items: FileTreeItem[] = []
-  
-  // Ignore patterns for common directories/files we don't want to show
-  const ignorePatterns = [
-    'node_modules',
-    '.nuxt',
-    'dist',
-    'build',
-    '.next',
-    '.svelte-kit',
-    'target',
-    'vendor',
-    'Thumbs.db'
-  ]
-
-  try {
-    for await (const [name, handle] of directoryHandle.entries()) {
-      // Skip files/directories that start with a dot (sensitive files)
-      if (name.startsWith('.')) {
-        continue
-      }
-      
-      // Skip ignored patterns
-      if (ignorePatterns.some(pattern => name.includes(pattern))) {
-        continue
-      }
-
-      const itemPath = currentPath ? `${currentPath}/${name}` : name
-
-      if (handle.kind === 'directory') {
-        const children = await readDirectoryRecursively(handle as FileSystemDirectoryHandle, itemPath)
-        items.push({
-          name,
-          path: itemPath,
-          type: 'directory',
-          children,
-          handle: handle as FileSystemDirectoryHandle
-        })
-      } else {
-        items.push({
-          name,
-          path: itemPath,
-          type: 'file',
-          handle: handle as FileSystemFileHandle
-        })
-      }
-    }
-  } catch (error) {
-    console.error(`Error reading directory ${currentPath}:`, error)
-  }
-
-  // Sort: directories first, then files, both alphabetically
-  return items.sort((a, b) => {
-    if (a.type !== b.type) {
-      return a.type === 'directory' ? -1 : 1
-    }
-    return a.name.localeCompare(b.name)
-  })
-}
-
 // Clear project and auto-detection state
 function clearProjectAndState() {
   clearProject()
-  autoLoadedFromProject.value = false
-  autoLoadError.value = ''
+  resetProjectManagerState()
   // Navigate back to landing after clearing
   goToLanding()
 }

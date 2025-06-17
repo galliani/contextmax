@@ -392,6 +392,61 @@ export function useLoadingStates() {
     }
   }
 
+  // Project-specific loading states (migrated from useProjectStore)
+  const createProjectLoadingManager = () => {
+    return {
+      // File loading
+      startFileLoading: () => startLoading('isLoadingFiles'),
+      stopFileLoading: () => stopLoading('isLoadingFiles'),
+      isFileLoading: () => isLoading('isLoadingFiles'),
+
+      // OPFS operations with progress
+      startOPFSCopy: (projectName: string) => {
+        setLoading('isOPFSCopying', true)
+        state.simpleStates['opfsCopyingProjectName'] = projectName
+        return startLoadingAdvanced(`Copying ${projectName} to OPFS`, { type: 'progress' })
+      },
+      
+      updateOPFSProgress: (id: string, progress: number) => {
+        updateProgress(id, progress)
+        state.simpleStates['opfsCopyProgress'] = progress
+      },
+      
+      stopOPFSCopy: (id: string) => {
+        stopLoading('isOPFSCopying')
+        delete state.simpleStates['opfsCopyingProjectName']
+        delete state.simpleStates['opfsCopyProgress']
+        stopLoadingAdvanced(id)
+      },
+
+      isOPFSCopying: () => isLoading('isOPFSCopying'),
+      getOPFSProgress: () => state.simpleStates['opfsCopyProgress'] || 0,
+      getOPFSCopyingProject: () => state.simpleStates['opfsCopyingProjectName'] || null,
+
+      // Project operations
+      withProjectOperation: async <T>(
+        operation: () => Promise<T>, 
+        operationName: string,
+        showProgress = false
+      ): Promise<T> => {
+        if (showProgress) {
+          return withProgress(
+            async (updateProgressFn) => {
+              // For operations that don't naturally have progress, simulate it
+              updateProgressFn(25)
+              const result = await operation()
+              updateProgressFn(100)
+              return result
+            },
+            operationName
+          )
+        } else {
+          return withLoadingAdvanced(operation, operationName)
+        }
+      }
+    }
+  }
+
   return {
     // Simple API (for tests)
     loadingStates,
@@ -425,6 +480,9 @@ export function useLoadingStates() {
     createSkeletonLoader,
     createProgressiveLoader,
     withBatchProgress,
-    optimisticUpdates: readonly(ref(state.optimisticUpdates))
+    optimisticUpdates: readonly(ref(state.optimisticUpdates)),
+
+    // Project-specific loading manager
+    createProjectLoadingManager
   }
 } 
