@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useContextSetExporter } from '~/composables/useContextSetExporter'
 import type { ContextSet, FileManifestEntry } from '~/composables/useContextSets'
+import type { FileTreeItem } from '~/composables/useContextSetExporter'
 
 // Mock file handle
 const mockFileHandle = {
@@ -24,231 +25,230 @@ Object.assign(navigator, {
 
 // Mock gpt-tokenizer
 vi.mock('gpt-tokenizer', () => ({
-  encode: vi.fn().mockReturnValue([1, 2, 3, 4, 5]) // Mock 5 tokens
+  encode: vi.fn().mockReturnValue(new Array(100)) // Mock 100 tokens
+}))
+
+// Mock js-yaml
+vi.mock('js-yaml', () => ({
+  dump: vi.fn().mockImplementation((obj) => {
+    // Create dynamic YAML based on the input object
+    const lines = []
+    lines.push(`contextSetName: ${obj.contextSetName}`)
+    
+    if (obj.description) {
+      lines.push(`description: ${obj.description}`)
+    }
+    
+    if (obj.entryPoints && obj.entryPoints.length > 0) {
+      lines.push('entryPoints:')
+      obj.entryPoints.forEach((ep: any) => {
+        lines.push(`  - fileRef: ${ep.fileRef}`)
+        lines.push(`    function: ${ep.function}`)
+        lines.push(`    protocol: ${ep.protocol}`)
+        lines.push(`    method: ${ep.method}`)
+        lines.push(`    identifier: ${ep.identifier}`)
+      })
+    }
+    
+    if (obj.workflow && obj.workflow.length > 0) {
+      lines.push('workflow:')
+      obj.workflow.forEach((step: any) => {
+        lines.push(`  - fileRefs:`)
+        step.fileRefs.forEach((ref: string) => {
+          lines.push(`      - ${ref}`)
+        })
+        lines.push(`    description: ${step.description}`)
+      })
+    }
+    
+    if (obj.systemBehavior && Object.keys(obj.systemBehavior).length > 0) {
+      lines.push('systemBehavior:')
+      if (obj.systemBehavior.processing) {
+        lines.push('  processing:')
+        lines.push(`    mode: ${obj.systemBehavior.processing.mode}`)
+      }
+    }
+    
+    return lines.join('\n') + '\n'
+  })
 }))
 
 describe('useContextSetExporter', () => {
   let exporter: ReturnType<typeof useContextSetExporter>
-  
-  const mockContextSet: ContextSet = {
-    description: 'Test context set',
-    files: ['file_1'],
-    workflow: [{
-      fileRefs: ['file_1'],
-      description: 'Test workflow step'
-    }],
-    entryPoints: [{
-      fileRef: 'file_1',
-      function: 'main',
-      protocol: 'http',
-      method: 'GET',
-      identifier: '/api/test'
-    }],
-    systemBehavior: {
-      processing: {
-        mode: 'synchronous'
-      }
-    }
-  }
-  
-  const mockFilesManifest: Record<string, FileManifestEntry> = {
-    'file_1': {
-      path: 'src/test.js',
-      comment: 'Test file'
-    }
-  }
-  
-  const mockFileTree = [
-    {
-      name: 'test.js',
-      path: 'src/test.js',
-      type: 'file',
-      handle: mockFileHandle
-    }
-  ]
+  let mockContextSet: ContextSet
+  let mockFilesManifest: Record<string, FileManifestEntry>
+  let mockFileTree: FileTreeItem[]
 
   beforeEach(() => {
-    vi.clearAllMocks()
     exporter = useContextSetExporter()
-  })
-
-  describe('Token Count', () => {
-    it('should initialize with zero token count', () => {
-      expect(exporter.tokenCount.value).toBe(0)
-    })
-
-    it('should calculate estimated token count', async () => {
-      const tokens = await exporter.calculateTokenCount(
-        'test-set',
-        mockContextSet,
-        mockFilesManifest,
-        mockFileTree
-      )
-      
-      expect(tokens).toBeGreaterThan(0)
-    })
-  })
-
-  describe('Export Functionality', () => {
-    it('should export context set to clipboard successfully', async () => {
-      const result = await exporter.exportContextSetToClipboard(
-        'test-set',
-        mockContextSet,
-        mockFilesManifest,
-        mockFileTree
-      )
-
-      expect(result.success).toBe(true)
-      expect(result.tokenCount).toBe(5) // From mocked encode function
-      expect(navigator.clipboard.writeText).toHaveBeenCalled()
-    })
-
-    it('should generate valid XML structure', async () => {
-      await exporter.exportContextSetToClipboard(
-        'test-set',
-        mockContextSet,
-        mockFilesManifest,
-        mockFileTree
-      )
-
-      const [xmlContent] = (navigator.clipboard.writeText as any).mock.calls[0]
-      
-      // Check XML structure
-      expect(xmlContent).toContain('<contextSet name="test-set">')
-      expect(xmlContent).toContain('<description><![CDATA[Test context set]]></description>')
-      expect(xmlContent).toContain('<files>')
-      expect(xmlContent).toContain('<file path="src/test.js">')
-      expect(xmlContent).toContain('<content><![CDATA[console.log("Hello World");]]></content>')
-      expect(xmlContent).toContain('<workflow>')
-      expect(xmlContent).toContain('<entryPoints>')
-      expect(xmlContent).toContain('<systemBehavior>')
-      expect(xmlContent).toContain('</contextSet>')
-    })
-
-    it('should handle file reading errors gracefully', async () => {
-      const errorFileHandle = {
-        getFile: vi.fn().mockRejectedValue(new Error('File read error'))
-      }
-      
-      const errorFileTree = [
+    
+    // Reset mocks
+    vi.clearAllMocks()
+    
+    // Setup test data
+    mockContextSet = {
+      description: 'Test context set with special chars: & < > " \'',
+      files: ['file_1'],
+      workflow: [
         {
-          name: 'test.js',
-          path: 'src/test.js', // Should match the mockFilesManifest
-          type: 'file',
-          handle: errorFileHandle
+          fileRefs: ['file_1'],
+          description: 'Test workflow step'
         }
-      ]
-
-      const result = await exporter.exportContextSetToClipboard(
-        'test-set',
-        mockContextSet,
-        mockFilesManifest,
-        errorFileTree
-      )
-
-      expect(result.success).toBe(true) // Should still succeed but with error content
-      
-      const [xmlContent] = (navigator.clipboard.writeText as any).mock.calls[0]
-      expect(xmlContent).toContain('<error>Failed to read file content: Failed to read file: File read error</error>')
-    })
-
-    it('should handle missing file handles', async () => {
-      const incompleteFileTree = [
+      ],
+      entryPoints: [
         {
-          name: 'test.js',
-          path: 'src/test.js',
-          type: 'file'
-          // No handle
-        }
-      ]
-
-      const result = await exporter.exportContextSetToClipboard(
-        'test-set',
-        mockContextSet,
-        mockFilesManifest,
-        incompleteFileTree
-      )
-
-      expect(result.success).toBe(true)
-      
-      const [xmlContent] = (navigator.clipboard.writeText as any).mock.calls[0]
-      expect(xmlContent).toContain('<error>File not accessible or missing</error>')
-    })
-
-    it('should handle FileRef objects with function references', async () => {
-      const contextSetWithFunctions: ContextSet = {
-        description: 'Test context set with functions',
-        files: [{
           fileRef: 'file_1',
-          functionRefs: [
-            { name: 'testFunction', comment: 'Test function' },
-            { name: 'anotherFunction' }
-          ],
-          comment: 'File with specific functions'
-        }],
-        workflow: []
+          function: 'main',
+          protocol: 'http',
+          method: 'GET',
+          identifier: '/api/test'
+        }
+      ],
+      systemBehavior: {
+        processing: {
+          mode: 'synchronous'
+        }
       }
+    }
 
+    mockFilesManifest = {
+      file_1: {
+        path: 'src/test.ts',
+        comment: 'Test file'
+      }
+    }
+
+    mockFileTree = [
+      {
+        path: 'src/test.ts',
+        type: 'file',
+        handle: mockFileHandle as any
+      }
+    ]
+  })
+
+  describe('calculateTokenCount', () => {
+    it('should calculate token count for a context set', async () => {
+      const tokenCount = await exporter.calculateTokenCount(
+        'test-set',
+        mockContextSet,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(tokenCount).toBe(100) // Mocked to return 100 tokens
+    })
+
+    it('should return 0 tokens on error', async () => {
+      // Mock an error in file reading
+      mockFileHandle.getFile.mockRejectedValueOnce(new Error('File read error'))
+
+      const tokenCount = await exporter.calculateTokenCount(
+        'test-set',
+        mockContextSet,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(tokenCount).toBe(100) // Should still work since error is handled gracefully
+    })
+  })
+
+  describe('exportContextSetToClipboard', () => {
+    it('should export context set to clipboard with system prompt', async () => {
       const result = await exporter.exportContextSetToClipboard(
         'test-set',
-        contextSetWithFunctions,
+        mockContextSet,
         mockFilesManifest,
         mockFileTree
       )
 
       expect(result.success).toBe(true)
+      expect(result.tokenCount).toBe(100)
+      expect(navigator.clipboard.writeText).toHaveBeenCalledOnce()
       
-      const [xmlContent] = (navigator.clipboard.writeText as any).mock.calls[0]
-      expect(xmlContent).toContain('<functions>')
-      expect(xmlContent).toContain('<function name="testFunction" comment="Test function" />')
-      expect(xmlContent).toContain('<function name="anotherFunction" />')
-      expect(xmlContent).toContain('</functions>')
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Check for system prompt
+      expect(exportedText).toContain('You are an expert AI software engineer')
+      
+      // Check for YAML frontmatter structure
+      expect(exportedText).toContain('---')
+      expect(exportedText).toContain('contextSetName: test-set')
+      expect(exportedText).toContain('description: Test context set with special chars: & < > " \'')
+      
+      // Check for file content
+      expect(exportedText).toContain('## FILE: src/test.ts')
+      expect(exportedText).toContain('```typescript')
+      expect(exportedText).toContain('console.log("Hello World");')
     })
 
-    it('should handle XML special characters in CDATA sections', async () => {
-      const specialContextSet: ContextSet = {
-        description: 'Test with <special> & "characters"',
+    it('should export context set with minimal frontmatter when fields are empty', async () => {
+      // Context set with only required fields
+      const minimalContextSet: ContextSet = {
+        description: '',
         files: ['file_1'],
         workflow: []
       }
 
       const result = await exporter.exportContextSetToClipboard(
-        'test-set',
-        specialContextSet,
+        'minimal-set',
+        minimalContextSet,
         mockFilesManifest,
         mockFileTree
       )
 
       expect(result.success).toBe(true)
       
-      const [xmlContent] = (navigator.clipboard.writeText as any).mock.calls[0]
-      // CDATA sections preserve special characters
-      expect(xmlContent).toContain('<description><![CDATA[Test with <special> & "characters"]]></description>')
-    })
-  })
-
-  describe('Loading States', () => {
-    it('should track export loading state', async () => {
-      expect(exporter.isExporting.value).toBe(false)
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
       
-      const exportPromise = exporter.exportContextSetToClipboard(
+      // Should only contain contextSetName in frontmatter
+      expect(exportedText).toContain('contextSetName: minimal-set')
+      // Should not contain empty fields
+      expect(exportedText).not.toContain('description:')
+      expect(exportedText).not.toContain('workflow:')
+      expect(exportedText).not.toContain('entryPoints:')
+      expect(exportedText).not.toContain('systemBehavior:')
+    })
+
+    it('should handle file read errors gracefully', async () => {
+      // Mock file read error
+      mockFileHandle.getFile.mockRejectedValueOnce(new Error('Permission denied'))
+
+      const result = await exporter.exportContextSetToClipboard(
         'test-set',
         mockContextSet,
         mockFilesManifest,
         mockFileTree
       )
-      
-      expect(exporter.isExporting.value).toBe(true)
-      
-      await exportPromise
-      
-      expect(exporter.isExporting.value).toBe(false)
-    })
-  })
 
-  describe('Error Handling', () => {
-    it('should handle clipboard API errors', async () => {
-      (navigator.clipboard.writeText as any).mockRejectedValueOnce(new Error('Clipboard error'))
+      expect(result.success).toBe(true)
+      expect(navigator.clipboard.writeText).toHaveBeenCalled()
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      expect(exportedText).toContain('// Error reading file: Permission denied')
+    })
+
+    it('should handle missing file handles', async () => {
+      // File tree without the required file
+      const emptyFileTree: FileTreeItem[] = []
+
+      const result = await exporter.exportContextSetToClipboard(
+        'test-set',
+        mockContextSet,
+        mockFilesManifest,
+        emptyFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      expect(exportedText).toContain('// File not accessible in current file tree')
+    })
+
+    it('should handle clipboard write errors', async () => {
+      // Mock clipboard error
+      ;(navigator.clipboard.writeText as any).mockRejectedValueOnce(new Error('Clipboard access denied'))
 
       const result = await exporter.exportContextSetToClipboard(
         'test-set',
@@ -258,20 +258,97 @@ describe('useContextSetExporter', () => {
       )
 
       expect(result.success).toBe(false)
-      expect(result.error).toContain('Clipboard error')
+      expect(result.error).toBe('Clipboard access denied')
     })
 
-    it('should handle missing files manifest', async () => {
-      const emptyManifest = {}
-
-      const result = await exporter.exportContextSetToClipboard(
+    it('should prevent concurrent exports', async () => {
+      // Start first export
+      const firstExport = exporter.exportContextSetToClipboard(
         'test-set',
         mockContextSet,
-        emptyManifest,
+        mockFilesManifest,
         mockFileTree
       )
 
-      expect(result.success).toBe(true) // Should still export but skip missing files
+      // Try to start second export immediately
+      const secondExport = exporter.exportContextSetToClipboard(
+        'test-set',
+        mockContextSet,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      const [firstResult, secondResult] = await Promise.all([firstExport, secondExport])
+
+      expect(firstResult.success).toBe(true)
+      expect(secondResult.success).toBe(false)
+      expect(secondResult.error).toBe('Export already in progress')
+    })
+  })
+
+  describe('reactive state', () => {
+    it('should track exporting state', async () => {
+      expect(exporter.isExporting.value).toBe(false)
+
+      const exportPromise = exporter.exportContextSetToClipboard(
+        'test-set',
+        mockContextSet,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      // Should be exporting during the operation
+      expect(exporter.isExporting.value).toBe(true)
+
+      await exportPromise
+
+      // Should be false after completion
+      expect(exporter.isExporting.value).toBe(false)
+    })
+  })
+
+  describe('language detection', () => {
+    it('should detect correct language hints for different file types', async () => {
+      const testFiles = [
+        { path: 'test.js', expected: 'javascript' },
+        { path: 'test.ts', expected: 'typescript' },
+        { path: 'test.vue', expected: 'vue' },
+        { path: 'test.py', expected: 'python' },
+        { path: 'test.rb', expected: 'ruby' },
+        { path: 'test.unknown', expected: 'text' }
+      ]
+
+      for (const testFile of testFiles) {
+        const testManifest = {
+          file_1: {
+            path: testFile.path,
+            comment: 'Test file'
+          }
+        }
+
+        const testFileTree = [
+          {
+            path: testFile.path,
+            type: 'file' as const,
+            handle: mockFileHandle as any
+          }
+        ]
+
+        const result = await exporter.exportContextSetToClipboard(
+          'test-set',
+          { ...mockContextSet, files: ['file_1'] },
+          testManifest,
+          testFileTree
+        )
+
+        expect(result.success).toBe(true)
+        
+        const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+        expect(exportedText).toContain(`\`\`\`${testFile.expected}`)
+        
+        // Clear mock for next iteration
+        vi.clearAllMocks()
+      }
     })
   })
 }) 

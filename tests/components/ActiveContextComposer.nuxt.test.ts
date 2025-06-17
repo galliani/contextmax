@@ -94,7 +94,7 @@ describe('ActiveContextComposer', () => {
       
       const wrapper = await mountSuspended(ActiveContextComposer)
       
-      expect(wrapper.text()).toContain('Context Set Details')
+      expect(wrapper.text()).toContain('Context Set Editor')
     })
   })
 
@@ -513,25 +513,6 @@ describe('ActiveContextComposer', () => {
       
       const header = wrapper.find('.border-b.bg-gradient-surface')
       expect(header.exists()).toBe(true)
-    })
-  })
-
-  describe('Accessibility', () => {
-    it('should have proper heading hierarchy', async () => {
-      mockProjectStore.activeContextSet.value = {
-        name: 'testContextSet',
-        description: 'Test description',
-        files: [],
-        workflow: []
-      }
-      
-      const wrapper = await mountSuspended(ActiveContextComposer)
-      
-      const mainHeading = wrapper.find('h3')
-      expect(mainHeading.exists()).toBe(true)
-      
-      const subHeading = findByText(wrapper, 'Context Set Details', 'h4')
-      expect(subHeading?.exists()).toBe(true)
     })
   })
 

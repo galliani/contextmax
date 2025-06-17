@@ -10,7 +10,7 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="visual-hierarchy-3 pb-3 mb-2 text-mobile-subheading sm:text-lg lg:text-2xl">
-            Context Sets
+            Context Sets List
           </h3>
         </div>
       </div>

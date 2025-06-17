@@ -16,7 +16,8 @@
             <!-- Editable Context Set Name -->
             <div v-if="activeContextSetName" class="mt-4 mb-2">
               <div v-if="!isEditingName" class="flex items-center group">
-                <h3 class="visual-hierarchy-3 mb-1 text-mobile-subheading sm:text-lg lg:text-2xl" @click="startEditingName">
+                <Icon name="lucide:folder-open" class="w-12 h-12 mr-2 text-primary" />
+                <h3 class="visual-hierarchy-3 mb-1 text-mobile-subheading sm:text-xl lg:text-3xl font-bold" @click="startEditingName">
                   Context Set: {{ activeContextSetName }}
                 </h3>
                 <Button
@@ -137,19 +138,7 @@
 
         <!-- Right Panel: Active Context Set Editor -->
         <div class="h-full flex flex-col">
-          <!-- Active Context Set Sub-header -->
-          <div class="border-b bg-muted/30 px-4 py-3">
-            <div class="flex items-center justify-between">
-              <div>
-                <h4 class="visual-hierarchy-4 mb-2 text-mobile-subheading sm:text-md lg:text-md">Context Set Details</h4>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Active Context Set Editor Content -->
-          <div class="flex-1 overflow-hidden">
-            <Editor />
-          </div>
+          <Editor />
         </div>
 
       </div>
