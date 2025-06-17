@@ -58,9 +58,11 @@ An auto-generated index mapping file IDs to the context sets that use them, usef
 ## Tech Stack
 
 - Nuxt.js (Vue.js 3)
-- Tailwind CSS (or your preferred CSS framework)
-- Pinia for state management
+- npm as the package manager
+- Tailwind CSS, Reka-ui, and shadcn-nuxt for the styling
 - File System Access API for local file interaction
+- browser's localStorage and indexedDB for persistence
+- 'Xenova/jina-embeddings-v2-small-en' as the locally-embedded LLM for semantic search
 
 
 ## Getting Started

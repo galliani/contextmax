@@ -26,6 +26,40 @@
 
     <!-- Active Context Set Editor -->
     <div v-else class="h-full flex flex-col">
+      <!-- Export Header -->
+      <div class="border-b bg-surface-1 px-6 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <Icon name="lucide:folder-open" class="w-5 h-5 text-primary" />
+            <div>
+              <h3 class="text-lg font-semibold">{{ activeContextSet.name }}</h3>
+              <p class="text-sm text-muted-foreground">Context Set</p>
+            </div>
+          </div>
+          
+          <!-- Export Controls -->
+          <div class="flex items-center space-x-3">
+            <div class="text-sm text-muted-foreground">
+              <span v-if="estimatedTokens > 0">~{{ estimatedTokens.toLocaleString() }} tokens</span>
+              <span v-if="actualTokens > 0" class="ml-2 font-medium text-foreground">{{ actualTokens.toLocaleString() }} tokens</span>
+            </div>
+            <Button
+              @click="handleExportToClipboard"
+              :disabled="isExporting || !activeContextSet || activeContextSet.files.length === 0"
+              class="flex items-center space-x-2"
+              variant="default"
+              size="sm"
+            >
+              <Icon 
+                :name="isExporting ? 'lucide:loader-2' : 'lucide:clipboard-copy'" 
+                :class="['w-4 h-4', { 'animate-spin': isExporting }]" 
+              />
+              <span>{{ isExporting ? 'Exporting...' : 'Copy as XML' }}</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+      
       <!-- Tabbed Content -->
       <div class="flex-1 min-h-0 flex flex-col">
         <!-- Tab Navigation -->
@@ -124,13 +158,24 @@ import SystemBehaviorEditor from './SystemBehaviorEditor.vue'
 
 const {
   activeContextSet,
+  activeContextSetName,
+  filesManifest,
+  fileTree,
   updateActiveContextSet
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
+const { success, error } = useNotifications()
+
+// Context Set Exporter
+const { exportContextSetToClipboard, calculateTokenCount, tokenCount, isExporting } = useContextSetExporter()
 
 // Tab management
 const activeTab = ref('files')
+
+// Export functionality
+const estimatedTokens = ref(0)
+const actualTokens = computed(() => tokenCount.value)
 
 // Computed tabs with counts
 const tabs = computed(() => [
@@ -196,6 +241,67 @@ const updateSystemBehavior = (newSystemBehavior: { processing?: { mode?: 'synchr
     announceError(message)
   }
 }
+
+// Export functionality
+const handleExportToClipboard = async () => {
+  if (!activeContextSet.value || !activeContextSetName.value) {
+    error('Export Failed', 'No active context set to export')
+    return
+  }
+
+  if (activeContextSet.value.files.length === 0) {
+    error('Export Failed', 'Context set has no files to export')
+    return
+  }
+
+  try {
+    const result = await exportContextSetToClipboard(
+      activeContextSetName.value,
+      activeContextSet.value,
+      filesManifest.value,
+      fileTree.value
+    )
+
+    if (result.success) {
+      success(
+        'XML Snippet Copied',
+        `Context set "${activeContextSetName.value}" copied to clipboard (${result.tokenCount.toLocaleString()} tokens)`
+      )
+      announceStatus(`Context set exported to clipboard with ${result.tokenCount} tokens`)
+    } else {
+      error('Export Failed', result.error || 'Unknown error occurred')
+      announceError(`Failed to export context set: ${result.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    error('Export Failed', errorMessage)
+    announceError(`Export failed: ${errorMessage}`)
+  }
+}
+
+// Update estimated token count when context set changes
+const updateEstimatedTokens = async () => {
+  if (!activeContextSet.value || !activeContextSetName.value) {
+    estimatedTokens.value = 0
+    return
+  }
+
+  try {
+    const tokens = await calculateTokenCount(
+      activeContextSetName.value,
+      activeContextSet.value,
+      filesManifest.value,
+      fileTree.value
+    )
+    estimatedTokens.value = tokens
+  } catch (err) {
+    console.warn('Failed to calculate estimated tokens:', err)
+    estimatedTokens.value = 0
+  }
+}
+
+// Watch for changes to update token estimate
+watch([activeContextSet, activeContextSetName], updateEstimatedTokens, { immediate: true, deep: true })
 
 // Keyboard navigation for tabs
 const handleTabKeydown = (event: Event) => {
