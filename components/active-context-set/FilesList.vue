@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-lg font-medium text-foreground">Files in This Context Set</h3>
+        <h4 class="text-md font-semibold text-foreground">Files in This Context Set</h4>
         <p class="text-sm text-muted-foreground">
           {{ fileList.length }} file{{ fileList.length !== 1 ? 's' : '' }} included
         </p>

@@ -20,12 +20,51 @@ const mockAccessibility = {
   announceError: vi.fn()
 }
 
+// Mock the context set exporter composable
+const mockContextSetExporter = {
+  exportContextSetToClipboard: vi.fn().mockResolvedValue({ success: true, tokenCount: 1000 }),
+  calculateTokenCount: vi.fn().mockResolvedValue(1000),
+  isExporting: ref(false)
+}
+
+// Mock the context sets composable
+const mockContextSets = {
+  activeContextSetName: ref('test-set'),
+  filesManifest: ref({ file1: { path: 'test.js', comment: '' } }),
+  activeContextSet: computed(() => mockProjectStore.activeContextSet.value)
+}
+
+// Mock the notifications composable
+const mockNotifications = {
+  success: vi.fn(),
+  error: vi.fn()
+}
+
 vi.mock('~/composables/useProjectStore', () => ({
   useProjectStore: () => mockProjectStore
 }))
 
 vi.mock('~/composables/useAccessibility', () => ({
   useAccessibility: () => mockAccessibility
+}))
+
+vi.mock('~/composables/useContextSetExporter', () => ({
+  useContextSetExporter: () => mockContextSetExporter
+}))
+
+vi.mock('~/composables/useContextSets', () => ({
+  useContextSets: () => mockContextSets
+}))
+
+vi.mock('~/composables/useNotifications', () => ({
+  useNotifications: () => mockNotifications
+}))
+
+// Mock the file tree store
+vi.mock('~/composables/useProjectFileTreeStore', () => ({
+  useProjectFileTreeStore: () => ({
+    fileTree: ref([])
+  })
 }))
 
 // Mock child components to prevent rendering issues
