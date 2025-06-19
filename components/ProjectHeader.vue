@@ -1,8 +1,8 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+-->
 <template>  
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex-1 min-w-0">
