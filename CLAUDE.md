@@ -55,7 +55,7 @@ The development server runs on port 3000. Do not run commands to start/restart t
 **Smart Suggestions System**: Hybrid approach combining:
 - Local LLM embeddings via Hugging Face Transformers
 - AST analysis using tree-sitter parsers
-- File relationship analysis through `composables/useHybridAnalysis.ts`
+- File relationship analysis through `composables/useProjectAnalysis.ts`
 
 ### Component Organization
 
@@ -109,9 +109,9 @@ Grammar files are stored in `public/grammars/` for JavaScript, Python, Ruby, and
 ## Key Composables
 
 - `useProjectStore.ts` - Central state management
-- `useHybridAnalysis.ts` - Smart file suggestions using AI + AST
+- `useProjectAnalysis.ts` - Project file analysis and preparation workflow
 - `useTreeSitter.ts` - Code parsing and syntax analysis
-- `useSmartContextSuggestions.ts` - LLM-powered file recommendations
+- `useSmartContextSuggestions.ts` - Hybrid keyword search using AI + AST
 - `useLLMLoader.ts` - Client-side model loading with loading states
 
 ## Build Configuration

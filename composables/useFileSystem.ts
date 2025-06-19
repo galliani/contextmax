@@ -19,49 +19,75 @@ export const useFileSystem = () => {
     isFileSystemSupported.value = typeof window !== 'undefined' && 'showDirectoryPicker' in window
   })
 
-  // File tree building
+  // Helper function to collect all files recursively for gitignore processing
+  const collectAllFiles = async (
+    directoryHandle: FileSystemDirectoryHandle, 
+    currentPath: string = '',
+    allFiles: Array<{ path: string; handle: FileSystemHandle }> = []
+  ): Promise<Array<{ path: string; handle: FileSystemHandle }>> => {
+    try {
+      for await (const [name, handle] of directoryHandle.entries()) {
+        const itemPath = currentPath ? `${currentPath}/${name}` : name
+        
+        allFiles.push({ path: itemPath, handle })
+        
+        if (handle.kind === 'directory') {
+          await collectAllFiles(handle as FileSystemDirectoryHandle, itemPath, allFiles)
+        }
+      }
+    } catch (error) {
+      console.error(`Error collecting files from directory ${currentPath}:`, error)
+    }
+    
+    return allFiles
+  }
+
+  // File tree building with gitignore filtering
   const readDirectoryRecursively = async (
     directoryHandle: FileSystemDirectoryHandle, 
-    currentPath: string
+    currentPath: string,
+    gitignoreMatcher?: any
   ): Promise<FileTreeItem[]> => {
     const items: FileTreeItem[] = []
     
-    // Ignore patterns for common directories/files we don't want to show
-    const ignorePatterns = [
+    // Basic ignore patterns for critical system files (kept for safety)
+    const basicIgnorePatterns = [
       'node_modules',
-      '.nuxt',
-      'dist',
-      'build', 
-      '.next',
-      '.svelte-kit',
-      'target',
-      'vendor',
+      '.git',
       'Thumbs.db'
     ]
 
     try {
       for await (const [name, handle] of directoryHandle.entries()) {
-        // Skip files/directories that start with a dot (sensitive files)
-        if (name.startsWith('.')) {
+        const itemPath = currentPath ? `${currentPath}/${name}` : name
+        
+        // Apply basic ignore patterns first
+        if (basicIgnorePatterns.some(pattern => name === pattern)) {
           continue
         }
         
-        // Skip ignored patterns
-        if (ignorePatterns.some(pattern => name.includes(pattern))) {
+        // Apply gitignore filtering if available
+        if (gitignoreMatcher && gitignoreMatcher.ignores(itemPath)) {
           continue
         }
 
-        const itemPath = currentPath ? `${currentPath}/${name}` : name
-
         if (handle.kind === 'directory') {
-          const children = await readDirectoryRecursively(handle as FileSystemDirectoryHandle, itemPath)
-          items.push({
-            name,
-            path: itemPath,
-            type: 'directory',
-            children,
-            handle: handle as FileSystemDirectoryHandle
-          })
+          const children = await readDirectoryRecursively(
+            handle as FileSystemDirectoryHandle, 
+            itemPath, 
+            gitignoreMatcher
+          )
+          
+          // Only include directory if it has children or if gitignore allows it
+          if (children.length > 0) {
+            items.push({
+              name,
+              path: itemPath,
+              type: 'directory',
+              children,
+              handle: handle as FileSystemDirectoryHandle
+            })
+          }
         } else {
           items.push({
             name,
@@ -84,11 +110,40 @@ export const useFileSystem = () => {
     })
   }
 
+  // Main function to build filtered file tree
+  const buildFilteredFileTree = async (
+    directoryHandle: FileSystemDirectoryHandle
+  ): Promise<FileTreeItem[]> => {
+    try {
+      console.log('🔍 Building filtered file tree with gitignore support...')
+      
+      // First, collect all files to create gitignore matcher
+      const allFiles = await collectAllFiles(directoryHandle)
+      console.log(`📁 Collected ${allFiles.length} total files/directories`)
+      
+      // Create gitignore matcher
+      const { createMatcher } = useGitignore()
+      const gitignoreMatcher = await createMatcher(allFiles)
+      
+      // Build the filtered file tree
+      const filteredTree = await readDirectoryRecursively(directoryHandle, '', gitignoreMatcher)
+      
+      console.log(`✅ Built filtered file tree with ${countFileTreeNodes(filteredTree.map(item => removeHandles(item)))} nodes`)
+      
+      return filteredTree
+    } catch (error) {
+      console.error('❌ Error building filtered file tree:', error)
+      // Fallback to basic filtering if gitignore fails
+      console.log('🔄 Falling back to basic file tree building...')
+      return await readDirectoryRecursively(directoryHandle, '')
+    }
+  }
+
   // Helper function to rebuild file tree from OPFS
   const rebuildFileTreeFromOPFS = async (directoryHandle: FileSystemDirectoryHandle): Promise<FileTreeItem[]> => {
     try {
       console.log('🟡 Starting file tree rebuild from OPFS...')
-      const files = await readDirectoryRecursively(directoryHandle, '')
+      const files = await buildFilteredFileTree(directoryHandle)
       
       const hasHandlesAfterRebuild = checkFileTreeHasHandles(files)
       console.log('🟡 File tree rebuilt from OPFS:', {
@@ -235,6 +290,7 @@ export const useFileSystem = () => {
     
     // File tree operations
     readDirectoryRecursively,
+    buildFilteredFileTree,
     rebuildFileTreeFromOPFS,
     checkFileTreeHasHandles,
     countFileTreeNodes,

@@ -531,7 +531,7 @@ export const useProjectStore = () => {
       () => globalState.selectedFolder?.name || null,
       projectLoading.startFileLoading,
       setSelectedFolder,
-      fileSystem.readDirectoryRecursively,
+      fileSystem.buildFilteredFileTree,
       setFileTree,
       copyProjectToOPFS,
       autoLoadContextSetsFromProject
@@ -539,6 +539,7 @@ export const useProjectStore = () => {
 
     // File system operations
     readDirectoryRecursively: fileSystem.readDirectoryRecursively,
+    buildFilteredFileTree: fileSystem.buildFilteredFileTree,
     rebuildFileTreeFromOPFS: fileSystem.rebuildFileTreeFromOPFS,
     checkFileTreeHasHandles: fileSystem.checkFileTreeHasHandles,
     countFileTreeNodes: fileSystem.countFileTreeNodes,

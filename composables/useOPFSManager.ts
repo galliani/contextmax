@@ -303,6 +303,84 @@ class OPFSProjectManager {
     
     return projects
   }
+
+  // === Model Cache Management ===
+
+  async saveModelToCache(modelName: string, modelData: ArrayBuffer): Promise<boolean> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return false
+    }
+
+    try {
+      const opfsRoot = await navigator.storage.getDirectory()
+      const cacheDir = await opfsRoot.getDirectoryHandle('model-cache', { create: true })
+      
+      // Create safe filename from model name
+      const safeModelName = modelName.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const fileHandle = await cacheDir.getFileHandle(`${safeModelName}.bin`, { create: true })
+      const writable = await fileHandle.createWritable()
+      await writable.write(modelData)
+      await writable.close()
+      
+      // Save metadata
+      const metadata = {
+        modelName,
+        cachedAt: Date.now(),
+        size: modelData.byteLength
+      }
+      const metaHandle = await cacheDir.getFileHandle(`${safeModelName}.meta.json`, { create: true })
+      const metaWritable = await metaHandle.createWritable()
+      await metaWritable.write(JSON.stringify(metadata, null, 2))
+      await metaWritable.close()
+      
+      console.log(`✅ Model cached to OPFS: ${modelName}`)
+      return true
+    } catch (error) {
+      console.error(`❌ Failed to cache model ${modelName}:`, error)
+      return false
+    }
+  }
+
+  async loadModelFromCache(modelName: string): Promise<ArrayBuffer | null> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return null
+    }
+
+    try {
+      const opfsRoot = await navigator.storage.getDirectory()
+      const cacheDir = await opfsRoot.getDirectoryHandle('model-cache')
+      
+      const safeModelName = modelName.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const fileHandle = await cacheDir.getFileHandle(`${safeModelName}.bin`)
+      const file = await fileHandle.getFile()
+      
+      console.log(`✅ Model loaded from OPFS cache: ${modelName}`)
+      return await file.arrayBuffer()
+    } catch (error) {
+      console.log(`ℹ️ No cached model found for ${modelName}`)
+      return null
+    }
+  }
+
+  async hasModelInCache(modelName: string): Promise<boolean> {
+    if (!this.projectsDir) {
+      await this.initialize()
+      if (!this.projectsDir) return false
+    }
+
+    try {
+      const opfsRoot = await navigator.storage.getDirectory()
+      const cacheDir = await opfsRoot.getDirectoryHandle('model-cache')
+      
+      const safeModelName = modelName.replace(/[^a-zA-Z0-9.-]/g, '_')
+      await cacheDir.getFileHandle(`${safeModelName}.bin`)
+      return true
+    } catch {
+      return false
+    }
+  }
 }
 
 export const useOPFSManager = () => {
@@ -356,6 +434,19 @@ export const useOPFSManager = () => {
     return await opfsManager.listOPFSProjects()
   }
 
+  // Model cache operations
+  const saveModelToCache = async (modelName: string, modelData: ArrayBuffer): Promise<boolean> => {
+    return await opfsManager.saveModelToCache(modelName, modelData)
+  }
+
+  const loadModelFromCache = async (modelName: string): Promise<ArrayBuffer | null> => {
+    return await opfsManager.loadModelFromCache(modelName)
+  }
+
+  const hasModelInCache = async (modelName: string): Promise<boolean> => {
+    return await opfsManager.hasModelInCache(modelName)
+  }
+
   // Initialize OPFS
   const initializeOPFS = async (): Promise<boolean> => {
     return await opfsManager.initialize()
@@ -379,6 +470,11 @@ export const useOPFSManager = () => {
     copyProjectToOPFS,
     getProjectFromOPFS,
     deleteProjectFromOPFS,
-    listOPFSProjects
+    listOPFSProjects,
+
+    // Model cache operations
+    saveModelToCache,
+    loadModelFromCache,
+    hasModelInCache
   }
 }

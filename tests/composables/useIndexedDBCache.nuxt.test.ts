@@ -6,7 +6,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useIndexedDBCache } from '~/composables/useIndexedDBCache'
-import type { CachedFileEmbedding, CachedProjectAnalysis } from '~/composables/useIndexedDBCache'
+import type { CachedFileEmbedding, CachedProjectEmbeddings } from '~/composables/useIndexedDBCache'
 
 // Mock IndexedDB with proper async behavior
 interface MockIDBRequest {
@@ -195,7 +195,7 @@ describe('useIndexedDBCache', () => {
       const result = await initPromise
       expect(result).toBe(true)
       expect(mockCreateObjectStore).toHaveBeenCalledWith('file_embeddings', { keyPath: 'path' })
-      expect(mockCreateObjectStore).toHaveBeenCalledWith('project_analysis', { keyPath: 'projectHash' })
+      expect(mockCreateObjectStore).toHaveBeenCalledWith('project_embeddings', { keyPath: 'projectHash' })
     })
 
     it('should return false when IndexedDB is not supported', async () => {
@@ -373,7 +373,7 @@ describe('useIndexedDBCache', () => {
     })
   })
 
-  describe('Project Analysis Cache Operations', () => {
+  describe('Project Embeddings Cache Operations', () => {
     beforeEach(async () => {
       // Initialize DB for these tests
       const mockOpenRequest = createMockRequest(mockDatabase)
@@ -388,25 +388,15 @@ describe('useIndexedDBCache', () => {
       await initPromise
     })
 
-    it('should store project analysis successfully', async () => {
+    it('should store project embeddings successfully', async () => {
       const projectHash = 'project-abc123'
-      const extractedKeywords = [
-        {
-          keyword: 'user',
-          frequency: 3,
-          sources: ['class' as const],
-          confidence: 0.8,
-          relatedFiles: ['user.ts']
-        }
-      ]
       const fileEmbeddings = { 'file1.ts': [0.1, 0.2] }
 
       const mockPutRequest = createMockRequest(true)
       mockObjectStore.put.mockReturnValue(mockPutRequest)
 
-      const storePromise = cacheComposable.storeCachedProjectAnalysis(
+      const storePromise = cacheComposable.storeCachedProjectEmbeddings(
         projectHash,
-        extractedKeywords,
         fileEmbeddings
       )
 
@@ -419,36 +409,26 @@ describe('useIndexedDBCache', () => {
       const result = await storePromise
 
       expect(result).toBe(true)
-      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_analysis'], 'readwrite')
+      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_embeddings'], 'readwrite')
       expect(mockObjectStore.put).toHaveBeenCalledWith({
         projectHash,
-        extractedKeywords,
         fileEmbeddings,
         timestamp: expect.any(Number)
       })
     })
 
-    it('should retrieve cached project analysis successfully', async () => {
+    it('should retrieve cached project embeddings successfully', async () => {
       const projectHash = 'project-abc123'
-      const cachedAnalysis: CachedProjectAnalysis = {
+      const cachedEmbeddings: CachedProjectEmbeddings = {
         projectHash,
-        extractedKeywords: [
-          {
-            keyword: 'user',
-            frequency: 3,
-            sources: ['class'],
-            confidence: 0.8,
-            relatedFiles: ['user.ts']
-          }
-        ],
         fileEmbeddings: { 'file1.ts': [0.1, 0.2] },
         timestamp: Date.now()
       }
 
-      const mockGetRequest = createMockRequest(cachedAnalysis)
+      const mockGetRequest = createMockRequest(cachedEmbeddings)
       mockObjectStore.get.mockReturnValue(mockGetRequest)
 
-      const getPromise = cacheComposable.getCachedProjectAnalysis(projectHash)
+      const getPromise = cacheComposable.getCachedProjectEmbeddings(projectHash)
 
       setTimeout(() => {
         if (mockGetRequest.onsuccess) {
@@ -458,16 +438,16 @@ describe('useIndexedDBCache', () => {
 
       const result = await getPromise
 
-      expect(result).toEqual(cachedAnalysis)
-      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_analysis'], 'readonly')
+      expect(result).toEqual(cachedEmbeddings)
+      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_embeddings'], 'readonly')
       expect(mockObjectStore.get).toHaveBeenCalledWith(projectHash)
     })
 
-    it('should return null for non-existent project analysis', async () => {
+    it('should return null for non-existent project embeddings', async () => {
       const mockGetRequest = createMockRequest(undefined)
       mockObjectStore.get.mockReturnValue(mockGetRequest)
 
-      const getPromise = cacheComposable.getCachedProjectAnalysis('nonexistent')
+      const getPromise = cacheComposable.getCachedProjectEmbeddings('nonexistent')
 
       setTimeout(() => {
         if (mockGetRequest.onsuccess) {
@@ -479,11 +459,11 @@ describe('useIndexedDBCache', () => {
       expect(result).toBeNull()
     })
 
-    it('should handle project analysis storage errors gracefully', async () => {
+    it('should handle project embeddings storage errors gracefully', async () => {
       const mockPutRequest = createMockRequest(null, new Error('Storage error'))
       mockObjectStore.put.mockReturnValue(mockPutRequest)
 
-      const storePromise = cacheComposable.storeCachedProjectAnalysis('hash', [], {})
+      const storePromise = cacheComposable.storeCachedProjectEmbeddings('hash', {})
 
       setTimeout(() => {
         if (mockPutRequest.onerror) {
@@ -515,7 +495,7 @@ describe('useIndexedDBCache', () => {
       await cacheComposable.cleanOldCache()
 
       expect(mockDatabase.transaction).toHaveBeenCalledWith(['file_embeddings'], 'readwrite')
-      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_analysis'], 'readwrite')
+      expect(mockDatabase.transaction).toHaveBeenCalledWith(['project_embeddings'], 'readwrite')
     })
 
     it('should handle cleanup errors gracefully', async () => {
@@ -566,7 +546,7 @@ describe('useIndexedDBCache', () => {
 
       expect(stats).toEqual({
         embeddingsCount: 5,
-        analysisCount: 3
+        projectEmbeddingsCount: 3
       })
     })
 
@@ -592,7 +572,7 @@ describe('useIndexedDBCache', () => {
       const stats = await statsPromise
       expect(stats).toEqual({
         embeddingsCount: 0,
-        analysisCount: 0
+        projectEmbeddingsCount: 0
       })
     })
   })
@@ -733,14 +713,6 @@ describe('useIndexedDBCache', () => {
       }, 0)
       await initPromise
 
-      const largeKeywords = Array.from({ length: 1000 }, (_, i) => ({
-        keyword: `keyword${i}`,
-        frequency: i,
-        sources: ['class' as const],
-        confidence: 0.5,
-        relatedFiles: [`file${i}.ts`]
-      }))
-
       const largeEmbeddings = Object.fromEntries(
         Array.from({ length: 100 }, (_, i) => [`file${i}.ts`, new Array(1536).fill(i)])
       )
@@ -748,9 +720,8 @@ describe('useIndexedDBCache', () => {
       const mockPutRequest = createMockRequest(true)
       mockObjectStore.put.mockReturnValue(mockPutRequest)
 
-      const storePromise = cacheComposable.storeCachedProjectAnalysis(
+      const storePromise = cacheComposable.storeCachedProjectEmbeddings(
         'large-project-hash',
-        largeKeywords,
         largeEmbeddings
       )
 

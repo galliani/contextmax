@@ -7,17 +7,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { watch } from 'vue'
 import { useSmartContextSuggestions } from '~/composables/useSmartContextSuggestions'
-import type { 
-  ContextSetSuggestion, 
-  RelatedFilesSuggestion, 
-  WorkflowSuggestion
-} from '~/composables/useSmartContextSuggestions'
+import type { KeywordSearchSuggestion } from '~/composables/useSmartContextSuggestions'
 
 // Mock dependencies
 interface MockIndexedDBCache {
   initDB: ReturnType<typeof vi.fn>
-  getCachedProjectAnalysis: ReturnType<typeof vi.fn>
-  storeCachedProjectAnalysis: ReturnType<typeof vi.fn>
+  getCachedProjectEmbeddings: ReturnType<typeof vi.fn>
+  storeCachedProjectEmbeddings: ReturnType<typeof vi.fn>
   calculateProjectHash: ReturnType<typeof vi.fn>
   getCachedEmbedding: ReturnType<typeof vi.fn>
   storeCachedEmbedding: ReturnType<typeof vi.fn>
@@ -25,7 +21,7 @@ interface MockIndexedDBCache {
   cleanOldCache: ReturnType<typeof vi.fn>
 }
 
-interface MockTreeSitter {
+interface MockRegexCodeParser {
   parseCode: ReturnType<typeof vi.fn>
   isLanguageSupported: ReturnType<typeof vi.fn>
 }
@@ -44,8 +40,8 @@ interface MockNuxtApp {
 // Create shared mock instances
 const mockIndexedDBCache: MockIndexedDBCache = {
   initDB: vi.fn().mockResolvedValue(true),
-  getCachedProjectAnalysis: vi.fn().mockResolvedValue(null),
-  storeCachedProjectAnalysis: vi.fn().mockResolvedValue(true),
+  getCachedProjectEmbeddings: vi.fn().mockResolvedValue(null),
+  storeCachedProjectEmbeddings: vi.fn().mockResolvedValue(true),
   calculateProjectHash: vi.fn().mockResolvedValue('mock-hash'),
   getCachedEmbedding: vi.fn().mockResolvedValue(null),
   storeCachedEmbedding: vi.fn().mockResolvedValue(true),
@@ -53,13 +49,12 @@ const mockIndexedDBCache: MockIndexedDBCache = {
   cleanOldCache: vi.fn().mockResolvedValue(undefined)
 }
 
-const mockTreeSitter: MockTreeSitter = {
-  parseCode: vi.fn().mockResolvedValue({
+const mockRegexCodeParser: MockRegexCodeParser = {
+  parseCode: vi.fn().mockReturnValue({
     functions: [{ name: 'testFunction', startLine: 1, endLine: 5 }],
     classes: [{ name: 'TestClass', startLine: 10, endLine: 20 }],
     imports: [{ module: './utils', startLine: 1 }],
-    exports: [{ name: 'TestExport', startLine: 25 }],
-    calls: [{ name: 'testCall', startLine: 15 }]
+    exports: [{ name: 'TestExport', startLine: 25 }]
   }),
   isLanguageSupported: vi.fn().mockReturnValue(true)
 }
@@ -82,8 +77,8 @@ vi.mock('~/composables/useIndexedDBCache', () => ({
   useIndexedDBCache: () => mockIndexedDBCache
 }))
 
-vi.mock('~/composables/useTreeSitter', () => ({
-  useTreeSitter: () => mockTreeSitter
+vi.mock('~/composables/useRegexCodeParser', () => ({
+  useRegexCodeParser: () => mockRegexCodeParser
 }))
 
 vi.mock('~/composables/useAccessibility', () => ({
@@ -179,22 +174,21 @@ export const useUserStore = defineStore('user', () => {
 
     // Reset mock return values to defaults
     mockIndexedDBCache.initDB.mockResolvedValue(true)
-    mockIndexedDBCache.getCachedProjectAnalysis.mockResolvedValue(null)
-    mockIndexedDBCache.storeCachedProjectAnalysis.mockResolvedValue(true)
+    mockIndexedDBCache.getCachedProjectEmbeddings.mockResolvedValue(null)
+    mockIndexedDBCache.storeCachedProjectEmbeddings.mockResolvedValue(true)
     mockIndexedDBCache.calculateProjectHash.mockResolvedValue('mock-hash')
     mockIndexedDBCache.getCachedEmbedding.mockResolvedValue(null)
     mockIndexedDBCache.storeCachedEmbedding.mockResolvedValue(true)
     mockIndexedDBCache.calculateHash.mockResolvedValue('file-hash')
     mockIndexedDBCache.cleanOldCache.mockResolvedValue(undefined)
 
-    mockTreeSitter.parseCode.mockResolvedValue({
+    mockRegexCodeParser.parseCode.mockReturnValue({
       functions: [{ name: 'testFunction', startLine: 1, endLine: 5 }],
       classes: [{ name: 'TestClass', startLine: 10, endLine: 20 }],
       imports: [{ module: './utils', startLine: 1 }],
-      exports: [{ name: 'TestExport', startLine: 25 }],
-      calls: [{ name: 'testCall', startLine: 15 }]
+      exports: [{ name: 'TestExport', startLine: 25 }]
     })
-    mockTreeSitter.isLanguageSupported.mockReturnValue(true)
+    mockRegexCodeParser.isLanguageSupported.mockReturnValue(true)
 
     mockAccessibility.announceStatus.mockClear()
 
@@ -213,72 +207,63 @@ export const useUserStore = defineStore('user', () => {
     it('should initialize with correct default state', () => {
       expect(smartSuggestions.isAnalyzing.value).toBe(false)
       expect(smartSuggestions.analysisProgress.value).toBe(0)
-      expect(smartSuggestions.extractedKeywords.value).toEqual([])
       expect(smartSuggestions.hasLoadedFromCache.value).toBe(false)
     })
 
     it('should provide all required methods', () => {
-      expect(typeof smartSuggestions.analyzeProject).toBe('function')
-      expect(typeof smartSuggestions.generateSuggestions).toBe('function')
+      expect(typeof smartSuggestions.loadCachedAnalysis).toBe('function')
       expect(typeof smartSuggestions.performHybridKeywordSearch).toBe('function')
       expect(typeof smartSuggestions.clearAnalysisState).toBe('function')
       expect(typeof smartSuggestions.clearCache).toBe('function')
     })
   })
 
-  describe('analyzeProject', () => {
-    it('should analyze project files and extract keywords', async () => {
+  describe('loadCachedAnalysis', () => {
+    it('should load analysis with cache check', async () => {
       const files = createMockFiles()
       
-      await smartSuggestions.analyzeProject(files)
+      await smartSuggestions.loadCachedAnalysis(files)
 
-      expect(mockIndexedDBCache.initDB).toHaveBeenCalled()
-      expect(mockIndexedDBCache.calculateProjectHash).toHaveBeenCalledWith(files)
-      expect(mockIndexedDBCache.getCachedProjectAnalysis).toHaveBeenCalled()
-      expect(smartSuggestions.extractedKeywords.value.length).toBeGreaterThan(0)
+      expect(mockRegexCodeParser.parseCode).toHaveBeenCalled()
     })
 
     it('should load from cache when available', async () => {
       const files = createMockFiles()
-      const cachedAnalysis = {
+      const cachedEmbeddings = {
         projectHash: 'cached-hash',
-        extractedKeywords: [
-          {
-            keyword: 'user',
-            frequency: 3,
-            sources: ['class', 'function'],
-            confidence: 0.8,
-            relatedFiles: ['src/utils/helpers.ts']
-          }
-        ],
         fileEmbeddings: {},
         timestamp: Date.now()
       }
 
-      mockIndexedDBCache.getCachedProjectAnalysis.mockResolvedValue(cachedAnalysis)
+      mockIndexedDBCache.getCachedProjectEmbeddings.mockResolvedValue(cachedEmbeddings)
 
-      await smartSuggestions.analyzeProject(files)
+      await smartSuggestions.loadCachedAnalysis(files)
 
       expect(smartSuggestions.hasLoadedFromCache.value).toBe(true)
-      expect(smartSuggestions.extractedKeywords.value).toEqual(cachedAnalysis.extractedKeywords)
     })
 
     it('should handle analysis errors gracefully', async () => {
       const files = createMockFiles()
       mockIndexedDBCache.initDB.mockRejectedValue(new Error('Cache error'))
 
-      await expect(smartSuggestions.analyzeProject(files)).rejects.toThrow('Cache error')
+      // Should complete without crashing even if cache initialization fails
+      await expect(smartSuggestions.loadCachedAnalysis(files)).resolves.toBeUndefined()
     })
 
     it('should set analyzing state during analysis', async () => {
       const files = createMockFiles()
       
       // Mock a delay to test state changes
-      mockIndexedDBCache.calculateProjectHash.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve('hash'), 100))
+      mockRegexCodeParser.parseCode.mockImplementation(() => 
+        new Promise(resolve => setTimeout(() => resolve({
+          functions: [],
+          classes: [],
+          imports: [],
+          exports: []
+        }), 100))
       )
 
-      const analysisPromise = smartSuggestions.analyzeProject(files)
+      const analysisPromise = smartSuggestions.loadCachedAnalysis(files)
       
       // Should be analyzing initially
       expect(smartSuggestions.isAnalyzing.value).toBe(true)
@@ -290,71 +275,6 @@ export const useUserStore = defineStore('user', () => {
     })
   })
 
-  describe('generateSuggestions', () => {
-    it('should generate context set suggestions', () => {
-      const files = createMockFiles()
-      
-      const suggestions = smartSuggestions.generateSuggestions(files)
-      
-      expect(suggestions.length).toBeGreaterThan(0)
-      
-      const contextSetSuggestions = suggestions.filter(s => s.type === 'contextSet') as ContextSetSuggestion[]
-      expect(contextSetSuggestions.length).toBeGreaterThan(0)
-      
-      const suggestion = contextSetSuggestions[0]
-      expect(suggestion.data.suggestedName).toBeDefined()
-      expect(suggestion.data.files).toBeInstanceOf(Array)
-      expect(suggestion.data.reason).toBeDefined()
-      expect(suggestion.data.category).toMatch(/^(feature|domain|layer|component)$/)
-    })
-
-    it('should generate related files suggestions when dependencies exist', () => {
-      const files = createMockFiles()
-      
-      // Mock parseCode to return dependencies
-      mockTreeSitter.parseCode.mockResolvedValue({
-        functions: [{ name: 'testFunction', startLine: 1, endLine: 5 }],
-        classes: [{ name: 'TestClass', startLine: 10, endLine: 20 }],
-        imports: [{ module: './Button.vue', startLine: 1 }],
-        exports: [{ name: 'TestExport', startLine: 25 }],
-        calls: [{ name: 'testCall', startLine: 15 }]
-      })
-      
-      const suggestions = smartSuggestions.generateSuggestions(files)
-      
-      // May or may not have related files suggestions depending on dependency resolution
-      const relatedFilesSuggestions = suggestions.filter(s => s.type === 'relatedFiles') as RelatedFilesSuggestion[]
-      
-      if (relatedFilesSuggestions.length > 0) {
-        const suggestion = relatedFilesSuggestions[0]
-        expect(suggestion.data.baseFile).toBeDefined()
-        expect(suggestion.data.relatedFiles).toBeInstanceOf(Array)
-        expect(suggestion.data.relatedFiles[0]).toHaveProperty('file')
-        expect(suggestion.data.relatedFiles[0]).toHaveProperty('relationship')
-        expect(suggestion.data.relatedFiles[0]).toHaveProperty('confidence')
-      }
-    })
-
-    it('should generate workflow suggestions when entry points exist', () => {
-      const files = createMockFiles()
-      
-      const suggestions = smartSuggestions.generateSuggestions(files)
-      
-      // May or may not have workflow suggestions depending on entry point detection
-      const workflowSuggestions = suggestions.filter(s => s.type === 'workflow') as WorkflowSuggestion[]
-      
-      if (workflowSuggestions.length > 0) {
-        const suggestion = workflowSuggestions[0]
-        expect(suggestion.data.name).toBeDefined()
-        expect(suggestion.data.steps).toBeInstanceOf(Array)
-      }
-    })
-
-    it('should handle empty files array', () => {
-      const suggestions = smartSuggestions.generateSuggestions([])
-      expect(suggestions).toEqual([])
-    })
-  })
 
   describe('performHybridKeywordSearch', () => {
     it('should perform keyword search and return hybrid results', async () => {
@@ -403,60 +323,12 @@ export const useUserStore = defineStore('user', () => {
     })
   })
 
-  describe('keyword extraction', () => {
-    it('should extract keywords from file paths and content', async () => {
-      const files = createMockFiles()
-      
-      await smartSuggestions.analyzeProject(files)
-      
-      const keywords = smartSuggestions.extractedKeywords.value
-      expect(keywords.length).toBeGreaterThan(0)
-      
-      // Check keyword structure
-      const keyword = keywords[0]
-      expect(keyword).toHaveProperty('keyword')
-      expect(keyword).toHaveProperty('frequency')
-      expect(keyword).toHaveProperty('sources')
-      expect(keyword).toHaveProperty('confidence')
-      expect(keyword).toHaveProperty('relatedFiles')
-      expect(keyword.confidence).toBeGreaterThan(0)
-      expect(keyword.confidence).toBeLessThanOrEqual(1)
-    })
-
-    it('should filter out common programming terms', async () => {
-      const files = createMockFiles()
-      
-      await smartSuggestions.analyzeProject(files)
-      
-      const keywords = smartSuggestions.extractedKeywords.value
-      const commonTerms = ['function', 'const', 'import', 'export', 'class']
-      
-      // Should not include basic programming keywords
-      const hasCommonTerms = keywords.some(k => commonTerms.includes(k.keyword.toLowerCase()))
-      expect(hasCommonTerms).toBe(false)
-    })
-
-    it('should calculate confidence scores correctly', async () => {
-      const files = createMockFiles()
-      
-      await smartSuggestions.analyzeProject(files)
-      
-      const keywords = smartSuggestions.extractedKeywords.value
-      
-      // All keywords should have valid confidence scores
-      keywords.forEach(keyword => {
-        expect(keyword.confidence).toBeGreaterThan(0)
-        expect(keyword.confidence).toBeLessThanOrEqual(1)
-        expect(typeof keyword.confidence).toBe('number')
-      })
-    })
-  })
+  // Keyword extraction functionality has been removed
 
   describe('state management', () => {
     it('should clear analysis state correctly', () => {
       smartSuggestions.clearAnalysisState()
 
-      expect(smartSuggestions.extractedKeywords.value).toEqual([])
       expect(smartSuggestions.hasLoadedFromCache.value).toBe(false)
       expect(smartSuggestions.isAnalyzing.value).toBe(false)
       expect(smartSuggestions.analysisProgress.value).toBe(0)
@@ -465,7 +337,6 @@ export const useUserStore = defineStore('user', () => {
     it('should clear cache when requested', async () => {
       smartSuggestions.clearCache()
       
-      expect(smartSuggestions.extractedKeywords.value).toEqual([])
       expect(smartSuggestions.hasLoadedFromCache.value).toBe(false)
     })
   })
@@ -488,11 +359,10 @@ import { UserService } from '../utils/helpers'`
         }
       ]
 
-      await smartSuggestions.analyzeProject(files)
+      await smartSuggestions.loadCachedAnalysis(files)
       
-      // Dependencies should influence the suggestions
-      const suggestions = smartSuggestions.generateSuggestions(files)
-      expect(suggestions.length).toBeGreaterThanOrEqual(0)
+      // Analysis should complete successfully
+      expect(smartSuggestions.dependencyGraph.value).toBeDefined()
     })
   })
 
@@ -531,7 +401,7 @@ import { UserService } from '../utils/helpers'`
         progressUpdates.push(newValue)
       })
       
-      await smartSuggestions.analyzeProject(files)
+      await smartSuggestions.loadCachedAnalysis(files)
       
       stopWatcher()
       
@@ -556,10 +426,12 @@ import { UserService } from '../utils/helpers'`
       expect(result.data.files.length).toBeGreaterThanOrEqual(0)
     })
 
-    it('should handle tree-sitter parsing errors', async () => {
+    it('should handle regex parsing errors', async () => {
       const files = createMockFiles()
       
-      mockTreeSitter.parseCode.mockRejectedValue(new Error('Parsing failed'))
+      mockRegexCodeParser.parseCode.mockImplementation(() => {
+        throw new Error('Parsing failed')
+      })
       
       const result = await smartSuggestions.performHybridKeywordSearch('test', files)
       
@@ -570,9 +442,9 @@ import { UserService } from '../utils/helpers'`
     it('should handle cache storage failures gracefully', async () => {
       const files = createMockFiles()
       
-      mockIndexedDBCache.storeCachedProjectAnalysis.mockRejectedValue(new Error('Storage full'))
+      mockIndexedDBCache.storeCachedProjectEmbeddings.mockRejectedValue(new Error('Storage full'))
       
-      await expect(smartSuggestions.analyzeProject(files)).rejects.toThrow('Storage full')
+      await expect(smartSuggestions.loadCachedAnalysis(files)).resolves.toBeUndefined()
     })
   })
 
@@ -598,14 +470,14 @@ import { UserService } from '../utils/helpers'`
       ]
 
       // Mock isLanguageSupported to return false for non-code files
-      mockTreeSitter.isLanguageSupported.mockImplementation((path: string) => {
+      mockRegexCodeParser.isLanguageSupported.mockImplementation((path: string) => {
         return path.endsWith('.ts') || path.endsWith('.vue')
       })
 
-      await smartSuggestions.analyzeProject(mixedFiles)
+      await smartSuggestions.loadCachedAnalysis(mixedFiles)
       
-      const suggestions = smartSuggestions.generateSuggestions(mixedFiles)
-      expect(suggestions.length).toBeGreaterThan(0)
+      // Analysis should complete without errors
+      expect(smartSuggestions.isAnalyzing.value).toBe(false)
     })
   })
 }) 

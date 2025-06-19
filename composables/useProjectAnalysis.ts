@@ -4,9 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import type { SmartSuggestion } from './useSmartContextSuggestions'
-
-interface FileTreeItem {
+export interface FileTreeItem {
   path: string
   name: string
   type: 'file' | 'directory'
@@ -14,24 +12,18 @@ interface FileTreeItem {
   children?: FileTreeItem[]
 }
 
-export const useHybridAnalysis = () => {
-  // IMPORTANT: Use the same shared global instance that SmartSuggestionsPanel uses
-  // This ensures state consistency across all components
+export const useProjectAnalysis = () => {
+  // Use the core analysis engine
   const smartSuggestionsComposable = useSmartContextSuggestions()
-  const analyzeProject = smartSuggestionsComposable?.analyzeProject || (async () => {})
-  const generateSuggestions = smartSuggestionsComposable?.generateSuggestions || (() => [])
+  const loadCachedAnalysis = smartSuggestionsComposable?.loadCachedAnalysis || (async () => {})
   const clearAnalysisState = smartSuggestionsComposable?.clearAnalysisState || (() => {})
   
-  // Use the SAME reactive state instances from the shared composable
+  // Use the same reactive state instances from the shared composable
   const isAnalyzing = smartSuggestionsComposable?.isAnalyzing || ref(false)
   const analysisProgress = smartSuggestionsComposable?.analysisProgress || ref(0)
-  const extractedKeywords = smartSuggestionsComposable?.extractedKeywords || ref([])
   const hasLoadedFromCache = smartSuggestionsComposable?.hasLoadedFromCache || ref(false)
 
-  const treeSitterComposable = useTreeSitter()
-  const initializeParser = treeSitterComposable?.initializeParser || (async () => false)
-  const isInitialized = treeSitterComposable?.isInitialized || ref(false)
-  const isLanguageSupported = treeSitterComposable?.isLanguageSupported || (() => false)
+  const { isLanguageSupported } = useRegexCodeParser()
 
   const accessibilityComposable = useAccessibility()
   const announceStatus = accessibilityComposable?.announceStatus || (() => {})
@@ -56,7 +48,7 @@ export const useHybridAnalysis = () => {
     return files
   }
 
-  // Extracted function for preparing files for analysis
+  // Prepare files for analysis with filtering and content loading
   const prepareFilesForAnalysis = async (rawFiles: FileTreeItem[]): Promise<Array<{ path: string; content: string }>> => {
     if (rawFiles.length === 0) {
       throw new Error('No files found for analysis')
@@ -64,30 +56,29 @@ export const useHybridAnalysis = () => {
 
     console.log(`📁 Found ${rawFiles.length} total files in project`)
 
-    // --- 1. Create the Intelligent Matcher ---
+    // Create gitignore matcher
     announceStatus('Reading .gitignore rules...')
     const { createMatcher } = useGitignore()
     
-    // We only need paths and handles for this step
     const allProjectFilePaths = rawFiles.map(f => ({ path: f.path, handle: f.handle }))
     const gitignoreMatcher = await createMatcher(allProjectFilePaths)
 
-    // --- 2. Pre-computation Filtering ---
+    // Filter files based on gitignore and language support
     announceStatus('Filtering project files based on rules...')
     
     const filesToAnalyzeHandles = rawFiles.filter(file => {
-      // First, ensure it's a valid file handle
+      // Ensure it's a valid file handle
       if (!file.handle || file.type !== 'file') {
         return false
       }
 
-      // Use the gitignore matcher to check if the path should be excluded
+      // Check gitignore
       const relativePath = file.path.startsWith('/') ? file.path.substring(1) : file.path
       if (gitignoreMatcher.ignores(relativePath)) {
-        return false // If the matcher says to ignore it, we discard it
+        return false
       }
 
-      // If not ignored, finally check if the language is supported by tree-sitter
+      // Check language support
       return isLanguageSupported(file.path)
     })
 
@@ -97,7 +88,7 @@ export const useHybridAnalysis = () => {
       throw new Error('No valid files found for analysis after filtering')
     }
 
-    // --- 3. Load File Content ---
+    // Load file content
     announceStatus(`Loading content for ${filesToAnalyzeHandles.length} filtered files...`)
 
     const filesToAnalyze: Array<{ path: string; content: string }> = []
@@ -121,18 +112,17 @@ export const useHybridAnalysis = () => {
       throw new Error('No valid files found after content loading')
     }
 
-    console.log(`✅ Successfully loaded ${filesToAnalyze.length} files for hybrid analysis`)
+    console.log(`✅ Successfully loaded ${filesToAnalyze.length} files for analysis`)
     return filesToAnalyze
   }
 
-  // Main analysis function that can be called from anywhere
-  const performHybridAnalysis = async (
+  // Main project analysis function
+  const performProjectAnalysis = async (
     fileTree: FileTreeItem[], 
     options: { 
-      silent?: boolean,
-      onComplete?: (suggestions: SmartSuggestion[]) => void 
+      silent?: boolean
     } = {}
-  ): Promise<{ success: boolean; suggestions: SmartSuggestion[] }> => {
+  ): Promise<{ success: boolean; filesAnalyzed: number }> => {
     try {
       const allFiles = getAllFilesFromTree(fileTree)
       
@@ -140,63 +130,41 @@ export const useHybridAnalysis = () => {
         if (!options.silent) {
           announceStatus('No files found for analysis')
         }
-        return { success: false, suggestions: [] }
-      }
-
-      // Initialize tree-sitter if not already done
-      if (!isInitialized?.value) {
-        if (!options.silent) {
-          announceStatus('Initializing code parser...')
-        }
-        const success = await initializeParser()
-        if (!success) {
-          if (!options.silent) {
-            announceStatus('Failed to initialize code parser')
-          }
-          return { success: false, suggestions: [] }
-        }
+        return { success: false, filesAnalyzed: 0 }
       }
 
       // Prepare files for analysis (filtering and content loading)
       const filesToAnalyze = await prepareFilesForAnalysis(allFiles)
 
-      // Run the actual analysis
+      // Run the analysis
       if (!options.silent) {
-        announceStatus(`Analyzing ${filesToAnalyze.length} files with hybrid approach...`)
+        announceStatus(`Loading analysis for ${filesToAnalyze.length} files...`)
       }
-      console.log(`🧠 Starting hybrid analysis of ${filesToAnalyze.length} files...`)
+      console.log(`🧠 Starting analysis of ${filesToAnalyze.length} files...`)
       
-      await analyzeProject(filesToAnalyze)
+      await loadCachedAnalysis(filesToAnalyze)
 
-      // Generate traditional suggestions
-      const newSuggestions = generateSuggestions(filesToAnalyze) || []
-
-      const message = `Hybrid analysis complete. Found ${newSuggestions.length} suggestions. Ready for keyword search.`
+      const message = `Analysis complete. Ready for search with ${filesToAnalyze.length} files.`
       if (!options.silent) {
         announceStatus(message)
       }
       console.log(`✅ ${message}`)
       
-      // Add debug logging to verify keywords are set
-      console.log(`🔍 Post-analysis keyword check:`, {
-        extractedKeywordsLength: extractedKeywords.value?.length || 0,
+      console.log(`🔍 Post-analysis state check:`, {
         hasLoadedFromCache: hasLoadedFromCache.value,
-        sampleKeywords: extractedKeywords.value?.slice(0, 3) || []
+        filesAnalyzed: filesToAnalyze.length
       })
 
-      // Call completion callback if provided
-      options.onComplete?.(newSuggestions)
-
-      return { success: true, suggestions: newSuggestions }
+      return { success: true, filesAnalyzed: filesToAnalyze.length }
     } catch (error) {
-      console.error('Hybrid analysis failed:', error)
+      console.error('Project analysis failed:', error)
       const errorMessage = `Analysis failed: ${error instanceof Error ? error.message : 'Please try again.'}`
       
       if (!options.silent) {
         announceStatus(errorMessage)
       }
       
-      return { success: false, suggestions: [] }
+      return { success: false, filesAnalyzed: 0 }
     }
   }
 
@@ -204,15 +172,14 @@ export const useHybridAnalysis = () => {
     // State
     isAnalyzing: readonly(isAnalyzing),
     analysisProgress: readonly(analysisProgress),
-    extractedKeywords: readonly(extractedKeywords),
     hasLoadedFromCache: readonly(hasLoadedFromCache),
     
     // Methods
-    performHybridAnalysis,
+    performProjectAnalysis,
     clearAnalysisState,
     
     // Utilities
     getAllFilesFromTree,
     prepareFilesForAnalysis
   }
-} 
+}

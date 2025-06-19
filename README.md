@@ -62,7 +62,7 @@ An auto-generated index mapping file IDs to the context sets that use them, usef
 - Tailwind CSS, Reka-ui, and shadcn-nuxt for the styling
 - File System Access API for local file interaction
 - browser's localStorage and indexedDB for persistence
-- 'Xenova/jina-embeddings-v2-small-en' as the locally-embedded LLM for semantic search
+- 'jinaai/jina-embeddings-v2-base-code' (300mb+ size) as the locally-embedded LLM for semantic search
 
 
 ## Getting Started

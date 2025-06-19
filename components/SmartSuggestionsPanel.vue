@@ -22,31 +22,8 @@
       </div>
 
       <!-- Hybrid Keyword Search -->
-      <div v-if="hasAnalyzed && !isAnalyzing" class="mt-4">
+      <div v-if="hasFiles && !isAnalyzing" class="mt-4">
         <div class="space-y-3">
-          <!-- Suggested Keywords (shown after analysis) -->
-          <div v-if="extractedKeywords.length > 0" class="mt-4">
-            <div class="flex items-center space-x-2 mb-3">
-              <Icon name="lucide:lightbulb" class="w-4 h-4 text-yellow-500" />
-              <h4 class="text-sm font-medium text-foreground">Suggested Domain Keywords</h4>
-            </div>
-            
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="keyword in extractedKeywords.slice(0, 12)"
-                :key="keyword.keyword"
-                class="inline-flex items-center px-3 py-1.5 cursor-pointer text-xs font-medium rounded-full border transition-colors hover:bg-primary/10 hover:border-primary/20 bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-400"
-                @click="quickSearch(keyword.keyword)"
-              >
-                <span>{{ keyword.keyword }}</span>
-                <span class="ml-1 text-xs opacity-60">({{ keyword.frequency }})</span>
-              </button>
-            </div>
-            
-            <div class="text-xs text-muted-foreground mt-4">
-              💡 Click any keyword for instant search • Business entities and domain concepts or search it by yourself
-            </div>
-          </div>
           <div class="flex space-x-2">
             <div class="flex-1">
               <Input
@@ -90,58 +67,33 @@
         </p>
       </div>
 
-      <!-- Not Analyzed State -->
+      <!-- Ready for Search State -->
       <div 
-        v-else-if="!hasAnalyzed && !isAnalyzing" 
+        v-else-if="hasFiles && !isAnalyzing && !keywordSearchResults" 
         class="text-center py-8 px-4"
       >
         <div class="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-          <Icon name="lucide:brain" class="w-8 h-8 text-primary" />
+          <Icon name="lucide:search" class="w-8 h-8 text-primary" />
         </div>
         <h4 class="text-lg font-semibold text-foreground mb-2">
-          Ready for Hybrid Analysis
+          Ready to Search
         </h4>
         <p class="text-sm text-muted-foreground mb-4">
-          Analyze your project with both AST parsing and LLM embeddings to get intelligent suggestions and powerful keyword search.
-        </p>
-        <Button class="px-6" @click="analyzeBtnClicked">
-          <Icon name="lucide:brain" class="w-4 h-4 mr-2" />
-          Start Hybrid Analysis
-        </Button>
-      </div>
-
-      <!-- Analysis Complete - Ready for Search -->
-      <div v-else-if="hasAnalyzed && !isAnalyzing && !keywordSearchResults" class="text-center py-8 px-4">
-        <div class="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-          <Icon name="lucide:check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
-        </div>
-        <h4 class="text-lg font-semibold text-foreground mb-2">
-          Analysis Complete!
-        </h4>
-        <p class="text-sm text-muted-foreground mb-4">
-          <span v-if="hasLoadedFromCache">
-            Domain keywords loaded from cache! Your project analysis is ready for instant search.
-          </span>
-          <span v-else>
-            Your project has been analyzed with both AST parsing and LLM embeddings. Use the keyword search above to find relevant files with intelligent ranking.
-          </span>
+          Use the search bar above to find relevant files with intelligent hybrid ranking. The search combines AST parsing and LLM embeddings for the best results.
         </p>
         <div class="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
           <div class="flex items-center justify-center space-x-4">
             <div class="text-center">
               <div class="font-medium">🕵️ AST Analysis</div>
-              <div class="text-xs">Code structure parsed</div>
+              <div class="text-xs">Real-time structure parsing</div>
             </div>
             <div class="text-center">
               <div class="font-medium">🧠 LLM Embeddings</div>
-              <div class="text-xs">
-                <span v-if="hasLoadedFromCache">Loaded from cache</span>
-                <span v-else>Semantic understanding ready</span>
-              </div>
+              <div class="text-xs">On-demand semantic analysis</div>
             </div>
-            <div v-if="hasLoadedFromCache" class="text-center">
-              <div class="font-medium">💾 Cache</div>
-              <div class="text-xs">Instant loading</div>
+            <div class="text-center">
+              <div class="font-medium">⚡ Hybrid</div>
+              <div class="text-xs">Best of both approaches</div>
             </div>
           </div>
         </div>
@@ -240,15 +192,8 @@ import type { SmartSuggestion, KeywordSearchSuggestion } from '@/composables/use
 const smartSuggestionsComposable = useSmartContextSuggestions()
 const isAnalyzing = smartSuggestionsComposable?.isAnalyzing || ref(false)
 const analysisProgress = smartSuggestionsComposable?.analysisProgress || ref(0)
-const extractedKeywords = smartSuggestionsComposable?.extractedKeywords || ref([])
-const hasLoadedFromCache = smartSuggestionsComposable?.hasLoadedFromCache || ref(false)
 const clearAnalysisState = smartSuggestionsComposable?.clearAnalysisState || (() => {})
 const performHybridKeywordSearch = smartSuggestionsComposable?.performHybridKeywordSearch || (async () => ({} as KeywordSearchSuggestion))
-const loadCachedKeywords = smartSuggestionsComposable?.loadCachedKeywords || (async () => false)
-
-// Use hybrid analysis for manual trigger
-const hybridAnalysis = useHybridAnalysis()
-const { performHybridAnalysis } = hybridAnalysis
 
 const projectStore = useProjectStore()
 const fileTree = projectStore?.fileTree || ref([])
@@ -266,27 +211,7 @@ const keywordSearchResults = ref<KeywordSearchSuggestion | null>(null)
 const searchKeyword = ref('')
 const isSearching = ref(false)
 
-// Computed hasAnalyzed based on extracted keywords or cache
-const hasAnalyzed = computed(() => {
-  try {
-    const keywordsLength = extractedKeywords.value.length
-    const loadedFromCache = hasLoadedFromCache.value
-    const result = keywordsLength > 0 || loadedFromCache
-    
-    // Debug logging
-    console.log('🔍 SmartSuggestionsPanel hasAnalyzed check:', {
-      keywordsLength,
-      loadedFromCache,
-      result,
-      extractedKeywords: extractedKeywords.value.slice(0, 3) // First 3 keywords for debugging
-    })
-    
-    return result
-  } catch (error) {
-    console.warn('Error checking analysis state:', error)
-    return false
-  }
-})
+// Note: hasAnalyzed is no longer needed since search works on-demand
 
 // File tree item interface
 interface FileTreeItem {
@@ -377,27 +302,10 @@ const addFileToContext = (filePath: string) => {
   }
 }
 
-const analyzeBtnClicked = async () => {
-  try {
-    if (!hasFiles.value) return
-
-    const result = await performHybridAnalysis(allFiles.value, {
-      onComplete: (newSuggestions) => {
-        suggestions.value = newSuggestions
-      }
-    })
-
-    if (!result.success) {
-      console.warn('Hybrid analysis completed but returned unsuccessful result')
-    }
-  } catch (error) {
-    console.error('Analysis failed:', error)
-    announceStatus(`Analysis failed: ${error instanceof Error ? error.message : 'Please try again.'}`)
-  }
-}
+// Note: Manual analysis button is no longer needed since search works on-demand
 
 const performKeywordSearch = async () => {
-  if (!searchKeyword.value.trim() || !hasAnalyzed.value) return
+  if (!searchKeyword.value.trim() || !hasFiles.value) return
 
   isSearching.value = true
   
@@ -471,37 +379,7 @@ const createContextFromSearch = (suggestion: KeywordSearchSuggestion) => {
   }
 }
 
-// Load cached keywords when files are available
-const tryLoadCachedKeywords = async () => {
-  if (!hasFiles.value) {
-    console.log('📭 No files available, skipping cache load')
-    return
-  }
-  
-  try {
-    console.log('🔍 Attempting to load cached keywords for current project...')
-    
-    // Get all files from the tree
-    const files = allFiles.value
-    console.log(`📁 Current project has ${files.length} files`)
-    
-    // Prepare files for cache lookup (filtering and content loading)
-    const { prepareFilesForAnalysis } = hybridAnalysis
-    const filesToAnalyze = await prepareFilesForAnalysis(files)
-    console.log(`🎯 Prepared ${filesToAnalyze.length} files for cache lookup`)
-    
-    // Try to load cached keywords
-    const loaded = await loadCachedKeywords(filesToAnalyze)
-    if (loaded) {
-      announceStatus(`Loaded ${extractedKeywords.value.length} cached domain keywords`)
-      console.log('🎯 Successfully loaded cached domain keywords for this project')
-    } else {
-      console.log('📭 No cached keywords found for this project')
-    }
-  } catch (error) {
-    console.warn('Failed to load cached keywords:', error)
-  }
-}
+// Note: Keyword loading is no longer needed since search works on-demand
 
 // Clear suggestions when files change and try to load cache
 watch(() => fileTree?.value, async (newTree, _oldTree) => {
@@ -521,48 +399,16 @@ watch(() => fileTree?.value, async (newTree, _oldTree) => {
       // Small delay to ensure UI updates and let automatic analysis start
       await nextTick()
       
-      // Give time for automatic analysis to complete before trying cache
-      setTimeout(async () => {
-        try {
-          if (hasFiles.value && extractedKeywords.value.length === 0) {
-            console.log('🔍 Attempting delayed cache load after project switch...')
-            await tryLoadCachedKeywords()
-          }
-        } catch (error) {
-          console.warn('Error in delayed cache load:', error)
-        }
-      }, 2000) // 2 second delay to let automatic analysis complete
+      // Note: No need for analysis delay since search works on-demand
     }
   } catch (error) {
     console.warn('Error in fileTree watcher:', error)
   }
 }, { immediate: false })
 
-// Debug watcher to monitor state changes
-watch([extractedKeywords, hasLoadedFromCache], ([keywords, fromCache], [prevKeywords, prevFromCache]) => {
-  console.log('🔍 SmartSuggestionsPanel state changed:', {
-    keywords: keywords.length,
-    keywordsList: keywords.slice(0, 3),
-    fromCache,
-    prevKeywords: prevKeywords?.length || 0,
-    prevFromCache
-  })
-}, { immediate: true, deep: true })
+// Note: State monitoring simplified since search works on-demand
 
-// Also try to load on component mount if files are already available
-onMounted(() => {
-  nextTick(() => {
-    console.log('🔍 SmartSuggestionsPanel mounted with state:', {
-      hasFiles: hasFiles.value,
-      extractedKeywords: extractedKeywords.value.length,
-      hasLoadedFromCache: hasLoadedFromCache.value
-    })
-    
-    if (hasFiles.value) {
-      tryLoadCachedKeywords()
-    }
-  })
-})
+// Note: No setup needed on mount since search works on-demand
 </script>
 
  

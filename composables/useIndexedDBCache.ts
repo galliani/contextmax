@@ -11,15 +11,8 @@ export interface CachedFileEmbedding {
   timestamp: number
 }
 
-export interface CachedProjectAnalysis {
+export interface CachedProjectEmbeddings {
   projectHash: string
-  extractedKeywords: Array<{
-    keyword: string
-    frequency: number
-    sources: Array<'directory' | 'filename' | 'class' | 'function' | 'import' | 'export'>
-    confidence: number
-    relatedFiles: string[]
-  }>
   fileEmbeddings: Record<string, number[]>
   timestamp: number
 }
@@ -28,7 +21,7 @@ export const useIndexedDBCache = () => {
   const DB_NAME = 'ContextMaxCache'
   const DB_VERSION = 1
   const EMBEDDINGS_STORE = 'file_embeddings'
-  const ANALYSIS_STORE = 'project_analysis'
+  const EMBEDDINGS_STORE_PROJECT = 'project_embeddings'
   
   let db: IDBDatabase | null = null
 
@@ -63,10 +56,10 @@ export const useIndexedDBCache = () => {
           embeddingsStore.createIndex('timestamp', 'timestamp')
         }
         
-        // Create project analysis store  
-        if (!database.objectStoreNames.contains(ANALYSIS_STORE)) {
-          const analysisStore = database.createObjectStore(ANALYSIS_STORE, { keyPath: 'projectHash' })
-          analysisStore.createIndex('timestamp', 'timestamp')
+        // Create project embeddings store  
+        if (!database.objectStoreNames.contains(EMBEDDINGS_STORE_PROJECT)) {
+          const embeddingsStore = database.createObjectStore(EMBEDDINGS_STORE_PROJECT, { keyPath: 'projectHash' })
+          embeddingsStore.createIndex('timestamp', 'timestamp')
         }
       }
     })
@@ -157,54 +150,52 @@ export const useIndexedDBCache = () => {
     })
   }
 
-  // Get cached project analysis
-  const getCachedProjectAnalysis = async (projectHash: string): Promise<CachedProjectAnalysis | null> => {
+  // Get cached project embeddings
+  const getCachedProjectEmbeddings = async (projectHash: string): Promise<CachedProjectEmbeddings | null> => {
     if (!db) return null
 
     return new Promise((resolve) => {
-      const transaction = db!.transaction([ANALYSIS_STORE], 'readonly')
-      const store = transaction.objectStore(ANALYSIS_STORE)
+      const transaction = db!.transaction([EMBEDDINGS_STORE_PROJECT], 'readonly')
+      const store = transaction.objectStore(EMBEDDINGS_STORE_PROJECT)
       const request = store.get(projectHash)
       
       request.onsuccess = () => {
-        const result: CachedProjectAnalysis | undefined = request.result
+        const result: CachedProjectEmbeddings | undefined = request.result
         resolve(result || null)
       }
       
       request.onerror = () => {
-        console.warn(`Failed to get cached analysis for project ${projectHash}:`, request.error)
+        console.warn(`Failed to get cached embeddings for project ${projectHash}:`, request.error)
         resolve(null)
       }
     })
   }
 
-  // Store project analysis
-  const storeCachedProjectAnalysis = async (
+  // Store project embeddings
+  const storeCachedProjectEmbeddings = async (
     projectHash: string,
-    extractedKeywords: CachedProjectAnalysis['extractedKeywords'],
     fileEmbeddings: Record<string, number[]>
   ): Promise<boolean> => {
     if (!db) return false
 
     return new Promise((resolve) => {
-      const transaction = db!.transaction([ANALYSIS_STORE], 'readwrite')
-      const store = transaction.objectStore(ANALYSIS_STORE)
+      const transaction = db!.transaction([EMBEDDINGS_STORE_PROJECT], 'readwrite')
+      const store = transaction.objectStore(EMBEDDINGS_STORE_PROJECT)
       
-      const cachedAnalysis: CachedProjectAnalysis = {
+      const cachedEmbeddings: CachedProjectEmbeddings = {
         projectHash,
-        extractedKeywords,
         fileEmbeddings,
         timestamp: Date.now()
       }
       
-      const request = store.put(cachedAnalysis)
+      const request = store.put(cachedEmbeddings)
       
       request.onsuccess = () => {
         resolve(true)
       }
       
       request.onerror = () => {
-        console.warn(`Failed to store project analysis:`, request.error)
+        console.warn(`Failed to store project embeddings:`, request.error)
         resolve(false)
       }
     })
@@ -233,13 +224,13 @@ export const useIndexedDBCache = () => {
       console.warn('Failed to clean old embeddings cache:', error)
     }
 
-    // Clean analysis
+    // Clean project embeddings
     try {
-      const analysisTransaction = db.transaction([ANALYSIS_STORE], 'readwrite')
-      const analysisStore = analysisTransaction.objectStore(ANALYSIS_STORE)
-      const analysisIndex = analysisStore.index('timestamp')
-      const analysisRange = IDBKeyRange.upperBound(thirtyDaysAgo)
-      analysisIndex.openCursor(analysisRange).onsuccess = (event) => {
+      const embeddingsProjectTransaction = db.transaction([EMBEDDINGS_STORE_PROJECT], 'readwrite')
+      const embeddingsProjectStore = embeddingsProjectTransaction.objectStore(EMBEDDINGS_STORE_PROJECT)
+      const embeddingsProjectIndex = embeddingsProjectStore.index('timestamp')
+      const embeddingsProjectRange = IDBKeyRange.upperBound(thirtyDaysAgo)
+      embeddingsProjectIndex.openCursor(embeddingsProjectRange).onsuccess = (event) => {
         const cursor = (event.target as IDBRequest).result
         if (cursor) {
           cursor.delete()
@@ -247,13 +238,13 @@ export const useIndexedDBCache = () => {
         }
       }
     } catch (error) {
-      console.warn('Failed to clean old analysis cache:', error)
+      console.warn('Failed to clean old project embeddings cache:', error)
     }
   }
 
   // Get cache statistics
-  const getCacheStats = async (): Promise<{ embeddingsCount: number; analysisCount: number }> => {
-    if (!db) return { embeddingsCount: 0, analysisCount: 0 }
+  const getCacheStats = async (): Promise<{ embeddingsCount: number; projectEmbeddingsCount: number }> => {
+    if (!db) return { embeddingsCount: 0, projectEmbeddingsCount: 0 }
 
     const embeddingsCount = await new Promise<number>((resolve) => {
       const transaction = db!.transaction([EMBEDDINGS_STORE], 'readonly')
@@ -262,14 +253,14 @@ export const useIndexedDBCache = () => {
       request.onerror = () => resolve(0)
     })
 
-    const analysisCount = await new Promise<number>((resolve) => {
-      const transaction = db!.transaction([ANALYSIS_STORE], 'readonly')
-      const request = transaction.objectStore(ANALYSIS_STORE).count()
+    const projectEmbeddingsCount = await new Promise<number>((resolve) => {
+      const transaction = db!.transaction([EMBEDDINGS_STORE_PROJECT], 'readonly')
+      const request = transaction.objectStore(EMBEDDINGS_STORE_PROJECT).count()
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => resolve(0)
     })
 
-    return { embeddingsCount, analysisCount }
+    return { embeddingsCount, projectEmbeddingsCount }
   }
 
   return {
@@ -278,8 +269,8 @@ export const useIndexedDBCache = () => {
     calculateProjectHash,
     getCachedEmbedding,
     storeCachedEmbedding,
-    getCachedProjectAnalysis,
-    storeCachedProjectAnalysis,
+    getCachedProjectEmbeddings,
+    storeCachedProjectEmbeddings,
     cleanOldCache,
     getCacheStats
   }

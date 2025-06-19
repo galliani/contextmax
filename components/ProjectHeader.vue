@@ -288,7 +288,10 @@ const {
 } = useProjectStore()
 
 // Hybrid Analysis
-const { performHybridAnalysis } = useHybridAnalysis()
+const { performProjectAnalysis } = useProjectAnalysis()
+
+// Smart Context Suggestions (for cache clearing and embedding generation)
+const { clearCache, clearIndexedDBCache, generateEmbeddingsOnDemand } = useSmartContextSuggestions()
 
 // Check if user has created any context sets (for showing Export button prominently)
 const hasAnyContextSets = computed(() => {
@@ -332,6 +335,33 @@ const exportMenuAction = ref<'download' | 'export' | null>(null)
 
 // Project management state
 const isRefreshingFiles = ref(false)
+
+// Helper function to prepare files for embedding generation
+async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: string; content: string }>> {
+  const { isLanguageSupported } = useRegexCodeParser()
+  const files: Array<{ path: string; content: string }> = []
+  
+  const traverse = async (items: any[]) => {
+    for (const item of items) {
+      if (item.type === 'file' && item.handle && isLanguageSupported(item.path)) {
+        try {
+          const fileHandle = item.handle as FileSystemFileHandle
+          const file = await fileHandle.getFile()
+          const content = await file.text()
+          files.push({ path: item.path, content })
+        } catch (error) {
+          console.warn(`Failed to read file ${item.path}:`, error)
+        }
+      } else if (item.type === 'directory' && item.children) {
+        await traverse(item.children)
+      }
+    }
+  }
+  
+  await traverse(fileTree)
+  console.log(`📁 Prepared ${files.length} supported files for embedding generation`)
+  return files
+}
 
 // Export status tracking
 const exportStatus = ref<{
@@ -387,6 +417,11 @@ const handleRefreshFiles = async () => {
   isRefreshingFiles.value = true
   
   try {
+    // Clear analysis cache before reloading files to ensure fresh analysis
+    console.log('🧹 Clearing analysis cache before project reload...')
+    clearCache()
+    await clearIndexedDBCache()
+    
     const refreshSuccess = await reloadFilesFromLocal()
     
     if (refreshSuccess) {
@@ -396,21 +431,22 @@ const handleRefreshFiles = async () => {
       )
       announceStatus('Project files refreshed successfully')
       
-      // Auto-trigger hybrid analysis for refreshed projects
+      // Auto-generate embeddings for refreshed projects
       try {
-        console.log('🚀 Auto-triggering hybrid analysis for refreshed project...')
+        console.log('🚀 Auto-generating embeddings for refreshed project...')
         
-        // Convert file tree to simple format for analysis
+        // Convert file tree to simple format for embedding generation
         const treeValue = fileTree?.value || []
-        const analysisResult = await performHybridAnalysis(treeValue, { silent: false })
+        const filesToAnalyze = await prepareFilesForEmbedding(treeValue)
         
-        if (analysisResult.success) {
-          console.log('✅ Automatic hybrid analysis completed after refresh')
+        if (filesToAnalyze.length > 0) {
+          await generateEmbeddingsOnDemand(filesToAnalyze)
+          console.log('✅ Automatic embedding generation completed after refresh')
         } else {
-          console.warn('⚠️ Automatic hybrid analysis failed after refresh, but continuing')
+          console.log('📭 No supported files found for embedding generation after refresh')
         }
       } catch (error) {
-        console.warn('⚠️ Error during automatic hybrid analysis after refresh:', error)
+        console.warn('⚠️ Error during automatic embedding generation after refresh:', error)
       }
     } else {
       warning(

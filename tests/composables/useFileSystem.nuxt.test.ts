@@ -8,6 +8,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { useFileSystem } from '~/composables/useFileSystem'
 
+// Mock the gitignore composable
+let mockGitignoreIgnores = vi.fn().mockReturnValue(false)
+vi.mock('~/composables/useGitignore', () => ({
+  useGitignore: () => ({
+    createMatcher: vi.fn().mockResolvedValue({
+      ignores: mockGitignoreIgnores
+    })
+  })
+}))
+
 // Helper to create async iterator
 function createAsyncIterator(entries: any[]) {
   return {
@@ -47,6 +57,7 @@ describe('useFileSystem', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGitignoreIgnores.mockReturnValue(false) // Reset to default behavior
     fileSystem = useFileSystem()
   })
 
@@ -63,9 +74,18 @@ describe('useFileSystem', () => {
 
   describe('File Tree Building', () => {
     it('should build file tree from directory handle', async () => {
+      // Create a subdirectory with children so it won't be filtered out
+      const subdir = {
+        ...mockDirectoryHandle,
+        name: 'subdir',
+        entries: vi.fn().mockReturnValue(createAsyncIterator([
+          ['child-file.txt', mockFileHandle]
+        ]))
+      }
+      
       const mockEntries = [
         ['file1.txt', mockFileHandle],
-        ['subdir', mockDirectoryHandle]
+        ['subdir', subdir]
       ]
       
       mockDirectoryHandle.entries.mockReturnValue(createAsyncIterator(mockEntries))
@@ -86,6 +106,12 @@ describe('useFileSystem', () => {
     })
 
     it('should ignore dot files and common build directories', async () => {
+      // Set up gitignore mock to ignore specific paths for this test
+      mockGitignoreIgnores.mockImplementation((path: string) => {
+        const ignoredPaths = ['.hidden', 'node_modules', 'dist']
+        return ignoredPaths.some(ignored => path === ignored)
+      })
+      
       const mockEntries = [
         ['.hidden', mockFileHandle],
         ['node_modules', mockDirectoryHandle],
@@ -95,7 +121,7 @@ describe('useFileSystem', () => {
       
       mockDirectoryHandle.entries.mockReturnValue(createAsyncIterator(mockEntries))
       
-      const result = await fileSystem.readDirectoryRecursively(mockDirectoryHandle as any, '')
+      const result = await fileSystem.readDirectoryRecursively(mockDirectoryHandle as any, '', { ignores: mockGitignoreIgnores })
       
       expect(result).toHaveLength(1)
       expect(result[0].name).toBe('valid.txt')
@@ -125,9 +151,17 @@ describe('useFileSystem', () => {
     })
 
     it('should sort directories before files', async () => {
-      // Create separate directory mocks to avoid children being called
-      const aDir = { ...mockDirectoryHandle, name: 'a-directory', entries: vi.fn().mockReturnValue(createAsyncIterator([])) }
-      const cDir = { ...mockDirectoryHandle, name: 'c-directory', entries: vi.fn().mockReturnValue(createAsyncIterator([])) }
+      // Create separate directory mocks with children so they won't be filtered out
+      const aDir = { 
+        ...mockDirectoryHandle, 
+        name: 'a-directory', 
+        entries: vi.fn().mockReturnValue(createAsyncIterator([['a-file.txt', mockFileHandle]])) 
+      }
+      const cDir = { 
+        ...mockDirectoryHandle, 
+        name: 'c-directory', 
+        entries: vi.fn().mockReturnValue(createAsyncIterator([['c-file.txt', mockFileHandle]])) 
+      }
       
       const mockEntries = [
         ['z-file.txt', mockFileHandle],
@@ -376,7 +410,8 @@ describe('useFileSystem', () => {
         ['file1.txt', mockFileHandle]
       ]
       
-      mockDirectoryHandle.entries.mockReturnValue(createAsyncIterator(mockEntries))
+      // Mock entries() to return the same iterator each time it's called
+      mockDirectoryHandle.entries.mockImplementation(() => createAsyncIterator(mockEntries))
       
       const result = await fileSystem.rebuildFileTreeFromOPFS(mockDirectoryHandle as any)
       

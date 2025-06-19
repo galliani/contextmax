@@ -16,13 +16,16 @@ export function useProjectManager() {
     copyProjectToOPFS,
     clearProject,
     readDirectoryRecursively,
+    buildFilteredFileTree,
     isFileSystemSupported
   } = useProjectStore()
 
   const { trackProjectSelection, trackProjectRestored } = useAnalyticsHelpers()
   const { success } = useNotifications()
-  const { performHybridAnalysis } = useHybridAnalysis()
+  const { performProjectAnalysis } = useProjectAnalysis()
+  const { generateEmbeddingsOnDemand } = useSmartContextSuggestions()
   const { createProjectLoadingManager } = useLoadingStates()
+  const { isLanguageSupported } = useRegexCodeParser()
 
   // Create project loading manager
   const projectLoading = createProjectLoadingManager()
@@ -33,6 +36,32 @@ export function useProjectManager() {
   function resetState() {
     autoLoadedFromProject.value = false
     autoLoadError.value = ''
+  }
+
+  // Helper function to prepare files for embedding generation
+  async function prepareFilesForEmbedding(fileTree: FileTreeItem[]): Promise<Array<{ path: string; content: string }>> {
+    const files: Array<{ path: string; content: string }> = []
+    
+    const traverse = async (items: FileTreeItem[]) => {
+      for (const item of items) {
+        if (item.type === 'file' && item.handle && isLanguageSupported(item.path)) {
+          try {
+            const fileHandle = item.handle as FileSystemFileHandle
+            const file = await fileHandle.getFile()
+            const content = await file.text()
+            files.push({ path: item.path, content })
+          } catch (error) {
+            console.warn(`Failed to read file ${item.path}:`, error)
+          }
+        } else if (item.type === 'directory' && item.children) {
+          await traverse(item.children)
+        }
+      }
+    }
+    
+    await traverse(fileTree)
+    console.log(`📁 Prepared ${files.length} supported files for embedding generation`)
+    return files
   }
   
   async function loadProjectFiles(directoryHandle: FileSystemDirectoryHandle, hadSavedDataBefore: boolean) {
@@ -54,7 +83,7 @@ export function useProjectManager() {
       }
       
       // Always load the file tree to enable file browsing
-      const files = await readDirectoryRecursively(directoryHandle, '')
+      const files = await buildFilteredFileTree(directoryHandle)
       setFileTree(files)
       
       // Copy to OPFS for persistent access (always try if OPFS is supported and we don't have a copy)
@@ -89,17 +118,20 @@ export function useProjectManager() {
             if (copied) {
               console.log('Project successfully copied to OPFS')
               
-              // Auto-trigger hybrid analysis for new projects
+              // Auto-generate embeddings for new projects
               try {
-                console.log('🚀 Auto-triggering hybrid analysis for new project...')
-                const analysisResult = await performHybridAnalysis(files, { silent: false })
-                if (analysisResult.success) {
-                  console.log('✅ Automatic hybrid analysis completed successfully')
+                console.log('🚀 Auto-generating embeddings for new project...')
+                
+                // Convert FileTreeItems to file content format
+                const filesToAnalyze = await prepareFilesForEmbedding(files)
+                if (filesToAnalyze.length > 0) {
+                  await generateEmbeddingsOnDemand(filesToAnalyze)
+                  console.log('✅ Automatic embedding generation completed successfully')
                 } else {
-                  console.warn('⚠️ Automatic hybrid analysis failed, but continuing')
+                  console.log('📭 No supported files found for embedding generation')
                 }
               } catch (error) {
-                console.warn('⚠️ Error during automatic hybrid analysis:', error)
+                console.warn('⚠️ Error during automatic embedding generation:', error)
               }
             } else {
               console.warn('Failed to copy project to OPFS, but continuing with regular functionality')
