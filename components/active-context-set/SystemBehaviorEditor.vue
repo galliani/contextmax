@@ -26,7 +26,6 @@
             </label>
             <select
               v-model="processingMode"
-              @change="updateSystemBehavior"
               class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               <option value="">Not specified</option>
@@ -41,16 +40,16 @@
           </div>
 
           <!-- Processing Mode Details -->
-          <div v-if="processingMode" class="bg-muted/30 rounded-lg p-4">
+          <div v-if="processingMode && processingModeDetails[processingMode]" class="bg-muted/30 rounded-lg p-4">
             <div class="space-y-2">
-              <h5 class="text-sm font-medium text-foreground">{{ processingModeDetails[processingMode].title }}</h5>
-              <p class="text-xs text-muted-foreground">{{ processingModeDetails[processingMode].description }}</p>
+              <h5 class="text-sm font-medium text-foreground">{{ processingModeDetails[processingMode]?.title }}</h5>
+              <p class="text-xs text-muted-foreground">{{ processingModeDetails[processingMode]?.description }}</p>
               
               <!-- Use Cases -->
               <div class="mt-3">
                 <p class="text-xs font-medium text-foreground mb-1">Typical use cases:</p>
                 <ul class="text-xs text-muted-foreground space-y-1">
-                  <li v-for="useCase in processingModeDetails[processingMode].useCases" :key="useCase" class="flex items-start">
+                  <li v-for="useCase in processingModeDetails[processingMode]?.useCases || []" :key="useCase" class="flex items-start">
                     <Icon name="lucide:check" class="w-3 h-3 mt-0.5 mr-2 text-primary flex-shrink-0" />
                     {{ useCase }}
                   </li>
@@ -89,7 +88,7 @@ const emit = defineEmits<{
     processing?: {
       mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
     }
-  }]
+  } | null]
 }>()
 
 // Computed for processing mode
@@ -146,11 +145,11 @@ const processingModeDetails = {
 
 // Update system behavior
 function updateSystemBehavior(mode?: string) {
-  const newSystemBehavior = mode ? {
+  const newSystemBehavior = (mode && mode.trim()) ? {
     processing: {
       mode: mode as 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
     }
-  } : {}
+  } : null
   
   emit('update:system-behavior', newSystemBehavior)
 }

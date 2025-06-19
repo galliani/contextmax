@@ -22,7 +22,7 @@
       </div>
 
       <!-- Hybrid Keyword Search -->
-      <div v-if="hasFiles && !isAnalyzing" class="mt-4">
+      <div v-if="hasFiles && !isAnalyzing" id="smart-suggestions-search-bar" class="mt-4">
         <div class="space-y-3">
           <div class="flex space-x-2">
             <div class="flex-1">

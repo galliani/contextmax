@@ -211,6 +211,36 @@ describe('useContextSetExporter', () => {
       expect(exportedText).not.toContain('systemBehavior:')
     })
 
+    it('should not export systemBehavior when processing mode is empty', async () => {
+      // Context set with systemBehavior but no processing mode
+      const contextSetWithEmptySystemBehavior: ContextSet = {
+        description: 'Test context set',
+        files: ['file_1'],
+        workflow: [],
+        systemBehavior: {
+          processing: {}
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'test-empty-system-behavior',
+        contextSetWithEmptySystemBehavior,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should contain basic frontmatter
+      expect(exportedText).toContain('contextSetName: test-empty-system-behavior')
+      expect(exportedText).toContain('description: Test context set')
+      
+      // Should not contain systemBehavior since processing is empty
+      expect(exportedText).not.toContain('systemBehavior:')
+    })
+
     it('should handle file read errors gracefully', async () => {
       // Mock file read error
       mockFileHandle.getFile.mockRejectedValueOnce(new Error('Permission denied'))

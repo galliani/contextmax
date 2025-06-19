@@ -121,7 +121,11 @@ export const useContextSetExporter = () => {
     }
 
     if (contextSet.systemBehavior && Object.keys(contextSet.systemBehavior).length > 0) {
-      frontmatterObject.systemBehavior = contextSet.systemBehavior
+      // Check if systemBehavior has meaningful content
+      const hasProcessingMode = contextSet.systemBehavior.processing?.mode
+      if (hasProcessingMode) {
+        frontmatterObject.systemBehavior = contextSet.systemBehavior
+      }
     }
 
     // Step 2: Serialize to YAML
@@ -182,7 +186,7 @@ export const useContextSetExporter = () => {
     // Step 4: Combine with System Prompt
     const finalBody = frontmatter + '\n\n' + markdownBodyParts.join('\n')
     
-    const systemPrompt = `You are an expert AI software engineer. Your task is to analyze the provided project context to help with development tasks. The context is structured with YAML frontmatter for metadata and markdown for file contents. Use this complete context to answer the user's request accurately.`
+    const systemPrompt = `You can analyze the provided project context to help with development tasks. The context is structured with YAML frontmatter for metadata and markdown for file contents. Use this complete context to answer the user's request accurately.`
 
     return systemPrompt + '\n\n' + finalBody
   }

@@ -194,7 +194,7 @@ export const useContextSets = () => {
     description?: string, 
     workflow?: WorkflowStep[], 
     entryPoints?: EntryPoint[],
-    systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } }
+    systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null
   }) => {
     if (!activeContextSetName.value) {
       throw new Error('No active context set selected')
@@ -223,7 +223,11 @@ export const useContextSets = () => {
         contextSets.value[updates.name].entryPoints = [...updates.entryPoints]
       }
       if (updates.systemBehavior !== undefined) {
-        contextSets.value[updates.name].systemBehavior = { ...updates.systemBehavior }
+        if (updates.systemBehavior === null) {
+          delete contextSets.value[updates.name].systemBehavior
+        } else {
+          contextSets.value[updates.name].systemBehavior = { ...updates.systemBehavior }
+        }
       }
       
       // Remove old entry
@@ -246,7 +250,11 @@ export const useContextSets = () => {
         currentSet.entryPoints = [...updates.entryPoints]
       }
       if (updates.systemBehavior !== undefined) {
-        currentSet.systemBehavior = { ...updates.systemBehavior }
+        if (updates.systemBehavior === null) {
+          delete currentSet.systemBehavior
+        } else {
+          currentSet.systemBehavior = { ...updates.systemBehavior }
+        }
       }
     }
   }

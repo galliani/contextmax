@@ -226,7 +226,7 @@ const updateEntryPoints = (newEntryPoints: EntryPoint[]) => {
   }
 }
 
-const updateSystemBehavior = (newSystemBehavior: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } }) => {
+const updateSystemBehavior = (newSystemBehavior: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null) => {
   if (!activeContextSet.value) return
   
   try {
