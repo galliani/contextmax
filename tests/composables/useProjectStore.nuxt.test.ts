@@ -1458,8 +1458,7 @@ describe('useProjectStore', () => {
     })
   })
 
-  // Note: reloadFilesFromLocal functionality is now handled by useSavedProjects composable
-  // and tested separately in useSavedProjects.nuxt.test.ts
+  // Note: reloadFilesFromLocal functionality is now handled by useProjectManager composable
 
   describe('previewContextSetsJSON', () => {
     it('should show warning if there are no context sets', () => {

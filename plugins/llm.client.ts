@@ -206,27 +206,66 @@ if (typeof window !== 'undefined') {
   }, 10000);
 }
 
-// Use a singleton pattern to ensure the model is only loaded once.
-class LLMServiceImpl {
-  private static instance: FeatureExtractionPipeline | null = null;
-  public static status: 'loading' | 'ready' | 'error' = 'loading';
-  public static modelName: string = 'jinaai/jina-embeddings-v2-base-code';
-  public static error: string | null = null;
+// Model configuration interface
+interface ModelConfig {
+  name: string;
+  modelId: string;
+  task: string;
+  options?: {
+    device?: string;
+    dtype?: string;
+  };
+}
 
-  static async getInstance(progress_callback?: ProgressCallbackFunction): Promise<FeatureExtractionPipeline> {
-    if (this.instance === null) {
-      this.status = 'loading';
+// Default model configurations
+const DEFAULT_MODELS: Record<string, ModelConfig> = {
+  embeddings: {
+    name: 'embeddings',
+    modelId: 'jinaai/jina-embeddings-v2-base-code',
+    task: 'feature-extraction',
+    options: {
+      device: 'webgpu',
+      dtype: 'fp16'
+    }
+  },
+  // Example second model - you can add your own model here
+  textGeneration: {
+    name: 'textGeneration',
+    modelId: 'Xenova/flan-t5-small',
+    task: 'text2text-generation',
+    options: {
+      device: 'wasm',
+      dtype: 'fp32'
+    }
+  }
+};
+
+// Multi-model LLM service using singleton pattern
+class LLMServiceImpl {
+  private static instances: Map<string, Pipeline> = new Map();
+  private static statuses: Map<string, 'loading' | 'ready' | 'error'> = new Map();
+  private static errors: Map<string, string | null> = new Map();
+  private static models: Record<string, ModelConfig> = DEFAULT_MODELS;
+
+  static async getInstance(modelKey: string = 'embeddings', progress_callback?: ProgressCallbackFunction): Promise<Pipeline> {
+    const modelConfig = this.models[modelKey];
+    if (!modelConfig) {
+      throw new Error(`Model '${modelKey}' not found in configuration`);
+    }
+
+    if (!this.instances.has(modelKey)) {
+      this.statuses.set(modelKey, 'loading');
       try {
         // Initialize OPFS cache system
         await OPFSModelCache.init();
         
         // Check if model is already cached
-        const isCached = await OPFSModelCache.hasCompleteModel(this.modelName);
+        const isCached = await OPFSModelCache.hasCompleteModel(modelConfig.modelId);
         
         if (isCached) {
-          console.log(`🎯 Loading model from cache: ${this.modelName}`);
+          console.log(`🎯 Loading model from cache: ${modelConfig.modelId}`);
         } else {
-          console.log(`🚀 First-time download: ${this.modelName}`);
+          console.log(`🚀 First-time download: ${modelConfig.modelId}`);
         }
 
         // Enhanced progress callback with better cache verification
@@ -240,73 +279,100 @@ class LLMServiceImpl {
             networkDownloadDetected = true;
           }
           
-          progress_callback?.(data);
+          // Add model name to progress data
+          progress_callback?.({
+            ...data,
+            name: `${data.name} (${modelConfig.name})`
+          });
         };
 
-        this.instance = await pipeline('feature-extraction', this.modelName, { 
+        const instance = await pipeline(modelConfig.task as any, modelConfig.modelId, { 
           progress_callback: enhancedProgressCallback,
-          device: 'webgpu',
-          dtype: 'fp16',
+          ...modelConfig.options
         });
+        
+        this.instances.set(modelKey, instance);
         
         // Mark model as complete after successful initialization
         if (!isCached) {
-          await OPFSModelCache.markModelComplete(this.modelName);
+          await OPFSModelCache.markModelComplete(modelConfig.modelId);
         }
         
         // Smoke test: actually use the model to verify it works
-        console.log('🧪 Running model smoke test...');
+        console.log(`🧪 Running smoke test for ${modelConfig.name}...`);
         try {
           const testStart = performance.now();
-          const testResult = await this.instance('Hello world');
+          const testResult = await instance('Hello world');
           const testTime = Math.round(performance.now() - testStart);
           
-          // Check if result is a valid tensor (has data property)
-          if (testResult && typeof testResult === 'object' && testResult.data) {
-            const dimensions = testResult.data.length;
-            console.log(`✅ SMOKE TEST PASSED: Model working correctly (${testTime}ms, ${dimensions} dimensions)`);
+          // Check if result is valid (different models return different formats)
+          if (testResult) {
+            console.log(`✅ SMOKE TEST PASSED: ${modelConfig.name} working correctly (${testTime}ms)`);
             console.log(isCached ? 
-              '🎯 CACHE IS WORKING PERFECTLY - model loaded and functional from OPFS!' :
-              '📦 First download complete - model cached and functional'
+              `🎯 CACHE IS WORKING PERFECTLY - ${modelConfig.name} loaded and functional from OPFS!` :
+              `📦 First download complete - ${modelConfig.name} cached and functional`
             );
           } else {
-            console.log('🔍 Smoke test result:', testResult);
-            console.log('🔍 Result type:', typeof testResult);
-            console.log('🔍 Result properties:', testResult ? Object.keys(testResult) : 'none');
-            console.error('❌ SMOKE TEST FAILED: Model returned unexpected result format');
+            console.error(`❌ SMOKE TEST FAILED: ${modelConfig.name} returned no result`);
           }
         } catch (smokeTestError) {
-          console.error('❌ SMOKE TEST FAILED: Model threw error:', smokeTestError);
+          console.error(`❌ SMOKE TEST FAILED: ${modelConfig.name} threw error:`, smokeTestError);
         }
         
-        this.status = 'ready';
-        this.error = null;
-        console.log('🎉 LLM Service initialized successfully');
+        this.statuses.set(modelKey, 'ready');
+        this.errors.set(modelKey, null);
+        console.log(`🎉 ${modelConfig.name} Service initialized successfully`);
       } catch (error) {
-        console.error('❌ Failed to initialize LLM Service:', error);
-        this.status = 'error';
-        this.error = error instanceof Error ? error.message : 'Unknown error';        
+        console.error(`❌ Failed to initialize ${modelConfig.name} Service:`, error);
+        this.statuses.set(modelKey, 'error');
+        this.errors.set(modelKey, error instanceof Error ? error.message : 'Unknown error');        
         throw error;
       }
     }
-    return this.instance;
+    return this.instances.get(modelKey)!;
   }
   
-  static getStatus() {
-    return this.status;
+  static getStatus(modelKey: string = 'embeddings') {
+    return this.statuses.get(modelKey) || 'loading';
   }
 
-  static getError() {
-    return this.error;
+  static getError(modelKey: string = 'embeddings') {
+    return this.errors.get(modelKey) || null;
   }
 
-  static async initializeAsync(progress_callback?: ProgressCallbackFunction): Promise<void> {
+  static async initializeAsync(modelKey: string = 'embeddings', progress_callback?: ProgressCallbackFunction): Promise<void> {
     try {
-      await this.getInstance(progress_callback);
+      await this.getInstance(modelKey, progress_callback);
     } catch (error) {
       // Error is already handled in getInstance
-      console.error('Async LLM initialization failed:', error);
+      console.error(`Async LLM initialization failed for ${modelKey}:`, error);
     }
+  }
+
+  static async initializeAllModels(progress_callback?: ProgressCallbackFunction): Promise<void> {
+    const modelKeys = Object.keys(this.models);
+    console.log(`🚀 Initializing ${modelKeys.length} models:`, modelKeys);
+    
+    // Initialize models sequentially to avoid overwhelming the system
+    for (const modelKey of modelKeys) {
+      try {
+        await this.initializeAsync(modelKey, progress_callback);
+      } catch (error) {
+        console.error(`Failed to initialize model ${modelKey}:`, error);
+      }
+    }
+  }
+
+  static getAvailableModels(): string[] {
+    return Object.keys(this.models);
+  }
+
+  static getModelConfig(modelKey: string): ModelConfig | undefined {
+    return this.models[modelKey];
+  }
+
+  static addModel(modelKey: string, config: ModelConfig): void {
+    this.models[modelKey] = config;
   }
 
   // Debugging methods
@@ -314,8 +380,10 @@ class LLMServiceImpl {
     await OPFSModelCache.clearCache();
   }
   
-  static async checkCacheStatus(): Promise<boolean> {
-    return await OPFSModelCache.hasCompleteModel(this.modelName);
+  static async checkCacheStatus(modelKey: string = 'embeddings'): Promise<boolean> {
+    const modelConfig = this.models[modelKey];
+    if (!modelConfig) return false;
+    return await OPFSModelCache.hasCompleteModel(modelConfig.modelId);
   }
 }
 
@@ -324,27 +392,48 @@ export const LLMService = LLMServiceImpl;
 
 export default defineNuxtPlugin((_nuxtApp) => {
   // Start LLM initialization asynchronously (don't block app startup)
-  LLMService.initializeAsync();
+  // Initialize embeddings first, then other models
+  LLMService.initializeAllModels();
   
-  // Provide a direct embedding function that useSmartContextSuggestions expects
+  // Provide a direct embedding function that useSmartContextSuggestions expects (backward compatibility)
   const embeddingFunction = async (text: string, options?: { pooling?: string; normalize?: boolean }) => {
-    if (LLMService.getStatus() !== 'ready') {
-      throw new Error('LLM not ready yet');
+    if (LLMService.getStatus('embeddings') !== 'ready') {
+      throw new Error('Embeddings model not ready yet');
     }
-    const instance = await LLMService.getInstance();
+    const instance = await LLMService.getInstance('embeddings');
     return await instance(text, options);
   };
   
+  // Create enhanced API for multi-model access
+  const getModel = async (modelKey: string = 'embeddings') => {
+    if (LLMService.getStatus(modelKey) !== 'ready') {
+      throw new Error(`Model '${modelKey}' not ready yet`);
+    }
+    return await LLMService.getInstance(modelKey);
+  };
+  
   // Create a reactive status getter
-  const getStatus = () => LLMService.getStatus();
+  const getStatus = (modelKey?: string) => modelKey ? LLMService.getStatus(modelKey) : LLMService.getStatus();
   
   return {
     provide: {
       llm: {
+        // Backward compatibility
         engine: embeddingFunction,
         get status() { return getStatus(); },
+        get error() { return LLMService.getError(); },
+        
+        // New multi-model API
+        getModel,
+        getStatus,
+        getError: (modelKey?: string) => LLMService.getError(modelKey || 'embeddings'),
         service: LLMService,
-        get error() { return LLMService.getError(); }
+        availableModels: () => LLMService.getAvailableModels(),
+        getModelConfig: (modelKey: string) => LLMService.getModelConfig(modelKey),
+        initializeModel: (modelKey: string, progress_callback?: ProgressCallbackFunction) => 
+          LLMService.initializeAsync(modelKey, progress_callback),
+        initializeAllModels: (progress_callback?: ProgressCallbackFunction) => 
+          LLMService.initializeAllModels(progress_callback)
       }
     }
   }

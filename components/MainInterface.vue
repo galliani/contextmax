@@ -11,12 +11,12 @@
       @select-project="emit('select-project')"
     />
     
-    <!-- LLM Loading Screen -->
-    <LLMLoadingScreen v-if="isLoading" />
+    <!-- LLM Loading Screen - Only show when no download in progress and models need initialization -->
+    <LLMLoadingScreen v-if="showFullScreenLoader" />
     
     <!-- Main Content -->
     <div 
-      v-show="!isLoading" 
+      v-show="!showFullScreenLoader" 
       class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-3xl xl:max-w-screen-4xl space-y-6 lg:space-y-8 py-4 lg:py-6"
     >
       <!-- Two-Column Layout: Project Header + Context Set Composition -->
@@ -29,6 +29,7 @@
             :auto-loaded-from-project="autoLoadedFromProject"
             @clear-project="emit('clear-project')"
           />
+          
 
           <!-- Auto-load error notification -->
           <div v-if="autoLoadError" class="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg" role="alert" aria-live="assertive">
@@ -111,6 +112,7 @@
 
 <script setup lang="ts">
 import AIToolsPanel from '~/components/AIToolsPanel.vue'
+import { LLMService } from '~/plugins/llm.client'
 
 interface Props {
   autoLoadedFromProject?: boolean
@@ -140,14 +142,57 @@ const { info, errorWithRetry } = useNotifications()
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
 
-// LLM Loading state
-const { isLoading, isReady, hasError, initializeLLM } = useLLMLoader()
+// LLM Loading state with multi-model support
+const { 
+  isLoading, 
+  isReady, 
+  hasError, 
+  initializeLLM,
+  modelStates,
+  areAllModelsReady,
+  getModelState,
+  getOverallProgress 
+} = useLLMLoader()
 
-// Initialize LLM after component is mounted
-onMounted(() => {
-  // Start LLM initialization asynchronously
-  initializeLLM()
+// Check if any model is currently downloading or initializing
+const hasDownloadingModels = computed(() => {
+  const availableModels = ['embeddings', 'textGeneration'] // Based on our model config
+  return availableModels.some(modelKey => {
+    const serviceStatus = LLMService.getStatus(modelKey)
+    
+    // If service status is 'loading', assume it's either downloading or initializing
+    // We never want to show full screen loader during any loading phase
+    return serviceStatus === 'loading'
+  })
 })
+
+// Show full-screen loader: only when models aren't ready and aren't downloading
+const showFullScreenLoader = computed(() => {
+  const embedState = getModelState('embeddings').value
+  const textGenState = getModelState('textGeneration').value
+  
+  console.log('🔍 Debug showFullScreenLoader:', {
+    areAllModelsReady: areAllModelsReady.value,
+    hasDownloadingModels: hasDownloadingModels.value,
+    embeddingsStatus: LLMService.getStatus('embeddings'),
+    textGenStatus: LLMService.getStatus('textGeneration'),
+    embeddingsState: { status: embedState.status, progress: embedState.progress, message: embedState.message },
+    textGenState: { status: textGenState.status, progress: textGenState.progress, message: textGenState.message },
+    availableModels: LLMService.getAvailableModels()
+  })
+  
+  // Never show if all models are ready (using composable that checks service status)
+  if (areAllModelsReady.value) return false
+  
+  // Never show if models are downloading
+  if (hasDownloadingModels.value) return false
+  
+  // Show if any model still needs initialization
+  return true
+})
+
+
+// No need to manually initialize - models start downloading from the plugin
 
 // Watch for LLM initialization feedback
 watch(isReady, (ready) => {

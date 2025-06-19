@@ -27,16 +27,16 @@
     <!-- File Content Modal -->
     <FileContentModal />
     
-    <!-- OPFS Loading Screen -->
+    <!-- Project Loading Screen -->
     <FullScreenLoader
-      :is-visible="isOPFSCopying"
-      :title="`Setting up ${opfsCopyingProjectName || 'project'}`"
-      description="Creating a local copy of your project files in browser cache (OPFS) for seamless access across sessions. This only happens once per project."
-      icon="lucide:hard-drive"
-      :show-progress="true"
+      :is-visible="isLoadingFiles || isOPFSCopying"
+      :title="isOPFSCopying ? `Setting up ${opfsCopyingProjectName || 'project'}` : 'Loading Project Files'"
+      :description="isOPFSCopying ? 'Creating a local copy of your project files in browser cache (OPFS) for seamless access across sessions. This only happens once per project.' : 'Reading project structure and preparing files for analysis. This may take a moment for large projects.'"
+      :icon="isOPFSCopying ? 'lucide:hard-drive' : 'lucide:folder-open'"
+      :show-progress="isOPFSCopying"
       :progress="opfsCopyProgress"
-      :additional-info="opfsCopyProgress < 100 ? 'Copying files to local storage...' : 'Finalizing setup...'"
-      aria-label="Setting up project in local storage"
+      :additional-info="isOPFSCopying ? (opfsCopyProgress < 100 ? 'Copying files to local storage...' : 'Finalizing setup...') : 'Analyzing project structure...'"
+      :aria-label="isOPFSCopying ? 'Setting up project in local storage' : 'Loading project files'"
     />
   </div>
 </template>
@@ -51,13 +51,12 @@ const {
   goToLanding,
   goToWorkspace,
   hasSavedData,
-  hasSavedProjects,
   getSavedProjectName,
 
   loadFromLocalStorage,
-  loadSavedProjectsFromStorage,
 
-  // OPFS loading state
+  // Loading states
+  isLoadingFiles,
   isOPFSCopying,
   opfsCopyProgress,
   opfsCopyingProjectName
@@ -69,7 +68,9 @@ const {
   autoLoadedFromProject,
   autoLoadError,
   selectProjectFolder,
-  resetState: resetProjectManagerState
+  resetState: resetProjectManagerState,
+  loadSavedProjectsFromStorage,
+  hasSavedProjects
 } = useProjectManager()
 
 // Analytics helpers

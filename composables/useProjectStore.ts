@@ -16,7 +16,6 @@ export type {
   ContextSetsData
 } from './useContextSets'
 
-export type { SavedProject } from './useSavedProjects'
 export type { SerializableProjectState } from './usePersistence'
 
 // View states for navigation
@@ -52,7 +51,6 @@ export const useProjectStore = () => {
   const opfsManager = useOPFSManager()
   const contextSets = useContextSets()
   const persistence = usePersistence()
-  const savedProjects = useSavedProjects()
   const loadingStates = useLoadingStates()
   
   // Create project-specific loading manager
@@ -234,8 +232,7 @@ export const useProjectStore = () => {
         console.log(`Project copied to OPFS: ${opfsPath}`)
         globalState.hasSuccessfulOPFSCopy = true // Mark as successfully copied
         
-        // Add to saved projects list
-        savedProjects.addToSavedProjects(projectName)
+        // Note: Adding to saved projects list is now handled by useProjectManager
         
         saveToLocalStorage() // Save the updated state
         projectLoading.stopOPFSCopy(loadingId)
@@ -425,7 +422,6 @@ export const useProjectStore = () => {
     activeContextSetName: contextSets.activeContextSetName,
     activeContextSet: contextSets.activeContextSet,
     contextSetNames: contextSets.contextSetNames,
-    savedProjects: savedProjects.savedProjects,
 
     // Loading states
     isLoadingFiles: computed(() => projectLoading.isFileLoading()),
@@ -498,47 +494,8 @@ export const useProjectStore = () => {
     getExportStatus,
     previewContextSetsJSON,
 
-    // Saved projects management
-    loadSavedProjectsFromStorage: savedProjects.loadSavedProjectsFromStorage,
-    addToSavedProjects: savedProjects.addToSavedProjects,
-    getSavedProjects: () => savedProjects.savedProjects.value,
-    removeFromSavedProjects: savedProjects.removeFromSavedProjects,
-    hasSavedProjects: savedProjects.hasSavedProjects,
-    switchToProject: (projectName: string) => savedProjects.switchToProject(
-      projectName,
-      opfsManager.getProjectFromOPFS,
-      () => {
-        globalState.selectedFolder = null
-        globalState.fileTree = []
-        globalState.hasActiveHandles = false
-        globalState.opfsRestorationAttempted = false
-        contextSets.clearAll()
-      },
-      (handle: FileSystemDirectoryHandle) => {
-        globalState.selectedFolder = handle
-        globalState.hasActiveHandles = true
-        globalState.hasSuccessfulOPFSCopy = true
-      },
-      async (handle: FileSystemDirectoryHandle) => {
-        const files = await fileSystem.rebuildFileTreeFromOPFS(handle)
-        globalState.fileTree = files
-      },
-      autoLoadContextSetsFromProject,
-      saveToLocalStorage
-    ),
-    reloadFilesFromLocal: () => savedProjects.reloadFilesFromLocal(
-      () => fileSystem.showDirectoryPicker({ mode: 'read' }),
-      () => globalState.selectedFolder?.name || null,
-      projectLoading.startFileLoading,
-      setSelectedFolder,
-      fileSystem.buildFilteredFileTree,
-      setFileTree,
-      copyProjectToOPFS,
-      autoLoadContextSetsFromProject
-    ),
 
     // File system operations
-    readDirectoryRecursively: fileSystem.readDirectoryRecursively,
     buildFilteredFileTree: fileSystem.buildFilteredFileTree,
     rebuildFileTreeFromOPFS: fileSystem.rebuildFileTreeFromOPFS,
     checkFileTreeHasHandles: fileSystem.checkFileTreeHasHandles,

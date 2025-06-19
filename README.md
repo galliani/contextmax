@@ -62,7 +62,49 @@ An auto-generated index mapping file IDs to the context sets that use them, usef
 - Tailwind CSS, Reka-ui, and shadcn-nuxt for the styling
 - File System Access API for local file interaction
 - browser's localStorage and indexedDB for persistence
-- 'jinaai/jina-embeddings-v2-base-code' (300mb+ size) as the locally-embedded LLM for semantic search
+- Dual LLM models for enhanced AI capabilities (see below)
+
+## Local AI Models
+
+ContextMax includes two powerful LLM models that run entirely in your browser:
+
+### 1. Embeddings Model: `jinaai/jina-embeddings-v2-base-code` (~300MB)
+- **Purpose**: Semantic search and code understanding
+- **Use Case**: Powers the smart search functionality to find relevant files and code sections based on meaning rather than just keywords
+- **Technology**: Feature extraction using WebGPU acceleration
+- **Benefits**: Helps you discover related code patterns and dependencies you might miss with traditional text search
+
+### 2. Text Generation Model: `Xenova/flan-t5-small` (~180MB)
+- **Purpose**: Natural language generation and text processing
+- **Use Case**: Can be used for generating code comments, documentation, or assisting with text-based AI tasks
+- **Technology**: Text-to-text generation using WASM backend for stability
+- **Benefits**: Provides local text generation capabilities without sending data to external services
+
+### Using the Models
+
+Both models are automatically downloaded and cached on first use. You can access them programmatically:
+
+```typescript
+// Access the embeddings model (for semantic search)
+const { getModel } = useLLMLoader()
+const embeddingsModel = await getModel('embeddings')
+const embeddings = await embeddingsModel('your code snippet')
+
+// Access the text generation model
+const textGenModel = await getModel('textGeneration')
+const result = await textGenModel('Explain this code:')
+
+// Check model status
+const { getModelState } = useLLMLoader()
+const embeddingsReady = getModelState('embeddings').value.status === 'ready'
+const textGenReady = getModelState('textGeneration').value.status === 'ready'
+
+// Initialize all models at once
+const { initializeAllModels } = useLLMLoader()
+await initializeAllModels()
+```
+
+**Privacy**: Both models run completely offline in your browser. No code or data is ever sent to external servers.
 
 
 ## Getting Started

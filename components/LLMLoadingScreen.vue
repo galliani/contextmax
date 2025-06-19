@@ -23,20 +23,20 @@
           <!-- Status Message -->
           <div class="space-y-2">
             <p class="text-sm font-medium text-foreground">
-              {{ loadingState.message }}
+              {{ displayState.message }}
             </p>
             
             <!-- Progress Bar -->
-            <div v-if="loadingState.progress > 0" class="w-full bg-muted rounded-full h-2">
+            <div v-if="displayState.progress > 0" class="w-full bg-muted rounded-full h-2">
               <div 
                 class="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                :style="{ width: `${loadingState.progress}%` }"
+                :style="{ width: `${displayState.progress}%` }"
               ></div>
             </div>
             
             <!-- Progress Percentage -->
-            <p v-if="loadingState.progress > 0" class="text-xs text-muted-foreground">
-              {{ loadingState.progress }}%
+            <p v-if="displayState.progress > 0" class="text-xs text-muted-foreground">
+              {{ displayState.progress }}%
             </p>
           </div>
         </div>
@@ -49,7 +49,7 @@
               <div class="min-w-0 flex-1 text-left">
                 <p class="text-sm font-medium mb-1 text-destructive">Initialization Failed</p>
                 <p class="text-xs text-destructive/80">
-                  {{ loadingState.error }}
+                  {{ displayState.error }}
                 </p>
               </div>
             </div>
@@ -67,8 +67,8 @@
 
         <!-- Information Text -->
         <div class="text-xs text-muted-foreground space-y-1">
-          <p>Initializing local AI model for enhanced features</p>
-          <p>This may take a few moments on first load</p>
+          <p>Initializing local AI models for enhanced features</p>
+          <p>Setting up cached models - this will be quick</p>
         </div>
       </div>
     </div>
@@ -76,7 +76,34 @@
 </template>
 
 <script setup lang="ts">
-const { loadingState, hasError, retryInitialization } = useLLMLoader()
+const { 
+  loadingState, 
+  hasError, 
+  retryInitialization,
+  getModelState,
+  areAllModelsReady 
+} = useLLMLoader()
+
+// Use embeddings model as the primary state for the loading screen
+// This screen now only shows when models are cached but need initialization
+const primaryModelState = computed(() => getModelState('embeddings').value)
+
+// Override loadingState with primary model state for display
+const displayState = computed(() => {
+  if (areAllModelsReady.value) {
+    return {
+      message: 'All models ready!',
+      progress: 100,
+      error: null
+    }
+  }
+  
+  return {
+    message: primaryModelState.value.message,
+    progress: primaryModelState.value.progress,
+    error: primaryModelState.value.error
+  }
+})
 </script>
 
 <style scoped>

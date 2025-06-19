@@ -282,16 +282,15 @@ const {
   exportToProjectFolder,
   getExportStatus,
   hasStableVersionInProject,
-  reloadFilesFromLocal,
   fileTree,
   previewContextSetsJSON
 } = useProjectStore()
 
-// Hybrid Analysis
-const { performProjectAnalysis } = useProjectAnalysis()
-
 // Smart Context Suggestions (for cache clearing and embedding generation)
 const { clearCache, clearIndexedDBCache, generateEmbeddingsOnDemand } = useSmartContextSuggestions()
+
+// Project Manager (for reloading files)
+const { reloadFilesFromLocal } = useProjectManager()
 
 // Check if user has created any context sets (for showing Export button prominently)
 const hasAnyContextSets = computed(() => {

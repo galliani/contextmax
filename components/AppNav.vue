@@ -7,13 +7,34 @@
   <!-- Enhanced Floating Navbar with Navigation -->
   <nav class="absolute top-6 left-1/2 transform -translate-x-1/2 z-50 bg-card/90 backdrop-blur-xl border border-muted-foreground/20 rounded-full shadow-2xl max-w-4xl">
     <div class="flex items-center justify-between px-8 py-4">
-      <!-- Logo/Brand -->
-      <a 
-        href="https://contextmax.ai" target="_blank" rel="noopener noreferrer"
-        class="text-2xl mr-12 font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
-      >
-        contextMax
-      </a>
+      <!-- Logo/Brand and AI Status -->
+      <div class="flex items-center gap-4">
+        <a 
+          href="https://contextmax.ai" target="_blank" rel="noopener noreferrer"
+          class="text-2xl font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
+        >
+          contextMax
+        </a>
+        
+        <!-- AI Models Status -->
+        <div class="flex items-center gap-2">
+          <div 
+            v-for="modelKey in availableModels" 
+            :key="modelKey" 
+            class="flex items-center gap-1.5"
+            :title="getModelTooltip(modelKey)"
+          >
+            <div 
+              :class="[
+                'w-2 h-2 rounded-full transition-all duration-300',
+                getStatusColor(modelKey),
+                shouldPulsate(modelKey) ? 'animate-pulse' : ''
+              ]"
+            ></div>
+            <span class="text-xs text-muted-foreground">{{ getModelDisplayName(modelKey) }}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Navigation Items -->
       <div class="flex items-center gap-4">        
@@ -131,6 +152,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { LLMService } from '~/plugins/llm.client'
 
 interface Props {
   isFileSystemSupported: boolean
@@ -150,11 +172,22 @@ const {
   selectedFolder,
   goToLanding,
   goToWorkspace,
-  hasSavedProjects,
-  getSavedProjects,
-  switchToProject,
-  savedProjects
 } = useProjectStore()
+
+// Project Manager (for saved projects functionality)
+const {
+  hasSavedProjects,
+  savedProjects,
+  switchToProject
+} = useProjectManager()
+
+// LLM Status
+const { 
+  getModelState,
+  getAvailableModels
+} = useLLMLoader()
+
+const availableModels = getAvailableModels()
 
 // Advanced UX Systems
 const { success, errorWithRetry } = useNotifications()
@@ -179,9 +212,8 @@ const getCurrentProjectName = (): string => {
   }
   
   // Otherwise, get the most recently accessed project
-  const projects = getSavedProjects()
-  if (projects.length > 0) {
-    return projects[0].name // First item is most recently accessed
+  if (savedProjects.value.length > 0) {
+    return savedProjects.value[0].name // First item is most recently accessed
   }
   
   return 'Workspace'
@@ -249,4 +281,73 @@ const formatLastAccessed = (timestamp: number): string => {
   
   return new Date(timestamp).toLocaleDateString()
 }
-</script> 
+
+// LLM Status Functions
+const getModelDisplayName = (modelKey: string) => {
+  const displayNames: Record<string, string> = {
+    embeddings: 'Embeddings',
+    textGeneration: 'Text Gen'
+  }
+  return displayNames[modelKey] || modelKey
+}
+
+const getStatusColor = (modelKey: string) => {
+  const serviceStatus = LLMService.getStatus(modelKey)
+  const modelState = getModelState(modelKey).value
+  
+  // Determine if we're downloading vs initializing
+  const isDownloading = modelState.progress > 0 && modelState.progress < 100 && 
+                       (modelState.message.includes('Downloading') || modelState.message.includes('Loading model'))
+  
+  switch (serviceStatus) {
+    case 'ready':
+      return 'bg-green-500'
+    case 'error':
+      return 'bg-red-500'
+    case 'loading':
+      return isDownloading ? 'bg-yellow-500' : 'bg-blue-500'
+    default:
+      return 'bg-gray-400'
+  }
+}
+
+const shouldPulsate = (modelKey: string) => {
+  const serviceStatus = LLMService.getStatus(modelKey)
+  return serviceStatus === 'loading'
+}
+
+const getModelTooltip = (modelKey: string) => {
+  const serviceStatus = LLMService.getStatus(modelKey)
+  const modelState = getModelState(modelKey).value
+  const displayName = getModelDisplayName(modelKey)
+  
+  switch (serviceStatus) {
+    case 'ready':
+      return `${displayName}: Ready`
+    case 'error':
+      return `${displayName}: Error - ${modelState.error || 'Unknown error'}`
+    case 'loading':
+      if (modelState.progress > 0) {
+        return `${displayName}: ${modelState.progress}% - ${modelState.message}`
+      }
+      return `${displayName}: ${modelState.message}`
+    default:
+      return `${displayName}: Unknown status`
+  }
+}
+</script>
+
+<style scoped>
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+</style> 
