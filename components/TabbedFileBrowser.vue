@@ -186,9 +186,13 @@ if (typeof window !== 'undefined') {
   (window as any).refreshSearchHistory = refreshSearchHistory
 }
 
+// Computed property for current search keyword
+const currentSearchKeyword = computed(() => currentSearchMetadata.value?.keyword || '')
+
 // Provide search results to child components
 provide('searchResults', searchResultsStore)
 provide('searchResultsCount', searchResultsCount)
+provide('currentSearchKeyword', currentSearchKeyword)
 
 const setMode = (mode: BrowserMode) => {
   currentMode.value = mode

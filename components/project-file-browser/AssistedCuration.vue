@@ -12,6 +12,12 @@
           <h4 class="text-sm font-medium text-foreground">AI-Curated Results</h4>
           <p class="text-xs text-muted-foreground">
             {{ searchResultsCount }} relevant files found
+            <span v-if="searchResults.value && searchResults.value.length > searchResultsCount" class="text-muted-foreground">
+              ({{ searchResults.value.length - searchResultsCount }} already in context)
+            </span>
+            <span v-if="currentSearchKeyword" class="ml-2 px-2 py-0.5 text-xs bg-primary/10 text-primary rounded border border-primary/20 font-mono">
+              "{{ currentSearchKeyword }}"
+            </span>
           </p>
         </div>
         <Button
@@ -67,21 +73,21 @@
           <div
             v-for="search in searchHistory.slice(0, 8)"
             :key="search.id"
-            class="group relative flex items-center space-x-1 px-2 py-1 text-xs bg-secondary/30 hover:bg-secondary/50 text-secondary-foreground rounded-full border border-secondary/40 transition-colors cursor-pointer"
+            class="group relative flex items-center space-x-1 px-2 py-1 text-xs bg-secondary/30 hover:bg-secondary/50 text-secondary-foreground rounded border border-secondary/40 transition-colors cursor-pointer"
             @click="() => loadSearchResults(search.id)"
             :title="`Click to load search results for '${search.keyword}'`"
           >
-            <Icon name="lucide:search" class="w-3 h-3" />
-            <span class="max-w-[100px] truncate">{{ search.keyword }}</span>
-            <span v-if="search.entryPointFile" class="text-xs text-muted-foreground">
+            <Icon name="lucide:search" class="w-3 h-3 flex-shrink-0" />
+            <span class="max-w-[80px] truncate font-mono">{{ search.keyword }}</span>
+            <span v-if="search.entryPointFile" class="text-xs text-muted-foreground flex-shrink-0">
               📍
             </span>
-            <span class="text-xs text-muted-foreground ml-1">
+            <span class="text-xs text-muted-foreground flex-shrink-0 px-1 py-0.5 bg-muted/50 rounded text-[10px] font-medium">
               {{ search.results.length }}
             </span>
             <div
               @click.stop="deleteSearch(search.id)"
-              class="opacity-0 group-hover:opacity-100 ml-1 text-destructive hover:text-destructive-foreground transition-opacity cursor-pointer flex items-center justify-center w-4 h-4"
+              class="opacity-0 group-hover:opacity-100 ml-1 text-destructive hover:text-destructive-foreground transition-opacity cursor-pointer flex items-center justify-center w-4 h-4 flex-shrink-0"
               title="Delete this search"
               role="button"
               tabindex="0"
@@ -214,7 +220,7 @@
       <!-- Search Results -->
       <div v-else class="space-y-3 p-4">
         <div
-          v-for="(result, index) in searchResults"
+          v-for="(result, index) in filteredSearchResults"
           :key="result.file"
           class="group relative bg-card rounded-lg border p-4 transition-all duration-200 hover:shadow-elegant"
         >
@@ -324,35 +330,47 @@
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center space-x-2 ml-4">
+            <div class="flex items-center space-x-1 ml-4">
               <!-- View File -->
               <Button
                 @click="viewFile(result.file)"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                class="h-8 px-2 text-xs border-border/50 hover:border-border hover:bg-accent/50"
                 :aria-label="`View content of ${getFileName(result.file)}`"
                 title="View file content"
               >
-                <Icon name="lucide:eye" class="w-4 h-4" aria-hidden="true" />
+                <Icon name="lucide:eye" class="w-3 h-3 mr-1" aria-hidden="true" />
+                View
               </Button>
 
               <!-- Add to Context Set -->
               <Button
+                v-if="!isFileInContext(result.file)"
                 @click="addFileToContext(result)"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                class="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                :class="isFileInContext(result.file) ? 'text-success' : 'text-primary'"
-                :disabled="!activeContextSetName || isFileInContext(result.file)"
+                class="h-8 px-2 text-xs border-primary/30 text-primary hover:border-primary hover:bg-primary/10"
+                :disabled="!activeContextSetName"
                 :aria-label="`Add ${getFileName(result.file)} to context set`"
-                :title="isFileInContext(result.file) ? 'Already in context set' : 'Add to context set'"
+                title="Add to context set"
               >
-                <Icon 
-                  :name="isFileInContext(result.file) ? 'lucide:check' : 'lucide:plus-circle'" 
-                  class="w-4 h-4" 
-                  aria-hidden="true" 
-                />
+                <Icon name="lucide:plus" class="w-3 h-3 mr-1" aria-hidden="true" />
+                Add
+              </Button>
+              
+              <!-- Already Added State -->
+              <Button
+                v-else
+                variant="outline"
+                size="sm"
+                class="h-8 px-2 text-xs border-success/30 text-success cursor-default"
+                disabled
+                :aria-label="`${getFileName(result.file)} is already in context set`"
+                title="Already in context set"
+              >
+                <Icon name="lucide:check" class="w-3 h-3 mr-1" aria-hidden="true" />
+                Added
               </Button>
             </div>
           </div>
@@ -373,7 +391,9 @@ const {
   activeContextSet,
   addFileToActiveContextSet,
   loadFileContent,
-  selectedFolder
+  selectedFolder,
+  filesManifest,
+  findFileIdByPath
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
@@ -391,7 +411,18 @@ const {
 
 // Inject search results from parent component
 const searchResults = inject('searchResults', ref([]))
-const searchResultsCount = inject('searchResultsCount', computed(() => 0))
+const currentSearchKeyword = inject('currentSearchKeyword', ref(''))
+
+// Filter out files that are already in the context set
+const filteredSearchResults = computed(() => {
+  if (!searchResults.value || !Array.isArray(searchResults.value)) {
+    return []
+  }
+  return searchResults.value.filter(result => !isFileInContext(result.file))
+})
+
+// Update search results count to reflect filtered results
+const searchResultsCount = computed(() => filteredSearchResults.value.length)
 
 // Local state for search history
 const searchHistory = ref<CachedSearchResults[]>([])
@@ -538,13 +569,16 @@ const findFileInTree = (tree: any[], targetPath: string): any | null => {
 const isFileInContext = (filePath: string): boolean => {
   if (!activeContextSet.value) return false
   
+  // Find the file ID for this path
+  const fileId = findFileIdByPath(filePath)
+  if (!fileId) return false
+  
+  // Check if this file ID is in the context set
   return activeContextSet.value.files.some(fileEntry => {
-    const entryPath = typeof fileEntry === 'string' 
+    const entryId = typeof fileEntry === 'string' 
       ? fileEntry 
       : fileEntry.fileRef
-    // We need to check by path since we have the path but context set has fileId
-    // This is a simplified check - in practice we'd need to resolve the fileId to path
-    return entryPath === filePath
+    return entryId === fileId
   })
 }
 
@@ -627,7 +661,7 @@ const addTopResults = async () => {
     return
   }
 
-  const topResults = searchResults.value.slice(0, 5)
+  const topResults = filteredSearchResults.value.slice(0, 5)
   let addedCount = 0
   
   for (const result of topResults) {
@@ -668,7 +702,7 @@ const addAllResults = async () => {
 
   let addedCount = 0
   
-  for (const result of searchResults.value) {
+  for (const result of filteredSearchResults.value) {
     if (!isFileInContext(result.file)) {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
@@ -693,7 +727,7 @@ const addAllResults = async () => {
     }
   }
   
-  const filesWithFunctions = searchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
+  const filesWithFunctions = filteredSearchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
   const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
