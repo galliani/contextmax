@@ -14,6 +14,13 @@
           </h3>
         </div>
       </div>
+
+        <!-- Mode Description -->
+        <p class="text-xs text-muted-foreground">
+          <span>
+            Define the inner workings of your context set.
+          </span>
+        </p>      
     </div>
 
     <div class="flex-1 overflow-hidden">
@@ -95,19 +102,6 @@
                 />
               </div>
 
-              <!-- Entry Points Tab -->
-              <div
-                v-show="activeTab === 'entryPoints'"
-                id="tab-panel-entryPoints"
-                class="h-full overflow-y-auto p-6"
-                role="tabpanel"
-                aria-labelledby="tab-entryPoints"
-              >
-                <EntryPointsEditor 
-                  :entry-points="activeContextSet.entryPoints || []"
-                  @update:entry-points="updateEntryPoints"
-                />
-              </div>
 
             </div>
           </div>
@@ -118,10 +112,9 @@
 </template>
 
 <script setup lang="ts">
-import type { WorkflowStep, EntryPoint } from '~/composables/useProjectStore'
+import type { WorkflowStep } from '~/composables/useProjectStore'
 import FilesList from './FilesList.vue'
 import WorkflowEditor from './WorkflowEditor.vue'
-import EntryPointsEditor from './EntryPointsEditor.vue'
 
 const {
   activeContextSet,
@@ -148,12 +141,6 @@ const tabs = computed(() => [
     icon: 'lucide:workflow',
     count: activeContextSet.value?.workflow.length || 0
   },
-  {
-    id: 'entryPoints',
-    label: 'Entry Points',
-    icon: 'lucide:zap',
-    count: activeContextSet.value?.entryPoints?.length || 0
-  }
 ])
 
 // Actions
@@ -169,17 +156,6 @@ const updateWorkflow = (newWorkflow: WorkflowStep[]) => {
   }
 }
 
-const updateEntryPoints = (newEntryPoints: EntryPoint[]) => {
-  if (!activeContextSet.value) return
-  
-  try {
-    updateActiveContextSet({ entryPoints: newEntryPoints })
-    announceStatus('Entry points updated')
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update entry points'
-    announceError(message)
-  }
-}
 
 // Keyboard navigation for tabs
 const handleTabKeydown = (event: Event) => {

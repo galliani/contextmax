@@ -9,7 +9,9 @@
     <div class="border-b border-border bg-card/50 backdrop-blur-sm">
       <div class="content-spacing px-4 py-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-medium text-foreground">File Browser</h3>
+          <h3 class="visual-hierarchy-4 mb-2 text-mobile-subheading sm:text-md lg:text-xl">
+            Explorer
+          </h3>
           
           <!-- Mode Toggle -->
           <div class="flex items-center space-x-2">
@@ -43,7 +45,7 @@
         </div>
         
         <!-- Mode Description -->
-        <p class="text-xs text-muted-foreground mt-2">
+        <p class="text-xs text-muted-foreground">
           <span v-if="currentMode === 'hardcore'">
             Browse and manually select files from your project
           </span>
