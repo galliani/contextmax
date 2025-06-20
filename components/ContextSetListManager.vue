@@ -181,6 +181,18 @@ const {
 
 const { announceStatus } = useAccessibility()
 
+// Try to restore last selected context set on component mount
+onMounted(() => {
+  // Only restore if no context set is currently active and we have context sets available
+  if (!activeContextSetName.value && contextSetNames.value.length > 0) {
+    const lastSelected = loadLastSelectedContextSet()
+    if (lastSelected && contextSetNames.value.includes(lastSelected)) {
+      setActiveContextSet(lastSelected)
+      console.log(`Restored last selected context set on mount: ${lastSelected}`)
+    }
+  }
+})
+
 // Modal state
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
@@ -197,17 +209,40 @@ const getContextSetWorkflowStepCount = (setName: string) => {
   return contextSets.value[setName]?.workflow?.length || 0
 }
 
+// Save last selected context set to localStorage
+const saveLastSelectedContextSet = (setName: string) => {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('contextmax-last-context-set', setName)
+    } catch (error) {
+      console.warn('Failed to save last context set to localStorage:', error)
+    }
+  }
+}
+
+// Load last selected context set from localStorage
+const loadLastSelectedContextSet = (): string | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem('contextmax-last-context-set')
+  } catch {
+    return null
+  }
+}
+
 // Actions
 const selectContextSet = (setName: string) => {
   const success = setActiveContextSet(setName)
   if (success) {
     announceStatus(`Selected context set: ${setName}`)
+    saveLastSelectedContextSet(setName)
   }
 }
 
-const onContextSetCreated = (_contextSetName: string) => {
+const onContextSetCreated = (contextSetName: string) => {
   // Optional: Additional handling when a context set is created
   // The AddNewContext component already handles the creation and activation
+  saveLastSelectedContextSet(contextSetName)
 }
 
 const confirmDelete = (setName: string) => {
@@ -215,10 +250,20 @@ const confirmDelete = (setName: string) => {
   showDeleteModal.value = true
 }
 
-const onContextSetDeleted = (_contextSetName: string) => {
+const onContextSetDeleted = (contextSetName: string) => {
   // Reset the state
   contextSetToDelete.value = ''
   // Optional: Additional handling when a context set is deleted
+  
+  // Clear localStorage if the deleted set was the last selected one
+  const lastSelected = loadLastSelectedContextSet()
+  if (lastSelected === contextSetName) {
+    try {
+      localStorage.removeItem('contextmax-last-context-set')
+    } catch (error) {
+      console.warn('Failed to remove last context set from localStorage:', error)
+    }
+  }
 }
 
 const onDeleteError = (error: string) => {

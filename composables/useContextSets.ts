@@ -436,10 +436,25 @@ export const useContextSets = () => {
       console.log(`Cleaned up ${orphanedCount} orphaned files after loading data`)
     }
     
-    // Set first context set as active if any exist
+    // Try to restore last selected context set from localStorage, fallback to first available
     const setNames = Object.keys(contextSets.value)
     if (setNames.length > 0) {
-      activeContextSetName.value = setNames[0]
+      let selectedSet = setNames[0] // Default to first
+      
+      // Try to restore from localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const lastSelected = localStorage.getItem('contextmax-last-context-set')
+          if (lastSelected && setNames.includes(lastSelected)) {
+            selectedSet = lastSelected
+            console.log(`Restored last selected context set from localStorage: ${lastSelected}`)
+          }
+        } catch (error) {
+          console.warn('Failed to read last context set from localStorage:', error)
+        }
+      }
+      
+      activeContextSetName.value = selectedSet
     }
     
     console.log('Final loaded state:', { 

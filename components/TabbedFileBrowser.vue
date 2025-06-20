@@ -76,8 +76,19 @@ import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
 
 type BrowserMode = 'hardcore' | 'assisted'
 
+// Load saved mode from localStorage, default to 'hardcore'
+const getSavedMode = (): BrowserMode => {
+  if (typeof window === 'undefined') return 'hardcore'
+  try {
+    const saved = localStorage.getItem('contextmax-file-browser-mode')
+    return (saved === 'assisted' || saved === 'hardcore') ? saved : 'hardcore'
+  } catch {
+    return 'hardcore'
+  }
+}
+
 // State for the current mode
-const currentMode = ref<BrowserMode>('hardcore')
+const currentMode = ref<BrowserMode>(getSavedMode())
 
 // Global state management for search results
 const searchResultsStore = ref<Array<{
@@ -196,5 +207,14 @@ provide('currentSearchKeyword', currentSearchKeyword)
 
 const setMode = (mode: BrowserMode) => {
   currentMode.value = mode
+  
+  // Save to localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('contextmax-file-browser-mode', mode)
+    } catch (error) {
+      console.warn('Failed to save file browser mode to localStorage:', error)
+    }
+  }
 }
 </script>
