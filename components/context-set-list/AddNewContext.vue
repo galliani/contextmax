@@ -10,39 +10,44 @@
       <DialogHeader>
         <DialogTitle>Create New Context Set</DialogTitle>
         <DialogDescription>
-          Enter a name for your new context set. You can add a description later.
+          Enter a search phrase to find related files. A context set will be created automatically.
         </DialogDescription>
       </DialogHeader>
       
       <form @submit.prevent="handleCreateContextSet" class="space-y-4">
         <div class="space-y-2">
-          <label for="context-set-name" class="text-sm font-medium text-foreground">
-            Context Set Name *
+          <label for="search-term" class="text-sm font-medium text-foreground">
+            Search Term *
           </label>
           <Input
-            id="context-set-name"
-            v-model="newContextSetName"
-            placeholder="e.g., authenticationSystem, userManagement, billing_api"
+            id="search-term"
+            v-model="searchTerm"
+            placeholder="e.g., authentication system, user management, billing api"
             required
-            :aria-invalid="!!(createError || nameValidationError)"
-            :aria-describedby="(createError || nameValidationError) ? 'validation-error' : 'validation-help'"
+            :aria-invalid="!!(createError || searchTermError)"
+            :aria-describedby="(createError || searchTermError) ? 'validation-error' : 'validation-help'"
             class="w-full"
             :class="{
-              'border-destructive focus:ring-destructive': !!(createError || nameValidationError),
-              'border-success focus:ring-success': newContextSetName && !nameValidationError && !createError
+              'border-destructive focus:ring-destructive': !!(createError || searchTermError),
+              'border-success focus:ring-success': searchTerm && !searchTermError && !createError
             }"
-            ref="nameInput"
+            ref="searchInput"
           />
           
           <!-- Validation Help Text -->
           <p id="validation-help" class="text-xs text-muted-foreground">
-            Use camelCase, snake_case, or single words. Must start with a letter.
+            Use natural language with spaces. The context name will be generated automatically.
+          </p>
+          
+          <!-- Generated Context Name Preview -->
+          <p v-if="generatedContextName" class="text-xs text-muted-foreground">
+            Context name: <span class="font-mono font-medium">{{ generatedContextName }}</span>
           </p>
           
           <!-- Real-time Validation Error -->
-          <p v-if="nameValidationError" id="validation-error" class="text-sm text-destructive flex items-start gap-2" role="alert">
+          <p v-if="searchTermError" id="validation-error" class="text-sm text-destructive flex items-start gap-2" role="alert">
             <Icon name="lucide:alert-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
-            {{ nameValidationError }}
+            {{ searchTermError }}
           </p>
           
           <!-- Form Submission Error -->
@@ -105,9 +110,9 @@ const { announceStatus, announceError } = useAccessibility()
 const { performHybridKeywordSearch } = useSmartContextSuggestions()
 
 // Local state
-const newContextSetName = ref('')
+const searchTerm = ref('')
 const createError = ref('')
-const nameInput = ref<HTMLInputElement>()
+const searchInput = ref<HTMLInputElement>()
 const isSearching = ref(false)
 const isCreating = ref(false) // Track if we're in the creation process
 
@@ -117,54 +122,91 @@ const isOpen = computed({
   set: (value: boolean) => emit('update:open', value)
 })
 
+// Helper function to convert search term to camelCase
+const toCamelCase = (str: string): string => {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .split(/\s+/) // Split by spaces
+    .filter(word => word.length > 0) // Remove empty strings
+    .map((word, index) => {
+      if (index === 0) return word
+      return word.charAt(0).toUpperCase() + word.slice(1)
+    })
+    .join('')
+}
+
 // Validation functions
-const validateContextSetName = (name: string): string | null => {
-  const trimmedName = name.trim()
+const validateSearchTerm = (term: string): string | null => {
+  const trimmedTerm = term.trim()
   
   // Check if empty
-  if (!trimmedName) {
-    return 'Context set name is required'
+  if (!trimmedTerm) {
+    return 'Search term is required'
   }
   
-  // Check for spaces anywhere in the name
-  if (/\s/.test(trimmedName)) {
-    return 'Name cannot contain spaces. Use camelCase or snake_case instead'
-  }
-  
-  // Check if starts with alphabetic character
-  if (!/^[a-zA-Z]/.test(trimmedName)) {
-    return 'Name must start with a letter (a-z or A-Z)'
-  }
-  
-  // Check if name already exists
-  console.log('Checking if context exists:', trimmedName, 'in', contextSetNames.value)
-  if (contextSetNames.value.includes(trimmedName)) {
-    return 'A context set with this name already exists'
+  // Check minimum length
+  if (trimmedTerm.length < 2) {
+    return 'Search term must be at least 2 characters'
   }
   
   return null
 }
 
+const validateGeneratedName = (name: string): string | null => {
+  // Check if name already exists
+  if (contextSetNames.value.includes(name)) {
+    return `A context set named "${name}" already exists`
+  }
+  
+  return null
+}
+
+// Computed properties for generated name and validation
+const generatedContextName = computed(() => {
+  if (!searchTerm.value.trim()) return ''
+  return toCamelCase(searchTerm.value)
+})
+
 // Real-time validation
-const nameValidationError = computed(() => {
+const searchTermError = computed(() => {
   // Don't validate while creating to avoid false positives
-  if (!newContextSetName.value || isCreating.value) return null
-  return validateContextSetName(newContextSetName.value)
+  if (!searchTerm.value || isCreating.value) return null
+  
+  const termError = validateSearchTerm(searchTerm.value)
+  if (termError) return termError
+  
+  // Also check if the generated name would be valid
+  if (generatedContextName.value) {
+    return validateGeneratedName(generatedContextName.value)
+  }
+  
+  return null
 })
 
 const isFormValid = computed(() => {
-  return newContextSetName.value.trim() && !nameValidationError.value
+  return searchTerm.value.trim() && !searchTermError.value && generatedContextName.value
 })
 
 // Actions
 const handleCreateContextSet = async () => {
-  const name = newContextSetName.value.trim()
+  const term = searchTerm.value.trim()
+  const name = generatedContextName.value
   
-  // Final validation
-  const validationError = validateContextSetName(name)
-  if (validationError) {
-    createError.value = validationError
-    announceError(`Validation error: ${validationError}`)
+  // Validate search term
+  const termError = validateSearchTerm(term)
+  if (termError) {
+    createError.value = termError
+    announceError(`Validation error: ${termError}`)
+    return
+  }
+  
+  // Validate generated name
+  const nameError = validateGeneratedName(name)
+  if (nameError) {
+    createError.value = nameError
+    announceError(`Validation error: ${nameError}`)
     return
   }
 
@@ -212,8 +254,8 @@ const handleCreateContextSet = async () => {
         }
       }
       
-      // Perform the search
-      const searchResults = await performHybridKeywordSearch(name, filesToSearch)
+      // Perform the search using the original search term (not the camelCase name)
+      const searchResults = await performHybridKeywordSearch(term, filesToSearch)
       
       // Add top search results to the context set
       let addedCount = 0
@@ -260,7 +302,7 @@ const cancelCreate = () => {
 }
 
 const resetForm = () => {
-  newContextSetName.value = ''
+  searchTerm.value = ''
   createError.value = ''
   isCreating.value = false
 }
@@ -278,7 +320,7 @@ watch(isOpen, (open) => {
   if (open) {
     resetForm()
     nextTick(() => {
-      safeFocus(nameInput.value)
+      safeFocus(searchInput.value)
     })
   }
 })
