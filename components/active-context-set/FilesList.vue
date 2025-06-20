@@ -20,10 +20,10 @@
       <Icon name="lucide:file-plus" class="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" aria-hidden="true" />
       <h4 class="text-lg font-medium text-foreground mb-2">No Files Added Yet</h4>
       <p class="text-muted-foreground mb-4 max-w-sm mx-auto">
-        Add files from the project browser on the right to include them in this context set.
+        Add files from the file browser in the middle column to include them in this context set.
       </p>
       <div class="space-y-2 text-sm text-muted-foreground">
-        <p>💡 <strong>Tip:</strong> Use the project file browser to select and add files</p>
+        <p>💡 <strong>Tip:</strong> Use Hardcore mode for manual browsing or Assisted mode for AI-curated suggestions</p>
         <p>📝 You can specify functions for each file after adding them</p>
       </div>
     </div>
@@ -206,8 +206,8 @@
         <div class="text-sm">
           <p class="text-info font-medium mb-1">Adding More Files</p>
           <p class="text-info/80">
-            Use the project file browser on the right to add more files to this context set. 
-            Files are automatically added to the global manifest when included in any context set.
+            Use the file browser in the middle column to add more files to this context set. 
+            Switch between Hardcore (manual) and Assisted (AI-powered) modes for different curation approaches.
           </p>
         </div>
       </div>

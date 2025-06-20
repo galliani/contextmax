@@ -359,75 +359,54 @@ const handleCreateContextSet = async () => {
       // Perform the tri-model search using the original search term
       const searchResults = await performTriModelSearch(term, filesToSearch, entryPointFile)
       
-      // Add entry point file first if specified
-      let addedCount = 0
+      // Prepare search results for the AssistedCuration component
+      const assistedResults = []
+      
+      // Add entry point file first if specified (with highest priority)
       if (selectedEntryPoint.value) {
-        try {
-          const success = addFileToActiveContextSet(selectedEntryPoint.value, {
-            classification: 'entry-point'
+        assistedResults.push({
+          file: selectedEntryPoint.value.path,
+          scorePercentage: 100,
+          finalScore: 1.0,
+          astScore: 1.0,
+          llmScore: 1.0,
+          flanScore: 1.0,
+          syntaxScore: 1.0,
+          hasSynergy: true,
+          matches: [term],
+          classification: 'entry-point',
+          workflowPosition: 'entry'
+        })
+      }
+      
+      // Add search results (excluding entry point if it exists)
+      for (const result of searchResults.data.files) {
+        // Skip if this file is the entry point (already added above)
+        if (selectedEntryPoint.value?.path !== result.file) {
+          assistedResults.push({
+            file: result.file,
+            scorePercentage: result.scorePercentage,
+            finalScore: result.finalScore,
+            astScore: result.astScore,
+            llmScore: result.llmScore,
+            flanScore: result.flanScore,
+            syntaxScore: result.syntaxScore,
+            hasSynergy: result.hasSynergy,
+            matches: result.matches || [],
+            classification: result.classification,
+            workflowPosition: result.workflowPosition
           })
-          if (success) {
-            addedCount++
-            console.log(`Added entry point file: ${selectedEntryPoint.value.path}`)
-            
-            // Store search info for entry point (highest priority)
-            if (typeof window !== 'undefined' && (window as any).setFileSearchInfo) {
-              (window as any).setFileSearchInfo(selectedEntryPoint.value.path, {
-                scorePercentage: 100,
-                finalScore: 1.0,
-                astScore: 1.0,
-                llmScore: 1.0,
-                flanScore: 1.0,
-                syntaxScore: 1.0,
-                hasSynergy: true,
-                classification: 'entry-point',
-                workflowPosition: 'entry'
-              })
-            }
-          }
-        } catch (error) {
-          console.warn(`Failed to add entry point file ${selectedEntryPoint.value.path}:`, error)
         }
       }
       
-      // Add top search results to the context set and store search info
-      const maxFiles = 10 // Add top 10 results
-      
-      for (const result of searchResults.data.files.slice(0, maxFiles)) {
-        const fileItem = allFiles.find(f => f.path === result.file)
-        
-        // Skip if this file is already the entry point
-        if (fileItem && selectedEntryPoint.value?.path !== fileItem.path) {
-          try {
-            const success = addFileToActiveContextSet(fileItem, {
-              classification: result.classification
-            })
-            if (success) {
-              addedCount++
-              
-              // Store search info for display in FilesList
-              if (typeof window !== 'undefined' && (window as any).setFileSearchInfo) {
-                (window as any).setFileSearchInfo(result.file, {
-                  scorePercentage: result.scorePercentage,
-                  finalScore: result.finalScore,
-                  astScore: result.astScore,
-                  llmScore: result.llmScore,
-                  flanScore: result.flanScore,
-                  syntaxScore: result.syntaxScore,
-                  hasSynergy: result.hasSynergy,
-                  classification: result.classification,
-                  workflowPosition: result.workflowPosition
-                })
-              }
-            }
-          } catch (error) {
-            console.warn(`Failed to add file ${result.file}:`, error)
-          }
-        }
+      // Send search results to the TabbedFileBrowser component
+      if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
+        (window as any).setAssistedSearchResults(assistedResults)
       }
       
+      const resultCount = assistedResults.length
       const entryPointText = selectedEntryPoint.value ? ' (including entry point)' : ''
-      announceStatus(`Context set "${name}" created with ${addedCount} relevant files found${entryPointText}`)
+      announceStatus(`Context set "${name}" created. Found ${resultCount} relevant files for assisted curation${entryPointText}`)
     } catch (error) {
       console.error('Search failed:', error)
       // Don't fail the context creation if search fails

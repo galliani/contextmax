@@ -131,7 +131,7 @@
           <div class="h-full flex flex-col">
             <!-- Project File Browser Content -->
             <div class="flex-1 overflow-hidden">
-              <ProjectFileBrowser />
+              <TabbedFileBrowser />
             </div>
           </div>
         </div>
@@ -148,6 +148,7 @@
 
 <script setup lang="ts">
 import Editor from './active-context-set/Editor.vue'
+import TabbedFileBrowser from './TabbedFileBrowser.vue'
 
 // State for editing
 const isEditingName = ref(false)
