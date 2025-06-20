@@ -323,8 +323,12 @@ export const useProjectStore = () => {
     return result
   }
 
-  const addFileToActiveContextSet = (file: any) => {
-    const result = contextSets.addFileToActiveContextSet(file.path)
+  const addFileToActiveContextSet = (file: any, options?: {
+    classification?: string
+    comment?: string
+    functionRefs?: any[]
+  }) => {
+    const result = contextSets.addFileToActiveContextSet(file.path, options)
     
     if (result && globalState.selectedFolder) {
       saveWorkingCopyToOPFS(globalState.selectedFolder.name)

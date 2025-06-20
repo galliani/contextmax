@@ -171,7 +171,7 @@ const {
 const { announceStatus, announceError } = useAccessibility()
 
 // Import smart suggestions composable for search
-const { performHybridKeywordSearch } = useSmartContextSuggestions()
+const { performTriModelSearch } = useSmartContextSuggestions()
 
 // Local state
 const searchTerm = ref('')
@@ -339,24 +339,58 @@ const handleCreateContextSet = async () => {
         }
       }
       
-      // Perform the search using the original search term (not the camelCase name)
-      const searchResults = await performHybridKeywordSearch(term, filesToSearch)
+      // Prepare entry point file if selected
+      let entryPointFile
+      if (selectedEntryPoint.value) {
+        try {
+          const entryPointHandle = selectedEntryPoint.value.handle as FileSystemFileHandle
+          const entryPointFileObj = await entryPointHandle.getFile()
+          const entryPointContent = await entryPointFileObj.text()
+          
+          entryPointFile = {
+            path: selectedEntryPoint.value.path,
+            content: entryPointContent
+          }
+        } catch (error) {
+          console.warn(`Failed to load entry point file: ${selectedEntryPoint.value.path}:`, error)
+        }
+      }
+      
+      // Perform the tri-model search using the original search term
+      const searchResults = await performTriModelSearch(term, filesToSearch, entryPointFile)
       
       // Add entry point file first if specified
       let addedCount = 0
       if (selectedEntryPoint.value) {
         try {
-          const success = addFileToActiveContextSet(selectedEntryPoint.value)
+          const success = addFileToActiveContextSet(selectedEntryPoint.value, {
+            classification: 'entry-point'
+          })
           if (success) {
             addedCount++
             console.log(`Added entry point file: ${selectedEntryPoint.value.path}`)
+            
+            // Store search info for entry point (highest priority)
+            if (typeof window !== 'undefined' && (window as any).setFileSearchInfo) {
+              (window as any).setFileSearchInfo(selectedEntryPoint.value.path, {
+                scorePercentage: 100,
+                finalScore: 1.0,
+                astScore: 1.0,
+                llmScore: 1.0,
+                flanScore: 1.0,
+                syntaxScore: 1.0,
+                hasSynergy: true,
+                classification: 'entry-point',
+                workflowPosition: 'entry'
+              })
+            }
           }
         } catch (error) {
           console.warn(`Failed to add entry point file ${selectedEntryPoint.value.path}:`, error)
         }
       }
       
-      // Add top search results to the context set
+      // Add top search results to the context set and store search info
       const maxFiles = 10 // Add top 10 results
       
       for (const result of searchResults.data.files.slice(0, maxFiles)) {
@@ -365,8 +399,27 @@ const handleCreateContextSet = async () => {
         // Skip if this file is already the entry point
         if (fileItem && selectedEntryPoint.value?.path !== fileItem.path) {
           try {
-            const success = addFileToActiveContextSet(fileItem)
-            if (success) addedCount++
+            const success = addFileToActiveContextSet(fileItem, {
+              classification: result.classification
+            })
+            if (success) {
+              addedCount++
+              
+              // Store search info for display in FilesList
+              if (typeof window !== 'undefined' && (window as any).setFileSearchInfo) {
+                (window as any).setFileSearchInfo(result.file, {
+                  scorePercentage: result.scorePercentage,
+                  finalScore: result.finalScore,
+                  astScore: result.astScore,
+                  llmScore: result.llmScore,
+                  flanScore: result.flanScore,
+                  syntaxScore: result.syntaxScore,
+                  hasSynergy: result.hasSynergy,
+                  classification: result.classification,
+                  workflowPosition: result.workflowPosition
+                })
+              }
+            }
           } catch (error) {
             console.warn(`Failed to add file ${result.file}:`, error)
           }

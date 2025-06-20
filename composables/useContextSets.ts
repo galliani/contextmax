@@ -18,6 +18,7 @@ export interface FileRef {
   fileRef: string
   functionRefs?: FunctionRef[]
   comment?: string
+  classification?: string
 }
 
 export interface WorkflowStep {
@@ -136,7 +137,11 @@ export const useContextSets = () => {
   }
 
   // Add file to active context set (and implicitly to files manifest)
-  const addFileToActiveContextSet = (filePath: string) => {
+  const addFileToActiveContextSet = (filePath: string, options?: {
+    classification?: string
+    comment?: string
+    functionRefs?: FunctionRef[]
+  }) => {
     if (!activeContextSetName.value) {
       throw new Error('No active context set selected')
     }
@@ -155,10 +160,26 @@ export const useContextSets = () => {
       return false
     }
     
-    // Add file as simple string reference (whole file)
-    activeSet.files.push(fileId)
+    // Add file with metadata if provided, otherwise as simple string reference
+    if (options?.classification || options?.comment || options?.functionRefs) {
+      const fileRef: FileRef = {
+        fileRef: fileId,
+        ...(options.classification && { classification: options.classification }),
+        ...(options.comment && { comment: options.comment }),
+        ...(options.functionRefs && { functionRefs: options.functionRefs })
+      }
+      activeSet.files.push(fileRef)
+      console.log('Added file with metadata to active context set:', { 
+        file: filePath, 
+        setName: activeContextSetName.value,
+        classification: options.classification 
+      })
+    } else {
+      // Add file as simple string reference (whole file)
+      activeSet.files.push(fileId)
+      console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
+    }
     
-    console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
     return true
   }
 

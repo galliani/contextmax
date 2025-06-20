@@ -130,10 +130,30 @@
               </div>
             </div>
 
-            <!-- Score and Action Buttons -->
+            <!-- Score and Classification Info -->
             <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center space-x-2 min-w-0">
-                <span class="font-mono text-sm font-semibold break-all">Score: {{ result.finalScore.toFixed(3) }}</span>
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="flex items-center space-x-2">
+                  <span class="font-mono text-sm font-semibold text-primary">{{ result.scorePercentage || Math.round(result.finalScore * 100) }}%</span>
+                  <div class="text-xs text-muted-foreground">
+                    ({{ result.finalScore.toFixed(3) }})
+                  </div>
+                </div>
+                <div v-if="result.classification" class="flex items-center space-x-1">
+                  <span class="text-xs px-2 py-1 rounded-full font-medium"
+                        :class="{
+                          'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300': result.classification === 'entry-point',
+                          'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300': result.classification === 'core-logic',
+                          'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300': result.classification === 'helper',
+                          'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300': result.classification === 'config',
+                          'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300': result.classification === 'unrelated' || result.classification === 'unknown'
+                        }">
+                    {{ result.classification }}
+                  </span>
+                </div>
+                <div v-if="result.workflowPosition && result.workflowPosition !== 'unknown' && result.workflowPosition !== 'unrelated'" class="text-xs text-muted-foreground">
+                  {{ result.workflowPosition }}
+                </div>
               </div>
               <div class="text-xs font-medium">
               <TooltipProvider>

@@ -62,6 +62,62 @@
             <p class="text-xs text-muted-foreground font-mono mb-3 truncate">
               {{ getFilePath(fileEntry) }}
             </p>
+            
+            <!-- AI Search Score and Classification (if available) -->
+            <div v-if="getFileSearchInfo(fileEntry)" class="mb-3 p-2 bg-primary/5 rounded border border-primary/20">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-3">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-mono text-sm font-semibold text-primary">{{ getFileSearchInfo(fileEntry)?.scorePercentage }}%</span>
+                    <div class="text-xs text-muted-foreground">
+                      AI Score
+                    </div>
+                  </div>
+                  <div v-if="getFileClassification(fileEntry)" class="flex items-center space-x-1">
+                    <span class="text-xs px-2 py-1 rounded-full font-medium"
+                          :class="{
+                            'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300': getFileClassification(fileEntry) === 'entry-point',
+                            'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300': getFileClassification(fileEntry) === 'core-logic',
+                            'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300': getFileClassification(fileEntry) === 'helper',
+                            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300': getFileClassification(fileEntry) === 'config',
+                            'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300': getFileClassification(fileEntry) === 'unrelated' || getFileClassification(fileEntry) === 'unknown'
+                          }">
+                      {{ getFileClassification(fileEntry) }}
+                    </span>
+                  </div>
+                </div>
+                <div v-if="getFileSearchInfo(fileEntry)?.workflowPosition && getFileSearchInfo(fileEntry)?.workflowPosition !== 'unknown' && getFileSearchInfo(fileEntry)?.workflowPosition !== 'unrelated'" 
+                     class="text-xs text-muted-foreground">
+                  {{ getFileSearchInfo(fileEntry)?.workflowPosition }}
+                </div>
+              </div>
+              
+              <!-- Detailed Score Breakdown -->
+              <div class="grid grid-cols-4 gap-2 text-xs">
+                <div class="text-center">
+                  <div class="font-medium text-muted-foreground">Structure</div>
+                  <div class="font-mono text-sm">{{ Math.round((getFileSearchInfo(fileEntry)?.astScore || 0) * 100) }}%</div>
+                </div>
+                <div class="text-center">
+                  <div class="font-medium text-muted-foreground">Semantic</div>
+                  <div class="font-mono text-sm">{{ Math.round((getFileSearchInfo(fileEntry)?.llmScore || 0) * 100) }}%</div>
+                </div>
+                <div class="text-center">
+                  <div class="font-medium text-muted-foreground">Syntax</div>
+                  <div class="font-mono text-sm">{{ Math.round((getFileSearchInfo(fileEntry)?.syntaxScore || 0) * 100) }}%</div>
+                </div>
+                <div class="text-center">
+                  <div class="font-medium text-muted-foreground">AI Class</div>
+                  <div class="font-mono text-sm">{{ Math.round((getFileSearchInfo(fileEntry)?.flanScore || 0) * 100) }}%</div>
+                </div>
+              </div>
+              
+              <!-- Synergy Indicator -->
+              <div v-if="getFileSearchInfo(fileEntry)?.hasSynergy" class="mt-2 flex items-center text-xs text-emerald-600 dark:text-emerald-400">
+                <Icon name="lucide:zap" class="w-3 h-3 mr-1" />
+                Multi-model synergy detected
+              </div>
+            </div>
 
             <!-- Function Refs Display -->
             <div v-if="hasFunctionRefs(fileEntry)" class="mb-3">
@@ -183,6 +239,30 @@ const {
 
 const { announceStatus, announceError } = useAccessibility()
 
+// Store for file search info from tri-model search
+const fileSearchInfoStore = ref<Map<string, {
+  scorePercentage: number
+  finalScore: number
+  astScore: number
+  llmScore: number
+  flanScore: number
+  syntaxScore: number
+  hasSynergy: boolean
+  classification?: string
+  workflowPosition?: string
+}>>(new Map())
+
+// Provide a global way to set search info when files are added from search
+if (typeof window !== 'undefined') {
+  (window as any).setFileSearchInfo = (filePath: string, searchInfo: any) => {
+    fileSearchInfoStore.value.set(filePath, searchInfo)
+  }
+  
+  (window as any).clearFileSearchInfo = () => {
+    fileSearchInfoStore.value.clear()
+  }
+}
+
 // Reactive state for function selection modal
 const isFunctionModalOpen = ref(false)
 const selectedFileId = ref('')
@@ -231,6 +311,22 @@ const getFileComment = (fileEntry: string | FileRef): string => {
     return fileEntry.comment
   }
   return ''
+}
+
+const getFileSearchInfo = (fileEntry: string | FileRef) => {
+  const filePath = getFilePath(fileEntry)
+  return fileSearchInfoStore.value.get(filePath) || null
+}
+
+const getFileClassification = (fileEntry: string | FileRef): string | undefined => {
+  // First check if the FileRef has a persisted classification
+  if (typeof fileEntry === 'object' && fileEntry.classification) {
+    return fileEntry.classification
+  }
+  
+  // Fallback to search info if available
+  const searchInfo = getFileSearchInfo(fileEntry)
+  return searchInfo?.classification
 }
 
 const getFileIcon = (fileEntry: string | FileRef): string => {
