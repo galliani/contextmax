@@ -399,9 +399,13 @@ const handleCreateContextSet = async () => {
         }
       }
       
-      // Send search results to the TabbedFileBrowser component
+      // Send search results to the TabbedFileBrowser component with metadata
       if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
-        (window as any).setAssistedSearchResults(assistedResults)
+        const metadata = {
+          keyword: term,
+          entryPointFile: selectedEntryPoint.value?.path
+        }
+        await (window as any).setAssistedSearchResults(assistedResults, metadata)
       }
       
       const resultCount = assistedResults.length

@@ -26,6 +26,43 @@
         </Button>
       </div>
 
+      <!-- Search History Badges -->
+      <div v-if="searchHistory.length > 0" class="mb-3">
+        <div class="flex items-center space-x-2 mb-2">
+          <Icon name="lucide:history" class="w-3 h-3 text-muted-foreground" />
+          <span class="text-xs font-medium text-muted-foreground">Recent Searches:</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div
+            v-for="search in searchHistory.slice(0, 8)"
+            :key="search.id"
+            class="group relative flex items-center space-x-1 px-2 py-1 text-xs bg-secondary/30 hover:bg-secondary/50 text-secondary-foreground rounded-full border border-secondary/40 transition-colors cursor-pointer"
+            @click="() => loadSearchResults(search.id)"
+            :title="`Click to load search results for '${search.keyword}'`"
+          >
+            <Icon name="lucide:search" class="w-3 h-3" />
+            <span class="max-w-[100px] truncate">{{ search.keyword }}</span>
+            <span v-if="search.entryPointFile" class="text-xs text-muted-foreground">
+              📍
+            </span>
+            <span class="text-xs text-muted-foreground ml-1">
+              {{ search.results.length }}
+            </span>
+            <div
+              @click.stop="deleteSearch(search.id)"
+              class="opacity-0 group-hover:opacity-100 ml-1 text-destructive hover:text-destructive-foreground transition-opacity cursor-pointer flex items-center justify-center w-4 h-4"
+              title="Delete this search"
+              role="button"
+              tabindex="0"
+              @keydown.enter="deleteSearch(search.id)"
+              @keydown.space.prevent="deleteSearch(search.id)"
+            >
+              <Icon name="lucide:x" class="w-3 h-3" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Bulk Actions -->
       <div v-if="searchResultsCount > 0" class="flex items-center space-x-2">
         <Button
@@ -151,23 +188,6 @@
                   Multi-model synergy detected
                 </div>
               </div>
-
-              <!-- Matches -->
-              <div v-if="result.matches && result.matches.length > 0" class="mb-3">
-                <p class="text-xs font-medium text-foreground mb-1">Keyword Matches:</p>
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    v-for="(match, matchIndex) in result.matches.slice(0, 5)"
-                    :key="matchIndex"
-                    class="px-2 py-1 text-xs bg-secondary/30 text-secondary-foreground rounded border"
-                  >
-                    {{ match }}
-                  </span>
-                  <span v-if="result.matches.length > 5" class="text-xs text-muted-foreground">
-                    +{{ result.matches.length - 5 }} more
-                  </span>
-                </div>
-              </div>
             </div>
 
             <!-- Actions -->
@@ -211,20 +231,70 @@
 
 <script setup lang="ts">
 import type { FileTreeItem } from '~/composables/useProjectStore'
+import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
 
 const {
   fileTree,
   activeContextSetName,
   activeContextSet,
   addFileToActiveContextSet,
-  loadFileContent
+  loadFileContent,
+  selectedFolder
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
 
+// Initialize IndexedDB cache
+const {
+  initDB,
+  getSearchResultsByProject,
+  getSearchResultsById,
+  deleteSearchResults
+} = useIndexedDBCache()
+
 // Inject search results from parent component
 const searchResults = inject('searchResults', ref([]))
 const searchResultsCount = inject('searchResultsCount', computed(() => 0))
+
+// Local state for search history
+const searchHistory = ref<CachedSearchResults[]>([])
+
+// Load search history on component mount
+onMounted(async () => {
+  await initDB()
+  await loadSearchHistory()
+  
+  // Listen for search history refresh events
+  if (typeof window !== 'undefined') {
+    window.addEventListener('refreshSearchHistory', loadSearchHistory)
+  }
+})
+
+// Clean up event listener on unmount
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('refreshSearchHistory', loadSearchHistory)
+  }
+})
+
+// Load search history for current project
+const loadSearchHistory = async () => {
+  if (!selectedFolder.value) return
+  
+  try {
+    const history = await getSearchResultsByProject(selectedFolder.value.name)
+    searchHistory.value = history
+  } catch (error) {
+    console.warn('Failed to load search history:', error)
+  }
+}
+
+// Watch for project changes to reload search history
+watch(selectedFolder, async () => {
+  if (selectedFolder.value) {
+    await loadSearchHistory()
+  }
+})
 
 // Helper functions for file handling
 const getFileName = (filePath: string): string => {
@@ -440,6 +510,54 @@ const addAllResults = async () => {
   }
   
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}`)
+}
+
+// Load search results from history
+const loadSearchResults = async (searchId: string) => {
+  try {
+    console.log('Loading search results for ID:', searchId)
+    
+    if (!getSearchResultsById || typeof getSearchResultsById !== 'function') {
+      throw new Error('getSearchResultsById is not available')
+    }
+    
+    const cachedSearch = await getSearchResultsById(searchId)
+    console.log('Retrieved cached search:', cachedSearch)
+    
+    if (cachedSearch) {
+      // Restore search results to the global store
+      if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
+        const metadata = {
+          keyword: cachedSearch.keyword,
+          entryPointFile: cachedSearch.entryPointFile
+        }
+        await (window as any).setAssistedSearchResults(cachedSearch.results, metadata)
+      }
+      announceStatus(`Loaded search results for "${cachedSearch.keyword}"`)
+    } else {
+      announceError('Search results not found')
+    }
+  } catch (error) {
+    console.error('Failed to load search results:', error)
+    announceError('Failed to load search results')
+  }
+}
+
+// Delete search from history
+const deleteSearch = async (searchId: string) => {
+  try {
+    const success = await deleteSearchResults(searchId)
+    if (success) {
+      // Remove from local history
+      searchHistory.value = searchHistory.value.filter(search => search.id !== searchId)
+      announceStatus('Search deleted from history')
+    } else {
+      announceError('Failed to delete search from history')
+    }
+  } catch (error) {
+    console.warn('Failed to delete search:', error)
+    announceError('Failed to delete search from history')
+  }
 }
 
 const clearResults = () => {

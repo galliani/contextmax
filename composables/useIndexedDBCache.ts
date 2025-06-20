@@ -17,11 +17,35 @@ export interface CachedProjectEmbeddings {
   timestamp: number
 }
 
+export interface SearchResult {
+  file: string
+  finalScore: number
+  scorePercentage: number
+  astScore: number
+  llmScore: number
+  flanScore: number
+  syntaxScore: number
+  hasSynergy: boolean
+  matches: string[]
+  classification?: string
+  workflowPosition?: string
+}
+
+export interface CachedSearchResults {
+  id: string // Generated ID for the search
+  keyword: string
+  projectName: string
+  results: SearchResult[]
+  timestamp: number
+  entryPointFile?: string
+}
+
 export const useIndexedDBCache = () => {
   const DB_NAME = 'ContextMaxCache'
-  const DB_VERSION = 1
+  const DB_VERSION = 2
   const EMBEDDINGS_STORE = 'file_embeddings'
   const EMBEDDINGS_STORE_PROJECT = 'project_embeddings'
+  const SEARCH_RESULTS_STORE = 'search_results'
   
   let db: IDBDatabase | null = null
 
@@ -60,6 +84,14 @@ export const useIndexedDBCache = () => {
         if (!database.objectStoreNames.contains(EMBEDDINGS_STORE_PROJECT)) {
           const embeddingsStore = database.createObjectStore(EMBEDDINGS_STORE_PROJECT, { keyPath: 'projectHash' })
           embeddingsStore.createIndex('timestamp', 'timestamp')
+        }
+        
+        // Create search results store
+        if (!database.objectStoreNames.contains(SEARCH_RESULTS_STORE)) {
+          const searchStore = database.createObjectStore(SEARCH_RESULTS_STORE, { keyPath: 'id' })
+          searchStore.createIndex('timestamp', 'timestamp')
+          searchStore.createIndex('projectName', 'projectName')
+          searchStore.createIndex('keyword', 'keyword')
         }
       }
     })
@@ -240,11 +272,120 @@ export const useIndexedDBCache = () => {
     } catch (error) {
       console.warn('Failed to clean old project embeddings cache:', error)
     }
+
+    // Clean search results
+    try {
+      const searchTransaction = db.transaction([SEARCH_RESULTS_STORE], 'readwrite')
+      const searchStore = searchTransaction.objectStore(SEARCH_RESULTS_STORE)
+      const searchIndex = searchStore.index('timestamp')
+      const searchRange = IDBKeyRange.upperBound(thirtyDaysAgo)
+      searchIndex.openCursor(searchRange).onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result
+        if (cursor) {
+          cursor.delete()
+          cursor.continue()
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to clean old search results cache:', error)
+    }
+  }
+
+  // Store search results
+  const storeSearchResults = async (searchData: CachedSearchResults): Promise<boolean> => {
+    if (!db) return false
+
+    return new Promise((resolve) => {
+      const transaction = db!.transaction([SEARCH_RESULTS_STORE], 'readwrite')
+      const store = transaction.objectStore(SEARCH_RESULTS_STORE)
+      
+      const request = store.put(searchData)
+      
+      request.onsuccess = () => {
+        resolve(true)
+      }
+      
+      request.onerror = () => {
+        console.warn(`Failed to store search results:`, request.error)
+        resolve(false)
+      }
+    })
+  }
+
+  // Get search results by project
+  const getSearchResultsByProject = async (projectName: string): Promise<CachedSearchResults[]> => {
+    if (!db) return []
+
+    return new Promise((resolve) => {
+      const transaction = db!.transaction([SEARCH_RESULTS_STORE], 'readonly')
+      const store = transaction.objectStore(SEARCH_RESULTS_STORE)
+      const index = store.index('projectName')
+      const request = index.getAll(projectName)
+      
+      request.onsuccess = () => {
+        const results: CachedSearchResults[] = request.result || []
+        // Sort by timestamp (newest first)
+        results.sort((a, b) => b.timestamp - a.timestamp)
+        resolve(results)
+      }
+      
+      request.onerror = () => {
+        console.warn(`Failed to get search results for project ${projectName}:`, request.error)
+        resolve([])
+      }
+    })
+  }
+
+  // Get specific search results by ID
+  const getSearchResultsById = async (id: string): Promise<CachedSearchResults | null> => {
+    if (!db) return null
+
+    return new Promise((resolve) => {
+      const transaction = db!.transaction([SEARCH_RESULTS_STORE], 'readonly')
+      const store = transaction.objectStore(SEARCH_RESULTS_STORE)
+      const request = store.get(id)
+      
+      request.onsuccess = () => {
+        const result: CachedSearchResults | undefined = request.result
+        resolve(result || null)
+      }
+      
+      request.onerror = () => {
+        console.warn(`Failed to get search results ${id}:`, request.error)
+        resolve(null)
+      }
+    })
+  }
+
+  // Delete search results by ID
+  const deleteSearchResults = async (id: string): Promise<boolean> => {
+    if (!db) return false
+
+    return new Promise((resolve) => {
+      const transaction = db!.transaction([SEARCH_RESULTS_STORE], 'readwrite')
+      const store = transaction.objectStore(SEARCH_RESULTS_STORE)
+      const request = store.delete(id)
+      
+      request.onsuccess = () => {
+        resolve(true)
+      }
+      
+      request.onerror = () => {
+        console.warn(`Failed to delete search results ${id}:`, request.error)
+        resolve(false)
+      }
+    })
+  }
+
+  // Generate unique ID for search results (keyword + project as unique key)
+  const generateSearchId = (keyword: string, projectName: string): string => {
+    // Use keyword + project as unique key (no timestamp/random to allow overwriting)
+    return `search_${keyword.replace(/[^a-zA-Z0-9]/g, '_')}_${projectName.replace(/[^a-zA-Z0-9]/g, '_')}`
   }
 
   // Get cache statistics
-  const getCacheStats = async (): Promise<{ embeddingsCount: number; projectEmbeddingsCount: number }> => {
-    if (!db) return { embeddingsCount: 0, projectEmbeddingsCount: 0 }
+  const getCacheStats = async (): Promise<{ embeddingsCount: number; projectEmbeddingsCount: number; searchResultsCount: number }> => {
+    if (!db) return { embeddingsCount: 0, projectEmbeddingsCount: 0, searchResultsCount: 0 }
 
     const embeddingsCount = await new Promise<number>((resolve) => {
       const transaction = db!.transaction([EMBEDDINGS_STORE], 'readonly')
@@ -260,7 +401,14 @@ export const useIndexedDBCache = () => {
       request.onerror = () => resolve(0)
     })
 
-    return { embeddingsCount, projectEmbeddingsCount }
+    const searchResultsCount = await new Promise<number>((resolve) => {
+      const transaction = db!.transaction([SEARCH_RESULTS_STORE], 'readonly')
+      const request = transaction.objectStore(SEARCH_RESULTS_STORE).count()
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => resolve(0)
+    })
+
+    return { embeddingsCount, projectEmbeddingsCount, searchResultsCount }
   }
 
   return {
@@ -271,6 +419,11 @@ export const useIndexedDBCache = () => {
     storeCachedEmbedding,
     getCachedProjectEmbeddings,
     storeCachedProjectEmbeddings,
+    storeSearchResults,
+    getSearchResultsByProject,
+    getSearchResultsById,
+    deleteSearchResults,
+    generateSearchId,
     cleanOldCache,
     getCacheStats
   }

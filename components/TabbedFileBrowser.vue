@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import ProjectFileBrowser from './ProjectFileBrowser.vue'
 import AssistedCuration from './project-file-browser/AssistedCuration.vue'
+import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
 
 type BrowserMode = 'hardcore' | 'assisted'
 
@@ -96,26 +97,96 @@ const searchResultsStore = ref<Array<{
   workflowPosition?: string
 }>>([])
 
+// Store current search metadata for saving
+const currentSearchMetadata = ref<{
+  keyword: string
+  entryPointFile?: string
+} | null>(null)
+
+// Get project store to access current folder name
+const { selectedFolder } = useProjectStore()
+
+// Initialize IndexedDB cache
+const {
+  initDB,
+  storeSearchResults,
+  generateSearchId,
+  getSearchResultsByProject
+} = useIndexedDBCache()
+
+// Initialize DB on component mount
+onMounted(async () => {
+  await initDB()
+})
+
 // Computed property for search results count
 const searchResultsCount = computed(() => searchResultsStore.value.length)
 
+// Save search results to IndexedDB
+const saveSearchResults = async (keyword: string, results: any[], entryPointFile?: string) => {
+  if (!selectedFolder.value || results.length === 0) return
+
+  const projectName = selectedFolder.value.name
+  const searchId = generateSearchId(keyword, projectName)
+  
+  const searchData: CachedSearchResults = {
+    id: searchId,
+    keyword,
+    projectName,
+    results,
+    timestamp: Date.now(),
+    entryPointFile
+  }
+
+  try {
+    await storeSearchResults(searchData)
+    console.log(`💾 Saved/updated search results for "${keyword}" in project "${projectName}" (${results.length} files)`)
+    
+    // Refresh search history in AssistedCuration component
+    await refreshSearchHistory()
+  } catch (error) {
+    console.warn('Failed to save search results:', error)
+  }
+}
+
 // Provide global access to search results for communication between components
 if (typeof window !== 'undefined') {
-  (window as any).setAssistedSearchResults = (results: any[]) => {
+  (window as any).setAssistedSearchResults = async (results: any[], metadata?: { keyword: string; entryPointFile?: string }) => {
     searchResultsStore.value = results
+    currentSearchMetadata.value = metadata || null
+    
     // Auto-switch to assisted mode when search results arrive
     if (results.length > 0) {
       currentMode.value = 'assisted'
+      
+      // Save to IndexedDB if we have metadata
+      if (metadata?.keyword) {
+        await saveSearchResults(metadata.keyword, results, metadata.entryPointFile)
+      }
     }
   }
   
   (window as any).clearAssistedSearchResults = () => {
     searchResultsStore.value = []
+    currentSearchMetadata.value = null
   }
   
   (window as any).getAssistedSearchResults = () => {
     return searchResultsStore.value
   }
+}
+
+// Function to refresh search history (called from child components)
+const refreshSearchHistory = async () => {
+  // Emit event to refresh search history in AssistedCuration component
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('refreshSearchHistory'))
+  }
+}
+
+// Add refresh function to window for child components to call
+if (typeof window !== 'undefined') {
+  (window as any).refreshSearchHistory = refreshSearchHistory
 }
 
 // Provide search results to child components
