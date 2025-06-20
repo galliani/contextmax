@@ -837,7 +837,7 @@ Position in workflow: upstream, downstream, parallel, or unrelated`
             if (fileInfo?.functions && fileInfo.functions.length > 0 && classification !== 'unrelated') {
               try {
                 // Ask LLM to identify which functions are most relevant
-                const functionList = fileInfo.functions.slice(0, 10).map(f => f.name).join(', ')
+                const functionList = fileInfo.functions.slice(0, 40).map(f => f.name).join(', ')
                 const functionAnalysisPrompt = `Searching for: "${keyword}"
 File: ${fileName} (${classification})
 Functions in file: ${functionList}
