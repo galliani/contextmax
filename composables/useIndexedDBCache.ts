@@ -17,6 +17,15 @@ export interface CachedProjectEmbeddings {
   timestamp: number
 }
 
+export interface RelevantFunction {
+  name: string
+  startLine: number
+  endLine: number
+  relevance: number // 0-1 score
+  reason?: string // Why this function is relevant
+  type?: 'function' | 'method' | 'arrow' | 'constructor'
+}
+
 export interface SearchResult {
   file: string
   finalScore: number
@@ -29,6 +38,7 @@ export interface SearchResult {
   matches: string[]
   classification?: string
   workflowPosition?: string
+  relevantFunctions?: RelevantFunction[]
 }
 
 export interface CachedSearchResults {

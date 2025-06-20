@@ -394,7 +394,8 @@ const handleCreateContextSet = async () => {
             hasSynergy: result.hasSynergy,
             matches: result.matches || [],
             classification: result.classification,
-            workflowPosition: result.workflowPosition
+            workflowPosition: result.workflowPosition,
+            relevantFunctions: result.relevantFunctions
           })
         }
       }

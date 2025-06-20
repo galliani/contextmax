@@ -6,7 +6,7 @@
 <template>
   <div class="content-spacing bg-surface-1 h-full flex flex-col">
     <!-- Header -->
-    <div class="p-4 border-b border-border">
+    <div id="assisted-curation-header" class="p-4 border-b border-border">
       <div class="flex items-center justify-between mb-3">
         <div>
           <h4 class="text-sm font-medium text-foreground">AI-Curated Results</h4>
@@ -24,6 +24,37 @@
           <Icon name="lucide:x" class="w-3 h-3 mr-1" />
           Clear
         </Button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="mb-3">
+        <form @submit.prevent="handleSearch" class="flex items-center space-x-2">
+          <div class="flex-1 relative">
+            <Input
+              v-model="searchQuery"
+              placeholder="Search for files using AI (e.g., authentication, user management, api routes)"
+              class="pr-10"
+              :disabled="isSearching"
+              ref="searchInput"
+            />
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+              <Icon 
+                :name="isSearching ? 'lucide:loader-2' : 'lucide:search'"
+                class="w-4 h-4 text-muted-foreground"
+                :class="{ 'animate-spin': isSearching }"
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            :disabled="!searchQuery.trim() || isSearching"
+            class="px-3"
+          >
+            <Icon name="lucide:sparkles" class="w-3 h-3 mr-1" />
+            Search
+          </Button>
+        </form>
       </div>
 
       <!-- Search History Badges -->
@@ -188,6 +219,32 @@
                   Multi-model synergy detected
                 </div>
               </div>
+
+              <!-- Relevant Functions -->
+              <div v-if="result.relevantFunctions && result.relevantFunctions.length > 0" class="mb-3">
+                <p class="text-xs font-medium text-foreground mb-1">
+                  <Icon name="lucide:function-square" class="w-3 h-3 inline-block mr-1" />
+                  AI-Identified Relevant Functions:
+                </p>
+                <div class="flex flex-wrap gap-1">
+                  <div
+                    v-for="(func, funcIndex) in result.relevantFunctions"
+                    :key="funcIndex"
+                    class="group relative"
+                  >
+                    <div class="flex items-center space-x-1 px-2 py-1 text-xs bg-primary/10 text-primary rounded border border-primary/20">
+                      <span class="font-mono">{{ func.name }}</span>
+                      <span class="text-primary/60">
+                        ({{ Math.round(func.relevance * 100) }}%)
+                      </span>
+                    </div>
+                    <div v-if="func.reason" 
+                         class="absolute bottom-full left-0 mb-1 p-2 bg-popover text-popover-foreground rounded shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap text-xs">
+                      {{ func.reason }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Actions -->
@@ -232,6 +289,7 @@
 <script setup lang="ts">
 import type { FileTreeItem } from '~/composables/useProjectStore'
 import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
+import { Input } from '@/components/ui/input'
 
 const {
   fileTree,
@@ -243,6 +301,9 @@ const {
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
+
+// Import smart suggestions composable for search
+const { performTriModelSearch } = useSmartContextSuggestions()
 
 // Initialize IndexedDB cache
 const {
@@ -258,6 +319,11 @@ const searchResultsCount = inject('searchResultsCount', computed(() => 0))
 
 // Local state for search history
 const searchHistory = ref<CachedSearchResults[]>([])
+
+// Search state
+const searchQuery = ref('')
+const isSearching = ref(false)
+const searchInput = ref<HTMLInputElement>()
 
 // Load search history on component mount
 onMounted(async () => {
@@ -442,12 +508,24 @@ const addFileToContext = async (result: any) => {
   }
 
   try {
+    // Prepare function refs from relevant functions with high relevance
+    const functionRefs = result.relevantFunctions
+      ?.filter((func: any) => func.relevance >= 0.6) // Only include functions with 60%+ relevance
+      ?.map((func: any) => ({
+        name: func.name,
+        comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
+      }))
+    
     const success = addFileToActiveContextSet(fileItem, {
-      classification: result.classification
+      classification: result.classification,
+      functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
     })
     
     if (success) {
-      announceStatus(`Added ${fileName} to ${activeContextSetName.value}`)
+      const funcText = functionRefs && functionRefs.length > 0 
+        ? ` with ${functionRefs.length} relevant function${functionRefs.length > 1 ? 's' : ''}`
+        : ''
+      announceStatus(`Added ${fileName} to ${activeContextSetName.value}${funcText}`)
     } else {
       announceStatus(`${fileName} is already in ${activeContextSetName.value}`)
     }
@@ -471,8 +549,17 @@ const addTopResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
+          // Prepare function refs from relevant functions with high relevance
+          const functionRefs = result.relevantFunctions
+            ?.filter((func: any) => func.relevance >= 0.6)
+            ?.map((func: any) => ({
+              name: func.name,
+              comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
+            }))
+          
           const success = addFileToActiveContextSet(fileItem, {
-            classification: result.classification
+            classification: result.classification,
+            functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
           })
           if (success) addedCount++
         } catch (error) {
@@ -482,7 +569,9 @@ const addTopResults = async () => {
     }
   }
   
-  announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}`)
+  const filesWithFunctions = topResults.filter(r => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.6)).length
+  const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
+  announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
 
 const addAllResults = async () => {
@@ -498,8 +587,17 @@ const addAllResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
+          // Prepare function refs from relevant functions with high relevance
+          const functionRefs = result.relevantFunctions
+            ?.filter((func: any) => func.relevance >= 0.6)
+            ?.map((func: any) => ({
+              name: func.name,
+              comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
+            }))
+          
           const success = addFileToActiveContextSet(fileItem, {
-            classification: result.classification
+            classification: result.classification,
+            functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
           })
           if (success) addedCount++
         } catch (error) {
@@ -509,7 +607,9 @@ const addAllResults = async () => {
     }
   }
   
-  announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}`)
+  const filesWithFunctions = searchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.6)).length
+  const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
+  announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
 
 // Load search results from history
@@ -565,5 +665,111 @@ const clearResults = () => {
     (window as any).clearAssistedSearchResults()
   }
   announceStatus('Cleared search results')
+}
+
+// Helper function to get all files from tree (reused from AddNewContext.vue)
+const getAllFilesFromTree = (tree: FileTreeItem[]): FileTreeItem[] => {
+  const files: FileTreeItem[] = []
+  
+  const traverse = (items: FileTreeItem[]) => {
+    if (!Array.isArray(items)) return
+    
+    for (const item of items) {
+      if (item?.type === 'file') {
+        files.push(item)
+      } else if (item?.children && Array.isArray(item.children)) {
+        traverse(item.children)
+      }
+    }
+  }
+  
+  traverse(tree)
+  return files
+}
+
+// Handle search form submission
+const handleSearch = async () => {
+  const term = searchQuery.value.trim()
+  
+  if (!term) {
+    announceError('Please enter a search term')
+    return
+  }
+
+  if (!selectedFolder.value) {
+    announceError('No project selected')
+    return
+  }
+
+  try {
+    isSearching.value = true
+    announceStatus(`Searching for "${term}"...`)
+    
+    // Get all files from the file tree
+    const allFiles = getAllFilesFromTree(fileTree.value || [])
+    const filesToSearch: Array<{ path: string; content: string }> = []
+    
+    // Load file contents for search
+    for (const file of allFiles) {
+      try {
+        if (file.handle && file.type === 'file') {
+          const fileHandle = file.handle as FileSystemFileHandle
+          const fileObj = await fileHandle.getFile()
+          const content = await fileObj.text()
+          
+          filesToSearch.push({
+            path: file.path,
+            content: content
+          })
+        }
+      } catch (error) {
+        console.warn(`Failed to load content for search: ${file.path}:`, error)
+      }
+    }
+    
+    // Perform the tri-model search
+    const searchResults = await performTriModelSearch(term, filesToSearch)
+    
+    // Prepare search results for display
+    const assistedResults = []
+    
+    // Add search results
+    for (const result of searchResults.data.files) {
+      assistedResults.push({
+        file: result.file,
+        scorePercentage: result.scorePercentage,
+        finalScore: result.finalScore,
+        astScore: result.astScore,
+        llmScore: result.llmScore,
+        flanScore: result.flanScore,
+        syntaxScore: result.syntaxScore,
+        hasSynergy: result.hasSynergy,
+        matches: result.matches || [],
+        classification: result.classification,
+        workflowPosition: result.workflowPosition,
+        relevantFunctions: result.relevantFunctions
+      })
+    }
+    
+    // Send search results to the global store with metadata
+    if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
+      const metadata = {
+        keyword: term
+      }
+      await (window as any).setAssistedSearchResults(assistedResults, metadata)
+    }
+    
+    const resultCount = assistedResults.length
+    announceStatus(`Found ${resultCount} relevant files for "${term}"`)
+    
+    // Clear search input after successful search
+    searchQuery.value = ''
+    
+  } catch (error) {
+    console.error('Search failed:', error)
+    announceError('Search failed. Please try again.')
+  } finally {
+    isSearching.value = false
+  }
 }
 </script>
