@@ -10,7 +10,7 @@
       <DialogHeader>
         <DialogTitle>Create New Context Set</DialogTitle>
         <DialogDescription>
-          Enter a search phrase to find related files. A context set will be created automatically.
+          Enter a search phrase and optionally specify where the flow starts from to get more accurate results.
         </DialogDescription>
       </DialogHeader>
       
@@ -57,6 +57,69 @@
           </p>
         </div>
 
+        <!-- Entry Point File (Optional) -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-foreground">
+            Entry Point File (Optional)
+          </label>
+          
+          <!-- Entry Point Help Text -->
+          <p class="text-xs text-muted-foreground">
+            Specify the file where this context flow starts (e.g., a button, API endpoint, or component).
+          </p>
+          
+          <!-- File Search -->
+          <div class="border rounded-md p-3 bg-muted/30">
+            <Search 
+              :files="fileTree"
+              v-model="entryPointSearchTerm"
+              @search-results="onEntryPointSearchResults"
+              ref="entryPointSearch"
+            />
+            
+            <!-- Search Results for Entry Point Selection -->
+            <div v-if="entryPointSearchResults.length > 0 && entryPointSearchTerm" class="mt-3 space-y-2 max-h-48 overflow-y-auto">
+              <div class="text-xs font-medium text-muted-foreground mb-2">
+                Click to select entry point:
+              </div>
+              <div
+                v-for="file in flattenedEntryPointFiles.slice(0, 10)"
+                :key="file.path"
+                class="flex items-center justify-between p-2 rounded border cursor-pointer transition-colors"
+                :class="{
+                  'bg-primary/10 border-primary': selectedEntryPoint?.path === file.path,
+                  'hover:bg-muted border-border': selectedEntryPoint?.path !== file.path
+                }"
+                @click="selectEntryPointFile(file)"
+              >
+                <div class="flex items-center space-x-2 min-w-0">
+                  <Icon name="lucide:file" class="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span class="font-mono text-sm truncate">{{ file.path }}</span>
+                </div>
+                <div v-if="selectedEntryPoint?.path === file.path" class="flex-shrink-0">
+                  <Icon name="lucide:check" class="w-4 h-4 text-primary" />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Selected Entry Point Preview -->
+          <div v-if="selectedEntryPoint" class="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950 rounded border border-emerald-200 dark:border-emerald-800">
+            <div class="flex items-center space-x-2">
+              <Icon name="lucide:map-pin" class="w-4 h-4 text-emerald-600" />
+              <span class="text-sm text-emerald-700 dark:text-emerald-300">Entry point:</span>
+              <span class="font-mono text-sm font-medium text-emerald-800 dark:text-emerald-200">{{ selectedEntryPoint.path }}</span>
+            </div>
+            <button 
+              @click="clearEntryPoint"
+              class="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200"
+              title="Clear entry point"
+            >
+              <Icon name="lucide:x" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         <div class="flex justify-end space-x-3">
           <Button type="button" variant="outline" @click="cancelCreate">
             Cancel
@@ -83,6 +146,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Search from '@/components/project-file-browser/Search.vue'
 
 interface Props {
   open: boolean
@@ -111,8 +175,12 @@ const { performHybridKeywordSearch } = useSmartContextSuggestions()
 
 // Local state
 const searchTerm = ref('')
+const entryPointSearchTerm = ref('')
+const entryPointSearchResults = ref<FileTreeItem[]>([])
+const selectedEntryPoint = ref<FileTreeItem | null>(null)
 const createError = ref('')
 const searchInput = ref<HTMLInputElement>()
+const entryPointSearch = ref()
 const isSearching = ref(false)
 const isCreating = ref(false) // Track if we're in the creation process
 
@@ -189,6 +257,23 @@ const isFormValid = computed(() => {
   return searchTerm.value.trim() && !searchTermError.value && generatedContextName.value
 })
 
+// Flatten search results for entry point selection
+const flattenedEntryPointFiles = computed(() => {
+  const flatten = (files: FileTreeItem[]): FileTreeItem[] => {
+    const result: FileTreeItem[] = []
+    for (const file of files) {
+      if (file.type === 'file') {
+        result.push(file)
+      } else if (file.children) {
+        result.push(...flatten(file.children))
+      }
+    }
+    return result
+  }
+  
+  return flatten(entryPointSearchResults.value)
+})
+
 // Actions
 const handleCreateContextSet = async () => {
   const term = searchTerm.value.trim()
@@ -257,13 +342,28 @@ const handleCreateContextSet = async () => {
       // Perform the search using the original search term (not the camelCase name)
       const searchResults = await performHybridKeywordSearch(term, filesToSearch)
       
-      // Add top search results to the context set
+      // Add entry point file first if specified
       let addedCount = 0
+      if (selectedEntryPoint.value) {
+        try {
+          const success = addFileToActiveContextSet(selectedEntryPoint.value)
+          if (success) {
+            addedCount++
+            console.log(`Added entry point file: ${selectedEntryPoint.value.path}`)
+          }
+        } catch (error) {
+          console.warn(`Failed to add entry point file ${selectedEntryPoint.value.path}:`, error)
+        }
+      }
+      
+      // Add top search results to the context set
       const maxFiles = 10 // Add top 10 results
       
       for (const result of searchResults.data.files.slice(0, maxFiles)) {
         const fileItem = allFiles.find(f => f.path === result.file)
-        if (fileItem) {
+        
+        // Skip if this file is already the entry point
+        if (fileItem && selectedEntryPoint.value?.path !== fileItem.path) {
           try {
             const success = addFileToActiveContextSet(fileItem)
             if (success) addedCount++
@@ -273,7 +373,8 @@ const handleCreateContextSet = async () => {
         }
       }
       
-      announceStatus(`Context set "${name}" created with ${addedCount} relevant files found`)
+      const entryPointText = selectedEntryPoint.value ? ' (including entry point)' : ''
+      announceStatus(`Context set "${name}" created with ${addedCount} relevant files found${entryPointText}`)
     } catch (error) {
       console.error('Search failed:', error)
       // Don't fail the context creation if search fails
@@ -303,8 +404,43 @@ const cancelCreate = () => {
 
 const resetForm = () => {
   searchTerm.value = ''
+  entryPointSearchTerm.value = ''
+  entryPointSearchResults.value = []
+  selectedEntryPoint.value = null
   createError.value = ''
   isCreating.value = false
+}
+
+// Entry point file selection handlers
+const onEntryPointSearchResults = (filteredFiles: FileTreeItem[], searchTerm: string, activeFilters: string[]) => {
+  entryPointSearchResults.value = filteredFiles
+  
+  // Clear selection if current selection no longer matches search
+  if (selectedEntryPoint.value && searchTerm) {
+    const isStillVisible = flattenedEntryPointFiles.value.some(f => f.path === selectedEntryPoint.value?.path)
+    if (!isStillVisible) {
+      selectedEntryPoint.value = null
+    }
+  }
+}
+
+const selectEntryPointFile = (file: FileTreeItem) => {
+  selectedEntryPoint.value = file
+  // Clear the search to hide results after selection
+  entryPointSearchTerm.value = ''
+  entryPointSearchResults.value = []
+  if (entryPointSearch.value) {
+    entryPointSearch.value.clearSearch()
+  }
+}
+
+const clearEntryPoint = () => {
+  selectedEntryPoint.value = null
+  entryPointSearchTerm.value = ''
+  entryPointSearchResults.value = []
+  if (entryPointSearch.value) {
+    entryPointSearch.value.clearSearch()
+  }
 }
 
 // Focus management
