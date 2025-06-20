@@ -121,8 +121,84 @@
 
     <!-- Results List -->
     <div class="flex-1 min-h-0 overflow-y-auto">
+      <!-- Search Loading State -->
+      <div v-if="isSearching" class="flex-1 flex items-center justify-center py-12">
+        <div class="text-center max-w-md mx-auto">
+          <div class="relative mb-4">
+            <Icon name="lucide:sparkles" class="w-12 h-12 mx-auto text-primary animate-pulse" aria-hidden="true" />
+            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+              <Icon name="lucide:loader-2" class="w-3 h-3 text-primary-foreground animate-spin" />
+            </div>
+          </div>
+          <p class="visual-hierarchy-body mb-2 text-mobile-body sm:text-base font-medium text-foreground">
+            AI Search in Progress
+          </p>
+          <p class="text-sm text-muted-foreground mb-4">
+            {{ searchStage || 'Initializing search...' }}
+          </p>
+          
+          <!-- Progress Indicator -->
+          <div class="w-full max-w-xs mx-auto mb-4">
+            <div class="w-full bg-secondary rounded-full h-2">
+              <div 
+                class="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                :style="{ width: `${searchProgress}%` }"
+              ></div>
+            </div>
+            <div class="flex justify-between mt-2 text-xs text-muted-foreground">
+              <span>{{ Math.round(searchProgress) }}%</span>
+              <span>{{ searchStage ? 'Processing...' : 'Starting...' }}</span>
+            </div>
+          </div>
+          
+          <!-- Stage Details -->
+          <div class="text-xs text-muted-foreground space-y-1">
+            <div class="flex items-center justify-center space-x-2">
+              <Icon 
+                name="lucide:layers" 
+                class="w-3 h-3"
+                :class="searchProgress >= 20 ? 'text-success' : 'text-muted-foreground'"
+              />
+              <span :class="searchProgress >= 20 ? 'text-success font-medium' : ''">Structure Analysis</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <Icon 
+                name="lucide:brain" 
+                class="w-3 h-3"
+                :class="searchProgress >= 40 ? 'text-success' : 'text-muted-foreground'"
+              />
+              <span :class="searchProgress >= 40 ? 'text-success font-medium' : ''">Semantic Analysis</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <Icon 
+                name="lucide:network" 
+                class="w-3 h-3"
+                :class="searchProgress >= 60 ? 'text-success' : 'text-muted-foreground'"
+              />
+              <span :class="searchProgress >= 60 ? 'text-success font-medium' : ''">Relationship Analysis</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <Icon 
+                name="lucide:robot" 
+                class="w-3 h-3"
+                :class="searchProgress >= 80 ? 'text-success' : 'text-muted-foreground'"
+              />
+              <span :class="searchProgress >= 80 ? 'text-success font-medium' : ''">AI Classification</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2">
+              <Icon 
+                name="lucide:zap" 
+                class="w-3 h-3"
+                :class="searchProgress >= 95 ? 'text-success' : 'text-muted-foreground'"
+              />
+              <span :class="searchProgress >= 95 ? 'text-success font-medium' : ''">Final Results</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <!-- Empty State -->
-      <div v-if="searchResultsCount === 0" class="flex-1 flex items-center justify-center py-12">
+      <div v-else-if="searchResultsCount === 0" class="flex-1 flex items-center justify-center py-12">
         <div class="text-center max-w-sm mx-auto">
           <Icon name="lucide:sparkles" class="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" aria-hidden="true" />
           <p class="visual-hierarchy-body mb-2 text-mobile-body sm:text-base">No Search Results</p>
@@ -323,6 +399,8 @@ const searchHistory = ref<CachedSearchResults[]>([])
 // Search state
 const searchQuery = ref('')
 const isSearching = ref(false)
+const searchStage = ref('')
+const searchProgress = ref(0)
 const searchInput = ref<HTMLInputElement>()
 
 // Load search history on component mount
@@ -711,6 +789,8 @@ const handleSearch = async () => {
 
   try {
     isSearching.value = true
+    searchStage.value = 'Preparing files for analysis...'
+    searchProgress.value = 5
     announceStatus(`Searching for "${term}"...`)
     
     // Get all files from the file tree
@@ -718,6 +798,9 @@ const handleSearch = async () => {
     const filesToSearch: Array<{ path: string; content: string }> = []
     
     // Load file contents for search
+    searchStage.value = `Loading file contents (${allFiles.length} files)...`
+    searchProgress.value = 10
+    
     for (const file of allFiles) {
       try {
         if (file.handle && file.type === 'file') {
@@ -735,10 +818,81 @@ const handleSearch = async () => {
       }
     }
     
-    // Perform the tri-model search
-    const searchResults = await performTriModelSearch(term, filesToSearch)
+    searchStage.value = 'Starting tri-model AI analysis...'
+    searchProgress.value = 15
+    
+    // Create progress tracking wrapper
+    const progressTracker = {
+      onEmbeddingGeneration: () => {
+        searchStage.value = 'Generating semantic embeddings...'
+        searchProgress.value = 25
+      },
+      onStructureAnalysis: () => {
+        searchStage.value = 'Analyzing code structure and patterns...'
+        searchProgress.value = 35
+      },
+      onSemanticAnalysis: () => {
+        searchStage.value = 'Performing semantic similarity analysis...'
+        searchProgress.value = 50
+      },
+      onRelationshipAnalysis: () => {
+        searchStage.value = 'Analyzing inter-file relationships...'
+        searchProgress.value = 65
+      },
+      onAIClassification: () => {
+        searchStage.value = 'AI classification and function analysis...'
+        searchProgress.value = 80
+      },
+      onCombiningResults: () => {
+        searchStage.value = 'Combining tri-model results...'
+        searchProgress.value = 90
+      },
+      onFinalizing: () => {
+        searchStage.value = 'Finalizing search results...'
+        searchProgress.value = 95
+      }
+    }
+    
+    // Monkey-patch console.log temporarily to track progress
+    const originalConsoleLog = console.log
+    console.log = (...args) => {
+      const message = args.join(' ')
+      if (message.includes('📊 Generating embeddings for tri-model search')) {
+        progressTracker.onEmbeddingGeneration()
+      } else if (message.includes('🕵️ Stage 1: Structure Analysis')) {
+        progressTracker.onStructureAnalysis()
+      } else if (message.includes('🧠 Stage 2: Semantic Analysis')) {
+        progressTracker.onSemanticAnalysis()
+      } else if (message.includes('📊 Stage 3: Enhanced Relationship Analysis')) {
+        progressTracker.onRelationshipAnalysis()
+      } else if (message.includes('🤖 Stage 4: AI Classification')) {
+        progressTracker.onAIClassification()
+      } else if (message.includes('⚡ Stage 5: Combining tri-model results')) {
+        progressTracker.onCombiningResults()
+      } else if (message.includes('🎯 Final tri-model results')) {
+        progressTracker.onFinalizing()
+      }
+      originalConsoleLog(...args)
+    }
+    
+    try {
+      // Perform the tri-model search
+      const searchResults = await performTriModelSearch(term, filesToSearch)
+      
+      // Restore original console.log
+      console.log = originalConsoleLog
+      
+      return searchResults
+    } catch (error) {
+      // Restore original console.log on error
+      console.log = originalConsoleLog
+      throw error
+    }
     
     // Prepare search results for display
+    searchStage.value = 'Preparing results for display...'
+    searchProgress.value = 98
+    
     const assistedResults = []
     
     // Add search results
@@ -767,6 +921,12 @@ const handleSearch = async () => {
       await (window as any).setAssistedSearchResults(assistedResults, metadata)
     }
     
+    searchStage.value = 'Search completed successfully!'
+    searchProgress.value = 100
+    
+    // Brief delay to show completion
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
     const resultCount = assistedResults.length
     announceStatus(`Found ${resultCount} relevant files for "${term}"`)
     
@@ -775,9 +935,16 @@ const handleSearch = async () => {
     
   } catch (error) {
     console.error('Search failed:', error)
+    searchStage.value = 'Search failed - please try again'
+    searchProgress.value = 0
     announceError('Search failed. Please try again.')
   } finally {
-    isSearching.value = false
+    // Reset search state after a brief delay
+    setTimeout(() => {
+      isSearching.value = false
+      searchStage.value = ''
+      searchProgress.value = 0
+    }, 1000)
   }
 }
 </script>
