@@ -38,9 +38,6 @@
             >
               <Icon name="lucide:sparkles" class="w-3 h-3 mr-1.5" />
               Assisted
-              <span v-if="searchResultsCount > 0" class="ml-1 bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
-                {{ searchResultsCount }}
-              </span>
             </Button>
           </div>
         </div>

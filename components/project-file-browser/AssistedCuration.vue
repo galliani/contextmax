@@ -508,17 +508,25 @@ const addFileToContext = async (result: any) => {
   }
 
   try {
-    // Prepare function refs from relevant functions with high relevance
+    // Prepare function refs from relevant functions (lowered threshold for better inclusion)
     const functionRefs = result.relevantFunctions
-      ?.filter((func: any) => func.relevance >= 0.6) // Only include functions with 60%+ relevance
+      ?.filter((func: any) => func.relevance >= 0.3) // Include functions with 30%+ relevance
       ?.map((func: any) => ({
         name: func.name,
         comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-      }))
+      })) || []
+    
+    console.log('Adding file to context with functions:', {
+      file: result.file,
+      totalFunctions: result.relevantFunctions?.length || 0,
+      allRelevanceScores: result.relevantFunctions?.map((f: any) => ({ name: f.name, relevance: f.relevance })) || [],
+      highRelevanceFunctions: functionRefs.length,
+      functionNames: functionRefs.map(f => f.name)
+    })
     
     const success = addFileToActiveContextSet(fileItem, {
       classification: result.classification,
-      functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
+      functionRefs: functionRefs.length > 0 ? functionRefs : undefined
     })
     
     if (success) {
@@ -549,17 +557,17 @@ const addTopResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
-          // Prepare function refs from relevant functions with high relevance
+          // Prepare function refs from relevant functions (lowered threshold for better inclusion)
           const functionRefs = result.relevantFunctions
-            ?.filter((func: any) => func.relevance >= 0.6)
+            ?.filter((func: any) => func.relevance >= 0.3)
             ?.map((func: any) => ({
               name: func.name,
               comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-            }))
+            })) || []
           
           const success = addFileToActiveContextSet(fileItem, {
             classification: result.classification,
-            functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
+            functionRefs: functionRefs.length > 0 ? functionRefs : undefined
           })
           if (success) addedCount++
         } catch (error) {
@@ -569,7 +577,7 @@ const addTopResults = async () => {
     }
   }
   
-  const filesWithFunctions = topResults.filter(r => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.6)).length
+  const filesWithFunctions = topResults.filter(r => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
   const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
@@ -587,17 +595,17 @@ const addAllResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
-          // Prepare function refs from relevant functions with high relevance
+          // Prepare function refs from relevant functions (lowered threshold for better inclusion)
           const functionRefs = result.relevantFunctions
-            ?.filter((func: any) => func.relevance >= 0.6)
+            ?.filter((func: any) => func.relevance >= 0.3)
             ?.map((func: any) => ({
               name: func.name,
               comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-            }))
+            })) || []
           
           const success = addFileToActiveContextSet(fileItem, {
             classification: result.classification,
-            functionRefs: functionRefs && functionRefs.length > 0 ? functionRefs : undefined
+            functionRefs: functionRefs.length > 0 ? functionRefs : undefined
           })
           if (success) addedCount++
         } catch (error) {
@@ -607,7 +615,7 @@ const addAllResults = async () => {
     }
   }
   
-  const filesWithFunctions = searchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.6)).length
+  const filesWithFunctions = searchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
   const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
