@@ -34,7 +34,25 @@ export const useRegexCodeParser = () => {
     };
 
     const classRegex = createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:abstract\\s+)?class\\s+([a-zA-Z0-9_$]+)');
-    const functionRegex = createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:async\\s+)?(?:function\\s+([a-zA-Z0-9_$]+)\\s*\\(|const\\s+([a-zA-Z0-9_$]+)\\s*=\\s*(?:async\\s+)?\\(|([a-zA-Z0-9_$]+)\\s*:\\s*\\([^)]*\\)\\s*=>|def\\s+([a-zA-Z0-9_]+)\\s*\\(|public\\s+(?:static\\s+)?(?:async\\s+)?[a-zA-Z0-9_<>\\[\\],\\s]*\\s+([a-zA-Z0-9_]+)\\s*\\()');
+    
+    // Multiple function patterns for better detection
+    const functionPatterns = [
+      // Traditional function declarations: function name() or export function name()
+      createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:async\\s+)?function\\s+([a-zA-Z0-9_$]+)\\s*\\('),
+      // Const arrow functions: const name = () => or const name = async () =>
+      createRefaPattern('(?:^|\\s)(?:export\\s+)?const\\s+([a-zA-Z0-9_$]+)\\s*=\\s*(?:async\\s+)?\\([^)]*\\)\\s*=>'),
+      // Let/var arrow functions: let name = () =>
+      createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:let|var)\\s+([a-zA-Z0-9_$]+)\\s*=\\s*(?:async\\s+)?\\([^)]*\\)\\s*=>'),
+      // TypeScript function types: name: () => type
+      createRefaPattern('([a-zA-Z0-9_$]+)\\s*:\\s*\\([^)]*\\)\\s*=>'),
+      // Method definitions in objects: name() { or async name() {
+      createRefaPattern('(?:async\\s+)?([a-zA-Z0-9_$]+)\\s*\\([^)]*\\)\\s*\\{'),
+      // Python-style: def name(
+      createRefaPattern('def\\s+([a-zA-Z0-9_]+)\\s*\\('),
+      // TypeScript methods: public/private name(
+      createRefaPattern('(?:public|private|protected)\\s+(?:static\\s+)?(?:async\\s+)?([a-zA-Z0-9_]+)\\s*\\('),
+    ];
+    
     const importRegex = createRefaPattern('^(?:\\s*)import\\s+.*?from\\s+[\'\"](.*?)[\'\"]+|^(?:\\s*)import\\s+[\'\"](.*?)[\'\"]+|^(?:\\s*)from\\s+(.*?)\\s+import');
     const exportRegex = createRefaPattern('^(?:\\s*)export\\s+(?:default\\s+)?(?:function|class|const|let|var)\\s+([a-zA-Z0-9_$]+)|^(?:\\s*)export\\s*\\{\\s*([^}]+)\\s*\\}');
 
@@ -99,13 +117,20 @@ export const useRegexCodeParser = () => {
         }
       }
 
-      // Function matching with refa-enhanced regex
-      const funcMatch = line.match(functionRegex);
-      if (funcMatch) {
-        const name = funcMatch[1] || funcMatch[2] || funcMatch[3] || funcMatch[4] || funcMatch[5];
-        if (name && !['if', 'for', 'while', 'with', 'try', 'catch'].includes(name)) {
-          const endLine = findBraceBlockEnd(lineNum);
-          info.functions.push({ name, startLine: lineNum, endLine });
+      // Function matching with multiple patterns
+      for (const pattern of functionPatterns) {
+        const funcMatch = line.match(pattern);
+        if (funcMatch) {
+          const name = funcMatch[1];
+          if (name && !['if', 'for', 'while', 'with', 'try', 'catch', 'switch', 'case'].includes(name)) {
+            // Check if we already found this function (avoid duplicates)
+            const alreadyExists = info.functions.some(f => f.name === name && Math.abs(f.startLine - lineNum) <= 2);
+            if (!alreadyExists) {
+              const endLine = findBraceBlockEnd(lineNum);
+              info.functions.push({ name, startLine: lineNum, endLine });
+            }
+          }
+          break; // Found a match, don't try other patterns for this line
         }
       }
     });
