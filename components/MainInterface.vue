@@ -17,7 +17,7 @@
     <!-- Main Content -->
     <div 
       v-show="!showFullScreenLoader" 
-      class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-3xl xl:max-w-screen-4xl space-y-6 lg:space-y-8 py-4 lg:py-6"
+      class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-2xl xl:max-w-screen-2xl space-y-6 lg:space-y-8 py-4 lg:py-6"
     >
       <!-- Two-Column Layout: Project Header + Context Set Composition -->
       <section role="region" aria-labelledby="main-workspace-heading">
@@ -60,16 +60,8 @@
           </div>
 
           <!-- Middle Column: Context Set Composition (2/4 width) -->
-          <div class="xl:col-span-2 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
+          <div class="xl:col-span-3 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
             <ActiveContextComposer />
-          </div>
-
-          <!-- Right Column: AI Tools (1/4 width) -->
-          <div class="xl:col-span-1 bg-gradient-surface rounded-br-lg border border-t-0 shadow-sophisticated backdrop-blur-sm">
-            <div role="region" aria-labelledby="ai-tools-heading">
-              <h3 id="ai-tools-heading" class="sr-only">AI Tools</h3>
-              <AIToolsPanel />
-            </div>
           </div>
 
         </div>

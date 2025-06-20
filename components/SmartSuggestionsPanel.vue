@@ -345,11 +345,6 @@ const performKeywordSearch = async () => {
   }
 }
 
-const quickSearch = (keyword: string) => {
-  searchKeyword.value = keyword
-  performKeywordSearch()
-}
-
 const createContextFromSearch = (suggestion: KeywordSearchSuggestion) => {
   try {
     const contextName = `${suggestion.data.keyword}_search`

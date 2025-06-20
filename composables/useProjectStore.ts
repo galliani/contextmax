@@ -301,13 +301,15 @@ export const useProjectStore = () => {
   }
 
   // Enhanced context set operations that auto-save to OPFS
-  const createContextSet = (name: string, description: string = '') => {
-    contextSets.createContextSet(name, description)
+  const createContextSet = (name: string, description: string = ''): boolean => {
+    const success = contextSets.createContextSet(name, description)
     
-    // Auto-save to OPFS working copy
-    if (globalState.selectedFolder) {
+    // Auto-save to OPFS working copy only if creation was successful
+    if (success && globalState.selectedFolder) {
       saveWorkingCopyToOPFS(globalState.selectedFolder.name)
     }
+    
+    return success
   }
 
   const setActiveContextSet = (name: string | null) => {

@@ -106,10 +106,11 @@ export const useContextSets = () => {
   }
 
   // Create new context set
-  const createContextSet = (name: string, description: string = '') => {
+  const createContextSet = (name: string, description: string = ''): boolean => {
     if (contextSets.value[name]) {
-      // Don't throw error, just return silently for duplicates
-      return
+      // Don't throw error, just return false for duplicates
+      console.warn(`Context set "${name}" already exists`)
+      return false
     }
     
     contextSets.value[name] = {
@@ -119,6 +120,7 @@ export const useContextSets = () => {
     }
     
     console.log(`Created new context set: ${name}`)
+    return true
   }
 
   // Set active context set

@@ -58,11 +58,15 @@
           </Button>
           <Button 
             type="submit" 
-            :disabled="!isFormValid"
-            :class="{ 'opacity-50 cursor-not-allowed': !isFormValid }"
+            :disabled="!isFormValid || isSearching"
+            :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isSearching }"
           >
-            <Icon name="lucide:plus" class="w-4 h-4 mr-2" />
-            Create Context Set
+            <Icon 
+              :name="isSearching ? 'lucide:loader-2' : 'lucide:plus'" 
+              class="w-4 h-4 mr-2"
+              :class="{ 'animate-spin': isSearching }"
+            />
+            {{ isSearching ? 'Creating & Searching...' : 'Create Context Set' }}
           </Button>
         </div>
       </form>
@@ -90,15 +94,22 @@ const emit = defineEmits<Emits>()
 const {
   contextSetNames,
   createContextSet,
-  setActiveContextSet
+  setActiveContextSet,
+  fileTree,
+  addFileToActiveContextSet
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
+
+// Import smart suggestions composable for search
+const { performHybridKeywordSearch } = useSmartContextSuggestions()
 
 // Local state
 const newContextSetName = ref('')
 const createError = ref('')
 const nameInput = ref<HTMLInputElement>()
+const isSearching = ref(false)
+const isCreating = ref(false) // Track if we're in the creation process
 
 // Computed properties
 const isOpen = computed({
@@ -126,6 +137,7 @@ const validateContextSetName = (name: string): string | null => {
   }
   
   // Check if name already exists
+  console.log('Checking if context exists:', trimmedName, 'in', contextSetNames.value)
   if (contextSetNames.value.includes(trimmedName)) {
     return 'A context set with this name already exists'
   }
@@ -135,7 +147,8 @@ const validateContextSetName = (name: string): string | null => {
 
 // Real-time validation
 const nameValidationError = computed(() => {
-  if (!newContextSetName.value) return null
+  // Don't validate while creating to avoid false positives
+  if (!newContextSetName.value || isCreating.value) return null
   return validateContextSetName(newContextSetName.value)
 })
 
@@ -157,10 +170,75 @@ const handleCreateContextSet = async () => {
 
   try {
     createError.value = ''
-    createContextSet(name)
+    isCreating.value = true // Set flag before creation
+    
+    const success = createContextSet(name)
+    
+    if (!success) {
+      createError.value = 'A context set with this name already exists'
+      announceError(`Error: Context set "${name}" already exists`)
+      isSearching.value = false
+      isCreating.value = false
+      return
+    }
     
     // Automatically set the newly created context set as active
     setActiveContextSet(name)
+    
+    // Perform keyword search using the context name
+    announceStatus(`Created context set: ${name}. Searching for related files...`)
+    isSearching.value = true
+    
+    try {
+      // Get all files from the file tree
+      const allFiles = getAllFilesFromTree(fileTree.value || [])
+      const filesToSearch: Array<{ path: string; content: string }> = []
+      
+      // Load file contents for search
+      for (const file of allFiles) {
+        try {
+          if (file.handle && file.type === 'file') {
+            const fileHandle = file.handle as FileSystemFileHandle
+            const fileObj = await fileHandle.getFile()
+            const content = await fileObj.text()
+            
+            filesToSearch.push({
+              path: file.path,
+              content: content
+            })
+          }
+        } catch (error) {
+          console.warn(`Failed to load content for search: ${file.path}:`, error)
+        }
+      }
+      
+      // Perform the search
+      const searchResults = await performHybridKeywordSearch(name, filesToSearch)
+      
+      // Add top search results to the context set
+      let addedCount = 0
+      const maxFiles = 10 // Add top 10 results
+      
+      for (const result of searchResults.data.files.slice(0, maxFiles)) {
+        const fileItem = allFiles.find(f => f.path === result.file)
+        if (fileItem) {
+          try {
+            const success = addFileToActiveContextSet(fileItem)
+            if (success) addedCount++
+          } catch (error) {
+            console.warn(`Failed to add file ${result.file}:`, error)
+          }
+        }
+      }
+      
+      announceStatus(`Context set "${name}" created with ${addedCount} relevant files found`)
+    } catch (error) {
+      console.error('Search failed:', error)
+      // Don't fail the context creation if search fails
+      announceStatus(`Context set "${name}" created (search failed)`)
+    } finally {
+      isSearching.value = false
+    }
     
     // Close modal and reset form
     isOpen.value = false
@@ -168,11 +246,11 @@ const handleCreateContextSet = async () => {
     
     // Emit created event
     emit('created', name)
-    
-    announceStatus(`Created and activated new context set: ${name}`)
   } catch (error) {
     createError.value = error instanceof Error ? error.message : 'Failed to create context set'
     announceError(`Error creating context set: ${createError.value}`)
+    isSearching.value = false
+    isCreating.value = false
   }
 }
 
@@ -184,6 +262,7 @@ const cancelCreate = () => {
 const resetForm = () => {
   newContextSetName.value = ''
   createError.value = ''
+  isCreating.value = false
 }
 
 // Focus management
@@ -203,4 +282,31 @@ watch(isOpen, (open) => {
     })
   }
 })
+// Helper functions
+interface FileTreeItem {
+  path: string
+  name: string
+  type: 'file' | 'directory'
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle
+  children?: FileTreeItem[]
+}
+
+const getAllFilesFromTree = (tree: FileTreeItem[]): FileTreeItem[] => {
+  const files: FileTreeItem[] = []
+  
+  const traverse = (items: FileTreeItem[]) => {
+    if (!Array.isArray(items)) return
+    
+    for (const item of items) {
+      if (item?.type === 'file') {
+        files.push(item)
+      } else if (item?.children && Array.isArray(item.children)) {
+        traverse(item.children)
+      }
+    }
+  }
+  
+  traverse(tree)
+  return files
+}
 </script> 
