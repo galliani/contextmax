@@ -34,6 +34,7 @@
     "clsx": "^2.1.1",
     "eslint": "^9.27.0",
     "gpt-tokenizer": "^3.0.1",
+    "highlight.js": "^11.11.1",
     "ignore": "^7.0.5",
     "js-yaml": "^4.1.0",
     "lucide-vue-next": "^0.511.0",

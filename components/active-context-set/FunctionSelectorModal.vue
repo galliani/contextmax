@@ -91,21 +91,18 @@
               <!-- Code Content -->
               <div class="flex-1 min-w-0 p-4 overflow-x-auto">
                 <pre class="text-xs font-mono leading-6 select-text whitespace-pre"><code 
-                  v-for="(line, index) in fileLines" 
+                  v-for="(line, index) in highlightedLines" 
                   :key="index" 
                   :data-line-index="index"
-                  class="block px-2 leading-6 group/line relative" 
+                  class="block px-2 leading-6 group/line relative hljs" 
                   :class="{
                     'bg-primary/20 hover:bg-primary/30 cursor-pointer': isLineHighlighted(index),
                     'bg-yellow-100 dark:bg-yellow-900/30': isLineInSearchResults(index),
                     'bg-yellow-200 dark:bg-yellow-900/50': isCurrentSearchMatch(index)
                   }"
-                  @click="isLineHighlighted(index) ? removeFunctionFromLine(line, index) : null"
-                >{{ line }}<span 
-                  v-if="isLineHighlighted(index)"
-                  class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80"
-                  title="Click to remove function"
-                >×</span></code></pre>
+                  @click="isLineHighlighted(index) ? removeFunctionFromLine(fileLines[index], index) : null"
+                  v-html="line"
+                ></code></pre>
               </div>
             </div>
           </div>
@@ -186,6 +183,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
+import hljs from 'highlight.js'
 
 interface Props {
   open: boolean
@@ -206,8 +204,10 @@ const { filesManifest, fileTree } = useProjectStore()
 const fileContent = ref('')
 const isLoadingContent = ref(false)
 const selectedFunctions = ref<FunctionRef[]>([])
-const highlightedLines = ref<Set<number>>(new Set())
+const highlightedLineIndices = ref<Set<number>>(new Set())
+const highlightedLines = ref<string[]>([])
 const codeContainerRef = ref<HTMLElement | null>(null)
+const highlightedContent = ref('')
 
 // Search state
 const searchQuery = ref('')
@@ -246,6 +246,56 @@ const fileExtension = computed(() => {
   return path.split('.').pop()?.toLowerCase() || ''
 })
 
+// Map file extensions to highlight.js language identifiers
+const languageMap: Record<string, string> = {
+  js: 'javascript',
+  jsx: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
+  py: 'python',
+  rb: 'ruby',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
+  cs: 'csharp',
+  php: 'php',
+  go: 'go',
+  rs: 'rust',
+  swift: 'swift',
+  kt: 'kotlin',
+  scala: 'scala',
+  r: 'r',
+  lua: 'lua',
+  dart: 'dart',
+  vue: 'xml',
+  html: 'xml',
+  xml: 'xml',
+  css: 'css',
+  scss: 'scss',
+  sass: 'scss',
+  less: 'less',
+  json: 'json',
+  yaml: 'yaml',
+  yml: 'yaml',
+  md: 'markdown',
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  sql: 'sql',
+  dockerfile: 'dockerfile',
+  docker: 'dockerfile',
+  makefile: 'makefile',
+  cmake: 'cmake',
+  nginx: 'nginx',
+  conf: 'nginx',
+  ini: 'ini',
+  toml: 'toml'
+}
+
+const highlightLanguage = computed(() => {
+  return languageMap[fileExtension.value] || 'plaintext'
+})
+
 // Search functionality
 watchEffect(() => {
   if (searchQuery.value) {
@@ -256,10 +306,11 @@ watchEffect(() => {
   }
 })
 
-// Detect functions when file content changes
+// Detect functions and highlight code when file content changes
 watchEffect(() => {
   if (fileContent.value) {
     detectFunctions()
+    highlightCode()
     console.log('Detected functions:', detectedFunctions.value)
   }
 })
@@ -278,6 +329,7 @@ watch(() => props.open, async (isOpen) => {
     selectedFunctions.value = props.existingFunctions?.map(func => ({ ...func })) || []
     // Reset highlights
     updateHighlightedLines()
+    highlightCode()
   }
 })
 
@@ -314,7 +366,7 @@ function findFileInTree(tree: FileTreeItem[], targetPath: string): FileTreeItem 
 }
 
 function isLineHighlighted(index: number): boolean {
-  return highlightedLines.value.has(index)
+  return highlightedLineIndices.value.has(index)
 }
 
 function updateHighlightedLines() {
@@ -327,7 +379,62 @@ function updateHighlightedLines() {
     }
   })
   
-  highlightedLines.value = newHighlights
+  highlightedLineIndices.value = newHighlights
+}
+
+// Highlight code using highlight.js
+function highlightCode() {
+  if (!fileContent.value) {
+    highlightedLines.value = []
+    return
+  }
+  
+  try {
+    // Try to highlight with detected language
+    const result = hljs.highlight(fileContent.value, { language: highlightLanguage.value })
+    
+    // Split the highlighted code into lines
+    const lines = result.value.split('\n')
+    
+    // Process each line
+    highlightedLines.value = lines.map((line, index) => {
+      let processedLine = line
+      
+      // Add remove button for highlighted function lines
+      if (isLineHighlighted(index)) {
+        processedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
+      }
+      
+      return processedLine
+    })
+  } catch (error) {
+    // Fallback to auto-detection if language is not supported
+    try {
+      const result = hljs.highlightAuto(fileContent.value)
+      const lines = result.value.split('\n')
+      
+      highlightedLines.value = lines.map((line, index) => {
+        let processedLine = line
+        
+        if (isLineHighlighted(index)) {
+          processedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
+        }
+        
+        return processedLine
+      })
+    } catch (fallbackError) {
+      // If all else fails, escape HTML and display as plain text
+      highlightedLines.value = fileLines.value.map((line, index) => {
+        let escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        
+        if (isLineHighlighted(index)) {
+          escapedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
+        }
+        
+        return escapedLine
+      })
+    }
+  }
 }
 
 // Handle text selection
@@ -375,6 +482,7 @@ function addSelectedFunction() {
       lineIndex: lineIndex  // Store the line index with the function
     } as FunctionRef & { lineIndex: number })
     updateHighlightedLines()
+    highlightCode()
   }
 
   // Hide popover and clear selection
@@ -395,6 +503,7 @@ onUnmounted(() => {
 function removeFunction(index: number) {
   selectedFunctions.value.splice(index, 1)
   updateHighlightedLines()
+  highlightCode()
 }
 
 function removeFunctionFromLine(line: string, lineIndex: number) {
@@ -422,6 +531,7 @@ function removeFunctionFromLine(line: string, lineIndex: number) {
   }
   
   updateHighlightedLines()
+  highlightCode()
 }
 
 function saveFunctions() {
@@ -582,4 +692,79 @@ function jumpToFunction(functionName: string) {
   selectedFunction.value = ''
 }
 
-</script> 
+</script>
+
+<style>
+/* Import highlight.js theme - using GitHub theme for light/dark compatibility */
+@import 'highlight.js/styles/github.css';
+
+/* Override highlight.js styles to work with our existing theme */
+.hljs {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+}
+
+/* Ensure our custom highlighting takes precedence */
+.bg-primary\/20 {
+  background-color: rgb(var(--primary) / 0.2) !important;
+}
+
+.hover\:bg-primary\/30:hover {
+  background-color: rgb(var(--primary) / 0.3) !important;
+}
+
+/* Dark mode adjustments */
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #6b7280;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-addition {
+  color: #f472b6;
+}
+
+.dark .hljs-number,
+.dark .hljs-string,
+.dark .hljs-meta .hljs-meta-string,
+.dark .hljs-literal,
+.dark .hljs-doctag,
+.dark .hljs-regexp {
+  color: #34d399;
+}
+
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-name,
+.dark .hljs-selector-id,
+.dark .hljs-selector-class {
+  color: #60a5fa;
+}
+
+.dark .hljs-attribute,
+.dark .hljs-attr,
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-class .hljs-title,
+.dark .hljs-type {
+  color: #fbbf24;
+}
+
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-subst,
+.dark .hljs-meta,
+.dark .hljs-meta .hljs-keyword,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-pseudo,
+.dark .hljs-link {
+  color: #c084fc;
+}
+
+.dark .hljs-built_in,
+.dark .hljs-deletion {
+  color: #f87171;
+}
+</style> 
