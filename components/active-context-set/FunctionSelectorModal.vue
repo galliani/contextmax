@@ -5,7 +5,7 @@
  */
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="max-w-5xl max-h-[90vh] flex flex-col w-[90vw]">
+    <DialogContent class="max-w-none max-h-[95vh] flex flex-col w-[99vw]">
       <DialogHeader>
         <DialogTitle class="flex items-center space-x-2">
           <Icon name="lucide:function-square" class="w-5 h-5" />
@@ -72,7 +72,7 @@
             </div>
           </div>
           
-          <div v-else ref="codeContainerRef" class="flex-1 min-h-0 border rounded-lg overflow-auto relative bg-slate-50 dark:bg-slate-900">
+          <div v-else ref="codeContainerRef" class="flex-1 min-h-0 border rounded-lg overflow-auto relative bg-slate-50 dark:bg-slate-900 code-size-override">
             <CodeRenderer
               :content="fileContent"
               :file-path="filePath"
@@ -86,9 +86,10 @@
             <!-- Jump indicator overlay -->
             <div 
               v-if="jumpIndicator.visible"
-              class="absolute left-0 right-0 h-12 pointer-events-none transition-all duration-500"
+              class="absolute left-0 right-0 pointer-events-none transition-all duration-500"
               :style="{ 
                 top: `${jumpIndicator.top}px`,
+                height: '1.75rem',
                 background: 'linear-gradient(to right, transparent, rgba(251, 191, 36, 0.3) 10%, rgba(251, 191, 36, 0.3) 90%, transparent)'
               }"
             >
@@ -652,5 +653,49 @@ function jumpToFunction(functionName: string) {
 .dark .hljs-built_in,
 .dark .hljs-deletion {
   color: #f87171;
+}
+
+/* Font size override for code in the modal */
+.code-size-override .text-xs {
+  font-size: 0.875rem !important; /* text-sm size */
+  line-height: 1.75rem !important; /* Maintain proper line height */
+}
+
+/* Adjust line height for better readability */
+.code-size-override .leading-6 {
+  line-height: 1.75rem !important;
+}
+
+/* Update the jump indicator overlay height to match new line height */
+.code-size-override ~ .jump-indicator {
+  height: 1.75rem !important;
+}
+
+/* Custom scrollbar styling for code container */
+.code-size-override::-webkit-scrollbar {
+  height: 6px; /* Reduced height for horizontal scrollbar */
+}
+
+.code-size-override::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-size-override::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3); /* Muted gray with transparency */
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.code-size-override::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.5); /* Slightly more visible on hover */
+}
+
+/* Dark mode scrollbar */
+.dark .code-size-override::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.4);
+}
+
+.dark .code-size-override::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(71, 85, 105, 0.6);
 }
 </style> 
