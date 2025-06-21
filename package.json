@@ -28,7 +28,7 @@
     "@tailwindcss/vite": "^4.1.8",
     "@types/js-yaml": "^4.0.9",
     "@unhead/vue": "^2.0.10",
-    "@vueuse/core": "^13.3.0",
+    "@vueuse/core": "^13.4.0",
     "better-sqlite3": "^11.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

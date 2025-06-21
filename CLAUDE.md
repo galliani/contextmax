@@ -54,7 +54,7 @@ The development server runs on port 3000. Do not run commands to start/restart t
 
 **Smart Suggestions System**: Hybrid approach combining:
 - Local LLM embeddings via Hugging Face Transformers
-- AST analysis using tree-sitter parsers
+- AST-like analysis using regex parsers + 2 local LLMs of `jinaai/jina-embeddings-v2-base-code` and  `Xenova/flan-t5-small`
 - File relationship analysis through `composables/useProjectAnalysis.ts`
 
 ### Component Organization
