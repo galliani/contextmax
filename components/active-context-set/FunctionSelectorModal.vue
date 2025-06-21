@@ -82,6 +82,20 @@
               @line-click="handleCodeLineClick"
               ref="codeRendererRef"
             />
+            
+            <!-- Jump indicator overlay -->
+            <div 
+              v-if="jumpIndicator.visible"
+              class="absolute left-0 right-0 h-12 pointer-events-none transition-all duration-500"
+              :style="{ 
+                top: `${jumpIndicator.top}px`,
+                background: 'linear-gradient(to right, transparent, rgba(251, 191, 36, 0.3) 10%, rgba(251, 191, 36, 0.3) 90%, transparent)'
+              }"
+            >
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 bg-yellow-500 text-yellow-900 px-2 py-1 rounded text-xs font-semibold">
+                {{ jumpIndicator.functionName }}
+              </div>
+            </div>
           </div>
           
           <!-- Popover for adding function -->
@@ -193,6 +207,13 @@ const currentSearchIndex = ref(0)
 // Function detection state
 const detectedFunctions = ref<Array<{ name: string, line: number, icon: string, type: string }>>([])
 const selectedFunction = ref('')
+
+// Jump indicator state
+const jumpIndicator = reactive({
+  visible: false,
+  top: 0,
+  functionName: ''
+})
 
 const selectionPopover = reactive({
   visible: false,
@@ -306,6 +327,7 @@ function updateHighlightedLines() {
   highlightedLineIndices.value = newHighlights
 }
 
+
 // Handle line click from CodeRenderer
 function handleCodeLineClick(line: string, index: number) {
   if (isLineHighlighted(index)) {
@@ -381,27 +403,29 @@ function removeFunction(index: number) {
 }
 
 function removeFunctionFromLine(line: string, lineIndex: number) {
-  // Only remove if this line actually declares a function
-  const ext = fileExtension.value
-  const patterns = getFunctionPatterns(ext)
+  // Find which function is declared on this line using regex parser
+  const { parseCode } = useRegexCodeParser()
   
-  // Find which function is declared on this line
-  let functionToRemove: string | null = null
-  
-  for (const pattern of patterns) {
-    const matches = line.match(pattern.regex)
-    if (matches && matches[1]) {
-      functionToRemove = matches[1].trim()
-      break
+  try {
+    const parsedInfo = parseCode(line, filePath.value)
+    let functionToRemove: string | null = null
+    
+    // Check if this line contains a function declaration
+    if (parsedInfo.functions.length > 0) {
+      functionToRemove = parsedInfo.functions[0].name
+    } else if (parsedInfo.classes.length > 0) {
+      functionToRemove = parsedInfo.classes[0].name
     }
-  }
-  
-  if (functionToRemove) {
-    // Remove the function that's actually declared on this line
-    const index = selectedFunctions.value.findIndex(f => f.name === functionToRemove)
-    if (index !== -1) {
-      selectedFunctions.value.splice(index, 1)
+    
+    if (functionToRemove) {
+      // Remove the function that's actually declared on this line
+      const index = selectedFunctions.value.findIndex(f => f.name === functionToRemove)
+      if (index !== -1) {
+        selectedFunctions.value.splice(index, 1)
+      }
     }
+  } catch (error) {
+    console.error('Error parsing line for function removal:', error)
   }
   
   updateHighlightedLines()
@@ -463,78 +487,71 @@ function scrollToSearchMatch(index: number) {
   codeRendererRef.value?.scrollToLine(match.line + 1)
 }
 
-// Function detection
+// Function detection using regex parser
 function detectFunctions() {
-  const functions: Array<{ name: string, line: number, icon: string, type: string }> = []
-  const ext = fileExtension.value
+  const { parseCode } = useRegexCodeParser()
   
-  const patterns = getFunctionPatterns(ext)
-  
-  fileLines.value.forEach((line, index) => {
-    patterns.forEach(pattern => {
-      const matches = line.match(pattern.regex)
-      if (matches && matches[1]) {
-        const functionName = matches[1].trim()
-        if (functionName && !functions.some(f => f.name === functionName)) {
-          functions.push({
-            name: functionName,
-            line: index + 1,
-            icon: pattern.icon,
-            type: pattern.type
-          })
-        }
-      }
+  try {
+    const parsedInfo = parseCode(fileContent.value, filePath.value)
+    
+    const functions: Array<{ name: string, line: number, icon: string, type: string }> = []
+    
+    // Convert parsed functions to our format
+    parsedInfo.functions.forEach(func => {
+      functions.push({
+        name: func.name,
+        line: func.startLine + 1, // Convert 0-based to 1-based line numbers
+        icon: 'lucide:function-square',
+        type: 'function'
+      })
     })
-  })
-  
-  // Sort by line number
-  functions.sort((a, b) => a.line - b.line)
-  detectedFunctions.value = functions
+    
+    // Convert parsed classes to our format
+    parsedInfo.classes.forEach(cls => {
+      functions.push({
+        name: cls.name,
+        line: cls.startLine + 1, // Convert 0-based to 1-based line numbers
+        icon: 'lucide:box',
+        type: 'class'
+      })
+    })
+    
+    // Sort by line number
+    functions.sort((a, b) => a.line - b.line)
+    detectedFunctions.value = functions
+  } catch (error) {
+    console.error('Error parsing functions with regex parser:', error)
+    detectedFunctions.value = []
+  }
 }
 
-function getFunctionPatterns(extension: string) {
-  const patterns = {
-    js: [
-      { regex: /^\s*function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:function-square', type: 'function' },
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/m, icon: 'lucide:variable', type: 'const' },
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/m, icon: 'lucide:arrow-right', type: 'arrow' },
-      { regex: /^\s*let\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/m, icon: 'lucide:variable', type: 'let' },
-      { regex: /^\s*var\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/m, icon: 'lucide:variable', type: 'var' },
-      { regex: /^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*function\s*\(/m, icon: 'lucide:function-square', type: 'method' },
-      { regex: /^\s*async\s+function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:zap', type: 'async' },
-      { regex: /^\s*class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*{/m, icon: 'lucide:box', type: 'class' }
-    ],
-    ts: [
-      { regex: /^\s*function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:function-square', type: 'function' },
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/m, icon: 'lucide:variable', type: 'const' },
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/m, icon: 'lucide:arrow-right', type: 'arrow' },
-      { regex: /^\s*async\s+function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:zap', type: 'async' },
-      { regex: /^\s*class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*{/m, icon: 'lucide:box', type: 'class' },
-      { regex: /^\s*interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*{/m, icon: 'lucide:file-type', type: 'interface' },
-      { regex: /^\s*type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/m, icon: 'lucide:type', type: 'type' }
-    ],
-    py: [
-      { regex: /^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/m, icon: 'lucide:function-square', type: 'function' },
-      { regex: /^\s*async\s+def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/m, icon: 'lucide:zap', type: 'async' },
-      { regex: /^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[:\(]/m, icon: 'lucide:box', type: 'class' }
-    ],
-    vue: [
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/m, icon: 'lucide:variable', type: 'const' },
-      { regex: /^\s*const\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/m, icon: 'lucide:arrow-right', type: 'arrow' },
-      { regex: /^\s*function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:function-square', type: 'function' },
-      { regex: /^\s*async\s+function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/m, icon: 'lucide:zap', type: 'async' }
-    ]
-  }
-  
-  return patterns[extension as keyof typeof patterns] || patterns.js
-}
 
 function jumpToFunction(functionName: string) {
   if (!functionName) return
   
   const func = detectedFunctions.value.find(f => f.name === functionName)
   if (func) {
+    // Scroll to function first
     codeRendererRef.value?.scrollToLine(func.line)
+    
+    // Calculate the position for the indicator
+    nextTick(() => {
+      const lineElement = document.getElementById(`line-${func.line}`)
+      if (lineElement && codeContainerRef.value) {
+        const containerRect = codeContainerRef.value.getBoundingClientRect()
+        const lineRect = lineElement.getBoundingClientRect()
+        
+        // Show jump indicator
+        jumpIndicator.visible = true
+        jumpIndicator.top = lineRect.top - containerRect.top + codeContainerRef.value.scrollTop - 6 // Adjust for better alignment
+        jumpIndicator.functionName = func.name
+        
+        // Hide indicator after 3 seconds
+        setTimeout(() => {
+          jumpIndicator.visible = false
+        }, 3000)
+      }
+    })
   }
   
   // Reset selection
@@ -561,6 +578,26 @@ function jumpToFunction(functionName: string) {
 
 .hover\:bg-primary\/30:hover {
   background-color: rgb(var(--primary) / 0.3) !important;
+}
+
+/* Jump highlight animation */
+.jump-highlight {
+  background-color: rgb(var(--warning) / 0.3) !important;
+  animation: jumpPulse 2s ease-out;
+}
+
+@keyframes jumpPulse {
+  0% {
+    background-color: rgb(var(--warning) / 0.6);
+    transform: scale(1.02);
+  }
+  50% {
+    background-color: rgb(var(--warning) / 0.4);
+  }
+  100% {
+    background-color: rgb(var(--warning) / 0.1);
+    transform: scale(1);
+  }
 }
 
 /* Dark mode adjustments */
