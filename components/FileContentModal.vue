@@ -35,24 +35,14 @@
           </div>
         </div>
         
-        <div v-else class="border rounded-lg overflow-auto h-[60vh]">
-          <div class="flex min-h-full">
-            <!-- Line Numbers -->
-            <div class="bg-muted/30 p-2 text-xs font-mono text-muted-foreground select-none min-w-[60px] border-r sticky left-0">
-              <div
-                v-for="lineNum in totalLines"
-                :key="lineNum"
-                class="h-5 flex items-center justify-end px-2"
-              >
-                {{ lineNum }}
-              </div>
-            </div>
-            
-            <!-- Content -->
-            <div class="flex-1 p-2">
-              <pre class="text-xs font-mono leading-5"><code v-for="(line, index) in highlightedLines" :key="index" class="block h-5 px-1 hljs" v-html="line"></code></pre>
-            </div>
-          </div>
+        <div v-else class="border rounded-lg overflow-auto h-[60vh] bg-slate-50 dark:bg-slate-900">
+          <CodeRenderer
+            :content="currentFileContent"
+            :file-path="currentFileName"
+            :allow-line-click="false"
+            line-numbers-class="bg-muted/30 border-muted"
+            line-numbers-text-class="text-muted-foreground"
+          />
         </div>
       </div>
 
@@ -66,7 +56,6 @@
 </template>
 
 <script setup lang="ts">
-import hljs from 'highlight.js'
 const { 
   currentFileContent, 
   currentFileName, 
@@ -74,7 +63,6 @@ const {
   closeFileContentModal 
 } = useProjectStore()
 
-const highlightedLines = ref<string[]>([])
 
 const { success, error } = useNotifications()
 
@@ -107,168 +95,13 @@ const fileLines = computed(() => {
   return currentFileContent.value.split('\n')
 })
 
-// Language detection
-const fileExtension = computed(() => {
-  const path = currentFileName.value
-  return path.split('.').pop()?.toLowerCase() || ''
-})
-
-// Map file extensions to highlight.js language identifiers
-const languageMap: Record<string, string> = {
-  js: 'javascript',
-  jsx: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  py: 'python',
-  rb: 'ruby',
-  java: 'java',
-  cpp: 'cpp',
-  c: 'c',
-  cs: 'csharp',
-  php: 'php',
-  go: 'go',
-  rs: 'rust',
-  swift: 'swift',
-  kt: 'kotlin',
-  scala: 'scala',
-  r: 'r',
-  lua: 'lua',
-  dart: 'dart',
-  vue: 'xml',
-  html: 'xml',
-  xml: 'xml',
-  css: 'css',
-  scss: 'scss',
-  sass: 'scss',
-  less: 'less',
-  json: 'json',
-  yaml: 'yaml',
-  yml: 'yaml',
-  md: 'markdown',
-  sh: 'bash',
-  bash: 'bash',
-  zsh: 'bash',
-  sql: 'sql',
-  dockerfile: 'dockerfile',
-  docker: 'dockerfile',
-  makefile: 'makefile',
-  cmake: 'cmake',
-  nginx: 'nginx',
-  conf: 'nginx',
-  ini: 'ini',
-  toml: 'toml'
-}
-
-const highlightLanguage = computed(() => {
-  return languageMap[fileExtension.value] || 'plaintext'
-})
 
 const totalLines = computed(() => {
   return fileLines.value.length
-})
-
-// Highlight code using highlight.js
-function highlightCode() {
-  if (!currentFileContent.value) {
-    highlightedLines.value = []
-    return
-  }
-  
-  try {
-    // Try to highlight with detected language
-    const result = hljs.highlight(currentFileContent.value, { language: highlightLanguage.value })
-    
-    // Split the highlighted code into lines
-    highlightedLines.value = result.value.split('\n')
-  } catch (error) {
-    // Fallback to auto-detection if language is not supported
-    try {
-      const result = hljs.highlightAuto(currentFileContent.value)
-      highlightedLines.value = result.value.split('\n')
-    } catch (fallbackError) {
-      // If all else fails, escape HTML and display as plain text
-      highlightedLines.value = fileLines.value.map(line => 
-        line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      )
-    }
-  }
-}
-
-// Watch for content changes and highlight
-watchEffect(() => {
-  if (currentFileContent.value) {
-    highlightCode()
-  }
 })
 
 // Close modal function
 function closeModal() {
   closeFileContentModal()
 }
-</script>
-
-<style>
-/* Import highlight.js theme - using GitHub theme for light/dark compatibility */
-@import 'highlight.js/styles/github.css';
-
-/* Override highlight.js styles to work with our existing theme */
-.hljs {
-  background: transparent !important;
-  color: inherit !important;
-  padding: 0 !important;
-}
-
-/* Dark mode adjustments */
-.dark .hljs-comment,
-.dark .hljs-quote {
-  color: #6b7280;
-}
-
-.dark .hljs-keyword,
-.dark .hljs-selector-tag,
-.dark .hljs-addition {
-  color: #f472b6;
-}
-
-.dark .hljs-number,
-.dark .hljs-string,
-.dark .hljs-meta .hljs-meta-string,
-.dark .hljs-literal,
-.dark .hljs-doctag,
-.dark .hljs-regexp {
-  color: #34d399;
-}
-
-.dark .hljs-title,
-.dark .hljs-section,
-.dark .hljs-name,
-.dark .hljs-selector-id,
-.dark .hljs-selector-class {
-  color: #60a5fa;
-}
-
-.dark .hljs-attribute,
-.dark .hljs-attr,
-.dark .hljs-variable,
-.dark .hljs-template-variable,
-.dark .hljs-class .hljs-title,
-.dark .hljs-type {
-  color: #fbbf24;
-}
-
-.dark .hljs-symbol,
-.dark .hljs-bullet,
-.dark .hljs-subst,
-.dark .hljs-meta,
-.dark .hljs-meta .hljs-keyword,
-.dark .hljs-selector-attr,
-.dark .hljs-selector-pseudo,
-.dark .hljs-link {
-  color: #c084fc;
-}
-
-.dark .hljs-built_in,
-.dark .hljs-deletion {
-  color: #f87171;
-}
-</style> 
+</script> 

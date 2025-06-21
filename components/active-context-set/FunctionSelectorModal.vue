@@ -73,38 +73,15 @@
           </div>
           
           <div v-else ref="codeContainerRef" class="flex-1 min-h-0 border rounded-lg overflow-auto relative bg-slate-50 dark:bg-slate-900">
-            <div class="flex min-w-0">
-              <!-- Line Numbers -->
-              <div class="bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 px-2 py-4 select-none flex-shrink-0">
-                <pre class="text-xs font-mono text-slate-500 dark:text-slate-400 text-right leading-6"><code 
-                  v-for="(line, index) in fileLines" 
-                  :key="index"
-                  :id="`line-${index + 1}`"
-                  class="block"
-                  :class="{
-                    'bg-primary/20 text-primary font-semibold': isLineHighlighted(index) || isLineInSearchResults(index),
-                    'bg-yellow-200 dark:bg-yellow-900/50': isCurrentSearchMatch(index)
-                  }"
-                >{{ (index + 1).toString().padStart(Math.max(3, fileLines.length.toString().length), ' ') }}</code></pre>
-              </div>
-              
-              <!-- Code Content -->
-              <div class="flex-1 min-w-0 p-4 overflow-x-auto">
-                <pre class="text-xs font-mono leading-6 select-text whitespace-pre"><code 
-                  v-for="(line, index) in highlightedLines" 
-                  :key="index" 
-                  :data-line-index="index"
-                  class="block px-2 leading-6 group/line relative hljs" 
-                  :class="{
-                    'bg-primary/20 hover:bg-primary/30 cursor-pointer': isLineHighlighted(index),
-                    'bg-yellow-100 dark:bg-yellow-900/30': isLineInSearchResults(index),
-                    'bg-yellow-200 dark:bg-yellow-900/50': isCurrentSearchMatch(index)
-                  }"
-                  @click="isLineHighlighted(index) ? removeFunctionFromLine(fileLines[index], index) : null"
-                  v-html="line"
-                ></code></pre>
-              </div>
-            </div>
+            <CodeRenderer
+              :content="fileContent"
+              :file-path="filePath"
+              :highlighted-line-indices="highlightedLineIndices"
+              :search-matches="searchMatches"
+              :current-search-index="currentSearchIndex"
+              @line-click="handleCodeLineClick"
+              ref="codeRendererRef"
+            />
           </div>
           
           <!-- Popover for adding function -->
@@ -205,9 +182,8 @@ const fileContent = ref('')
 const isLoadingContent = ref(false)
 const selectedFunctions = ref<FunctionRef[]>([])
 const highlightedLineIndices = ref<Set<number>>(new Set())
-const highlightedLines = ref<string[]>([])
 const codeContainerRef = ref<HTMLElement | null>(null)
-const highlightedContent = ref('')
+const codeRendererRef = ref<InstanceType<typeof CodeRenderer> | null>(null)
 
 // Search state
 const searchQuery = ref('')
@@ -246,56 +222,6 @@ const fileExtension = computed(() => {
   return path.split('.').pop()?.toLowerCase() || ''
 })
 
-// Map file extensions to highlight.js language identifiers
-const languageMap: Record<string, string> = {
-  js: 'javascript',
-  jsx: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  py: 'python',
-  rb: 'ruby',
-  java: 'java',
-  cpp: 'cpp',
-  c: 'c',
-  cs: 'csharp',
-  php: 'php',
-  go: 'go',
-  rs: 'rust',
-  swift: 'swift',
-  kt: 'kotlin',
-  scala: 'scala',
-  r: 'r',
-  lua: 'lua',
-  dart: 'dart',
-  vue: 'xml',
-  html: 'xml',
-  xml: 'xml',
-  css: 'css',
-  scss: 'scss',
-  sass: 'scss',
-  less: 'less',
-  json: 'json',
-  yaml: 'yaml',
-  yml: 'yaml',
-  md: 'markdown',
-  sh: 'bash',
-  bash: 'bash',
-  zsh: 'bash',
-  sql: 'sql',
-  dockerfile: 'dockerfile',
-  docker: 'dockerfile',
-  makefile: 'makefile',
-  cmake: 'cmake',
-  nginx: 'nginx',
-  conf: 'nginx',
-  ini: 'ini',
-  toml: 'toml'
-}
-
-const highlightLanguage = computed(() => {
-  return languageMap[fileExtension.value] || 'plaintext'
-})
-
 // Search functionality
 watchEffect(() => {
   if (searchQuery.value) {
@@ -306,11 +232,10 @@ watchEffect(() => {
   }
 })
 
-// Detect functions and highlight code when file content changes
+// Detect functions when file content changes
 watchEffect(() => {
   if (fileContent.value) {
     detectFunctions()
-    highlightCode()
     console.log('Detected functions:', detectedFunctions.value)
   }
 })
@@ -329,7 +254,6 @@ watch(() => props.open, async (isOpen) => {
     selectedFunctions.value = props.existingFunctions?.map(func => ({ ...func })) || []
     // Reset highlights
     updateHighlightedLines()
-    highlightCode()
   }
 })
 
@@ -382,58 +306,10 @@ function updateHighlightedLines() {
   highlightedLineIndices.value = newHighlights
 }
 
-// Highlight code using highlight.js
-function highlightCode() {
-  if (!fileContent.value) {
-    highlightedLines.value = []
-    return
-  }
-  
-  try {
-    // Try to highlight with detected language
-    const result = hljs.highlight(fileContent.value, { language: highlightLanguage.value })
-    
-    // Split the highlighted code into lines
-    const lines = result.value.split('\n')
-    
-    // Process each line
-    highlightedLines.value = lines.map((line, index) => {
-      let processedLine = line
-      
-      // Add remove button for highlighted function lines
-      if (isLineHighlighted(index)) {
-        processedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
-      }
-      
-      return processedLine
-    })
-  } catch (error) {
-    // Fallback to auto-detection if language is not supported
-    try {
-      const result = hljs.highlightAuto(fileContent.value)
-      const lines = result.value.split('\n')
-      
-      highlightedLines.value = lines.map((line, index) => {
-        let processedLine = line
-        
-        if (isLineHighlighted(index)) {
-          processedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
-        }
-        
-        return processedLine
-      })
-    } catch (fallbackError) {
-      // If all else fails, escape HTML and display as plain text
-      highlightedLines.value = fileLines.value.map((line, index) => {
-        let escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        
-        if (isLineHighlighted(index)) {
-          escapedLine += '<span class="absolute right-2 top-0 opacity-0 group-hover/line:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-destructive/80" title="Click to remove function">×</span>'
-        }
-        
-        return escapedLine
-      })
-    }
+// Handle line click from CodeRenderer
+function handleCodeLineClick(line: string, index: number) {
+  if (isLineHighlighted(index)) {
+    removeFunctionFromLine(line, index)
   }
 }
 
@@ -482,7 +358,6 @@ function addSelectedFunction() {
       lineIndex: lineIndex  // Store the line index with the function
     } as FunctionRef & { lineIndex: number })
     updateHighlightedLines()
-    highlightCode()
   }
 
   // Hide popover and clear selection
@@ -503,7 +378,6 @@ onUnmounted(() => {
 function removeFunction(index: number) {
   selectedFunctions.value.splice(index, 1)
   updateHighlightedLines()
-  highlightCode()
 }
 
 function removeFunctionFromLine(line: string, lineIndex: number) {
@@ -531,7 +405,6 @@ function removeFunctionFromLine(line: string, lineIndex: number) {
   }
   
   updateHighlightedLines()
-  highlightCode()
 }
 
 function saveFunctions() {
@@ -587,19 +460,7 @@ function scrollToSearchMatch(index: number) {
   const match = searchMatches.value[index]
   if (!match) return
   
-  const lineElement = document.getElementById(`line-${match.line + 1}`)
-  if (lineElement) {
-    lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-}
-
-function isLineInSearchResults(lineIndex: number): boolean {
-  return searchMatches.value.some(match => match.line === lineIndex)
-}
-
-function isCurrentSearchMatch(lineIndex: number): boolean {
-  const currentMatch = searchMatches.value[currentSearchIndex.value]
-  return currentMatch?.line === lineIndex
+  codeRendererRef.value?.scrollToLine(match.line + 1)
 }
 
 // Function detection
@@ -673,19 +534,7 @@ function jumpToFunction(functionName: string) {
   
   const func = detectedFunctions.value.find(f => f.name === functionName)
   if (func) {
-    const lineElement = document.getElementById(`line-${func.line}`)
-    if (lineElement) {
-      lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      
-      // Highlight the line briefly
-      const codeElement = lineElement.parentElement?.nextElementSibling?.children[func.line - 1]
-      if (codeElement) {
-        codeElement.classList.add('bg-primary/40')
-        setTimeout(() => {
-          codeElement.classList.remove('bg-primary/40')
-        }, 2000)
-      }
-    }
+    codeRendererRef.value?.scrollToLine(func.line)
   }
   
   // Reset selection
