@@ -104,7 +104,19 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: 'Test description',
         files: ['file1', 'file2'],
-        workflow: ['step1']
+        workflows: [{
+          start: {
+            fileRef: 'file1',
+            function: 'main',
+            startLine: 1,
+            endLine: 10
+          },
+          end: {
+            fileRef: 'file1',
+            startLine: 15,
+            endLine: 20
+          }
+        }]
       }
     })
 
@@ -120,11 +132,11 @@ describe('ActiveContextComposer', () => {
       expect(wrapper.text()).toContain('Test description')
     })
 
-    it('should display file and workflow counts', async () => {
+    it('should display file and workflows counts', async () => {
       const wrapper = await mountSuspended(ActiveContextComposer)
       
       expect(wrapper.text()).toContain('2 files')
-      expect(wrapper.text()).toContain('1 workflow steps')
+      expect(wrapper.text()).toContain('1 workflows')
     })
 
     it('should show edit button for name on hover', async () => {
@@ -139,7 +151,7 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: '',
         files: [],
-        workflow: []
+        workflows: []
       }
       
       const wrapper = await mountSuspended(ActiveContextComposer)
@@ -155,7 +167,7 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: 'Test description',
         files: [],
-        workflow: []
+        workflows: []
       }
     })
 
@@ -303,7 +315,7 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: 'Original description',
         files: [],
-        workflow: []
+        workflows: []
       }
     })
 
@@ -394,7 +406,7 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: '',
         files: [],
-        workflow: []
+        workflows: []
       }
       
       const wrapper = await mountSuspended(ActiveContextComposer)
@@ -424,7 +436,7 @@ describe('ActiveContextComposer', () => {
         name: 'testContextSet',
         description: 'Test description',
         files: [],
-        workflow: []
+        workflows: []
       }
     })
 
@@ -520,28 +532,28 @@ describe('ActiveContextComposer', () => {
     it('should handle activeContextSet with missing properties', async () => {
       mockProjectStore.activeContextSet.value = {
         name: 'testContextSet'
-        // missing description, files, workflow
+        // missing description, files, workflows
       }
       
       const wrapper = await mountSuspended(ActiveContextComposer)
       
       expect(wrapper.text()).toContain('Context Set: testContextSet')
       expect(wrapper.text()).toContain('0 files')
-      expect(wrapper.text()).toContain('0 workflow steps')
+      expect(wrapper.text()).toContain('0 workflows')
     })
 
-    it('should handle null/undefined files and workflow arrays', async () => {
+    it('should handle null/undefined files and workflows arrays', async () => {
       mockProjectStore.activeContextSet.value = {
         name: 'testContextSet',
         description: 'Test',
         files: null,
-        workflow: undefined
+        workflows: undefined
       }
       
       const wrapper = await mountSuspended(ActiveContextComposer)
       
       expect(wrapper.text()).toContain('0 files')
-      expect(wrapper.text()).toContain('0 workflow steps')
+      expect(wrapper.text()).toContain('0 workflows')
     })
 
     it('should not crash when no activeContextSet initially but gets set later', async () => {
@@ -556,7 +568,7 @@ describe('ActiveContextComposer', () => {
         name: 'newSet',
         description: 'New description',
         files: [],
-        workflow: []
+        workflows: []
       }
       
       await wrapper.vm.$nextTick()

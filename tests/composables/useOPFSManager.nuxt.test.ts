@@ -68,7 +68,7 @@ describe('useOPFSManager', () => {
       'test-set': {
         description: 'Test context set',
         files: ['file_123'],
-        workflow: []
+        workflows: []
       }
     },
     fileContextsIndex: {

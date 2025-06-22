@@ -6,7 +6,7 @@ export default defineVitestConfig({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     coverage: {
-      reporter: ['text', 'json-summary', 'html'],
+      reporter: ['text', 'json-summary', 'json', 'html'],
       exclude: [
         '.nuxt/**',
         'node_modules/**',
@@ -21,8 +21,13 @@ export default defineVitestConfig({
         mock: {
           intersectionObserver: true,
           indexedDb: true,
-        }
+        },
+        // Suppress module warnings during tests
+        logLevel: 'silent'
       }
-    }
+    },
+    // Suppress console warnings in tests
+    silent: false,
+    reporters: ['verbose']
   }
 }) 

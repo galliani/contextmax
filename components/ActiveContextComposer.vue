@@ -1,8 +1,8 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+-->
 <template>
   <!-- Unified Context Set Composition Interface -->
   <div class="w-full">
@@ -11,7 +11,7 @@
       
       <!-- Joint Panel Header -->
       <div class="border-b bg-gradient-surface px-6 py-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-start justify-between">
           <div class="flex-1 min-w-0">
             <!-- Editable Context Set Name -->
             <div v-if="activeContextSetName" class="mt-4 mb-2">
@@ -105,15 +105,57 @@
                 </div>
               </div>
             </div>
+
+            <!-- Processing Mode Selection -->
+            <div v-if="activeContextSetName" class="mb-4">
+              <div class="flex items-center space-x-3">
+                <label class="text-sm font-medium text-foreground whitespace-nowrap">
+                  Processing Mode
+                </label>
+                <select
+                  v-model="processingMode"
+                  class="w-64 px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                >
+                  <option value="">Not specified</option>
+                  <option value="synchronous">Synchronous - Returns result immediately</option>
+                  <option value="asynchronous">Asynchronous - Processes in background</option>
+                  <option value="streaming">Streaming - Returns data progressively</option>
+                  <option value="batch">Batch - Processes multiple items together</option>
+                </select>
+              </div>
+              <p class="text-xs text-muted-foreground mt-1 ml-0">
+                Defines how the system should handle processing requests
+              </p>
+            </div>
           </div>
           
-          <!-- Context Set Status & Actions -->
-          <div v-if="activeContextSetName" class="flex items-center space-x-4 ml-6">
+          <!-- Token Estimation & Export Actions -->
+          <div v-if="activeContextSetName" class="flex flex-col items-end space-y-3 ml-6">
+            <!-- Token Estimation & Copy Button -->
+            <div class="flex items-center space-x-3">
+              <p class="text-sm text-muted-foreground">
+                <span v-if="estimatedTokens > 0">~{{ estimatedTokens.toLocaleString() }} tokens</span>
+              </p>
+              <Button
+                @click="handleExportToClipboard"
+                :disabled="isExporting || !activeContextSet || !activeContextSet.files || activeContextSet.files.length === 0"
+                class="flex items-center space-x-2"
+                variant="default"
+                size="sm"
+              >
+                <Icon 
+                  :name="isExporting ? 'lucide:loader-2' : 'lucide:clipboard-copy'" 
+                  :class="['w-4 h-4', { 'animate-spin': isExporting }]" 
+                />
+                <span>{{ isExporting ? 'Exporting...' : 'Copy as Snippet' }}</span>
+              </Button>
+            </div>
+            
+            <!-- Context Set Status & Actions -->
             <div class="text-right">
               <div class="text-sm font-medium text-foreground">
                 {{ activeContextSet?.files?.length || 0 }} files • 
-                {{ activeContextSet?.workflow?.length || 0 }} workflow steps • 
-                {{ activeContextSet?.entryPoints?.length || 0 }} entry points
+                {{ activeContextSet?.workflows?.length || 0 }} workflows • 
                 <span v-if="activeContextSet?.systemBehavior?.processing?.mode" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
                   {{ activeContextSet.systemBehavior.processing.mode }}
                 </span>
@@ -131,7 +173,7 @@
           <div class="h-full flex flex-col">
             <!-- Project File Browser Content -->
             <div class="flex-1 overflow-hidden">
-              <ProjectFileBrowser />
+              <TabbedFileBrowser />
             </div>
           </div>
         </div>
@@ -148,6 +190,7 @@
 
 <script setup lang="ts">
 import Editor from './active-context-set/Editor.vue'
+import TabbedFileBrowser from './TabbedFileBrowser.vue'
 
 // State for editing
 const isEditingName = ref(false)
@@ -160,10 +203,17 @@ const nameInput = ref<HTMLInputElement>()
 const descriptionInput = ref<HTMLTextAreaElement>()
 
 // Use the project store
-const { activeContextSet, updateActiveContextSet } = useProjectStore()
+const { activeContextSet, updateActiveContextSet, filesManifest, fileTree } = useProjectStore()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
+const { success, error } = useNotifications()
+
+// Context Set Exporter
+const { exportContextSetToClipboard, calculateTokenCount, isExporting } = useContextSetExporter()
+
+// Export functionality
+const estimatedTokens = ref(0)
 
 // Safe focus helper for test compatibility
 const safeFocus = (element: HTMLElement | undefined) => {
@@ -189,6 +239,14 @@ const activeContextSetName = computed(() => {
 
 const activeContextSetDescription = computed(() => {
   return activeContextSet.value?.description || ''
+})
+
+// Computed for processing mode
+const processingMode = computed({
+  get: () => activeContextSet.value?.systemBehavior?.processing?.mode || '',
+  set: (value: string) => {
+    updateProcessingMode(value)
+  }
 })
 
 // Methods for editing
@@ -261,6 +319,104 @@ const cancelEditingName = () => {
 const cancelEditingDescription = () => {
   isEditingDescription.value = false
   editingDescription.value = ''
+}
+
+// Update processing mode
+const updateProcessingMode = (mode: string) => {
+  if (!activeContextSet.value) return
+  
+  const newSystemBehavior = (mode && mode.trim()) ? {
+    processing: {
+      mode: mode as 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
+    }
+  } : null
+  
+  try {
+    updateActiveContextSet({ systemBehavior: newSystemBehavior })
+    announceStatus('Processing mode updated')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update processing mode'
+    announceError(message)
+  }
+}
+
+// Export functionality
+const handleExportToClipboard = async () => {
+  if (!activeContextSet.value || !activeContextSetName.value) {
+    error('Export Failed', 'No active context set to export')
+    return
+  }
+
+  if (!activeContextSet.value.files || activeContextSet.value.files.length === 0) {
+    error('Export Failed', 'Context set has no files to export')
+    return
+  }
+
+  try {
+    const result = await exportContextSetToClipboard(
+      activeContextSetName.value,
+      activeContextSet.value,
+      filesManifest.value,
+      fileTree.value
+    )
+
+    if (result.success) {
+      success(
+        'Snippet Copied',
+        `Context set "${activeContextSetName.value}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
+      )
+      announceStatus(`Context set exported to clipboard with ${result.tokenCount} tokens`)
+    } else {
+      error('Export Failed', result.error || 'Unknown error occurred')
+      announceError(`Failed to export context set: ${result.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    error('Export Failed', errorMessage)
+    announceError(`Export failed: ${errorMessage}`)
+  }
+}
+
+// Update estimated token count when context set changes
+const updateEstimatedTokens = async () => {
+  try {
+    // Ensure all required dependencies exist
+    if (!activeContextSet.value || !activeContextSetName.value || !filesManifest.value || !fileTree.value) {
+      if (estimatedTokens?.value !== undefined) {
+        estimatedTokens.value = 0
+      }
+      return
+    }
+
+    // Check if calculateTokenCount is available and is a function
+    if (calculateTokenCount && typeof calculateTokenCount === 'function') {
+      const tokens = await calculateTokenCount(
+        activeContextSetName.value,
+        activeContextSet.value,
+        filesManifest.value,
+        fileTree.value
+      )
+      if (estimatedTokens?.value !== undefined) {
+        estimatedTokens.value = tokens || 0
+      }
+    } else {
+      // In test environment or when function is not available
+      if (estimatedTokens?.value !== undefined) {
+        estimatedTokens.value = 0
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to calculate estimated tokens:', err)
+    if (estimatedTokens?.value !== undefined) {
+      estimatedTokens.value = 0
+    }
+  }
+}
+
+// Watch for changes to update token estimate
+// Only set up the watcher if the refs exist to avoid "Invalid watch source" errors in tests
+if (activeContextSet && activeContextSetName) {
+  watch([activeContextSet, activeContextSetName], updateEstimatedTokens, { immediate: true, deep: true })
 }
 </script>
 

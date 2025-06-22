@@ -10,8 +10,8 @@ export type {
   FileManifestEntry,
   FunctionRef,
   FileRef,
-  WorkflowStep,
-  EntryPoint,
+  Workflow,
+  WorkflowPoint,
   ContextSet,
   ContextSetsData
 } from './useContextSets'
@@ -301,13 +301,15 @@ export const useProjectStore = () => {
   }
 
   // Enhanced context set operations that auto-save to OPFS
-  const createContextSet = (name: string, description: string = '') => {
-    contextSets.createContextSet(name, description)
+  const createContextSet = (name: string, description: string = ''): boolean => {
+    const success = contextSets.createContextSet(name, description)
     
-    // Auto-save to OPFS working copy
-    if (globalState.selectedFolder) {
+    // Auto-save to OPFS working copy only if creation was successful
+    if (success && globalState.selectedFolder) {
       saveWorkingCopyToOPFS(globalState.selectedFolder.name)
     }
+    
+    return success
   }
 
   const setActiveContextSet = (name: string | null) => {
@@ -321,8 +323,12 @@ export const useProjectStore = () => {
     return result
   }
 
-  const addFileToActiveContextSet = (file: any) => {
-    const result = contextSets.addFileToActiveContextSet(file.path)
+  const addFileToActiveContextSet = (file: any, options?: {
+    classification?: string
+    comment?: string
+    functionRefs?: any[]
+  }) => {
+    const result = contextSets.addFileToActiveContextSet(file.path, options)
     
     if (result && globalState.selectedFolder) {
       saveWorkingCopyToOPFS(globalState.selectedFolder.name)

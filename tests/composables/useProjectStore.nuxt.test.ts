@@ -106,7 +106,7 @@ describe('useProjectStore', () => {
       expect(store.contextSets.value[setName]).toEqual({
         description,
         files: [],
-        workflow: []
+        workflows: []
       })
     })
 
@@ -135,13 +135,13 @@ describe('useProjectStore', () => {
       
       const updates = {
         description: 'Updated description',
-        workflow: [{ fileRefs: ['file1'], description: 'Step 1' }]
+        workflows: [{ fileRefs: ['file1'], description: 'Step 1' }]
       }
       
       store.updateActiveContextSet(updates)
       
       expect(store.contextSets.value[setName].description).toBe('Updated description')
-      expect(store.contextSets.value[setName].workflow).toEqual(updates.workflow)
+      expect(store.contextSets.value[setName].workflows).toEqual(updates.workflows)
     })
 
     it('should delete context set', async () => {
@@ -693,7 +693,7 @@ describe('useProjectStore', () => {
           'new-project-set': {
             description: 'From new project',
             files: ['file_abc123'],
-            workflow: []
+            workflows: []
           }
         },
         fileContextsIndex: {
@@ -983,7 +983,7 @@ describe('useProjectStore', () => {
           'file_opfs123': { path: 'src/opfs-file.vue', comment: 'From OPFS working copy' }
         },
         contextSets: {
-          'opfs-context': { description: 'From OPFS', files: ['file_opfs123'], workflow: [] }
+          'opfs-context': { description: 'From OPFS', files: ['file_opfs123'], workflows: [] }
         },
         fileContextsIndex: {}
       }
@@ -995,7 +995,7 @@ describe('useProjectStore', () => {
           'file_stable123': { path: 'src/stable-file.vue', comment: 'From stable version' }
         },
         contextSets: {
-          'stable-context': { description: 'From stable', files: ['file_stable123'], workflow: [] }
+          'stable-context': { description: 'From stable', files: ['file_stable123'], workflows: [] }
         },
         fileContextsIndex: {}
       }
@@ -1030,7 +1030,7 @@ describe('useProjectStore', () => {
           'file_stable456': { path: 'src/stable-first.vue', comment: 'From stable version' }
         },
         contextSets: {
-          'stable-first-context': { description: 'From stable first load', files: ['file_stable456'], workflow: [] }
+          'stable-first-context': { description: 'From stable first load', files: ['file_stable456'], workflows: [] }
         },
         fileContextsIndex: {}
       }

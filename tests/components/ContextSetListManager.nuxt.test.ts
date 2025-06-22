@@ -13,7 +13,8 @@ const mockProjectStore = {
   contextSets: ref({}),
   contextSetNames: ref([]),
   activeContextSetName: ref(''),
-  createContextSet: vi.fn(),
+  fileTree: ref([]),
+  createContextSet: vi.fn().mockReturnValue(true),
   setActiveContextSet: vi.fn().mockReturnValue(true),
   deleteContextSet: vi.fn().mockResolvedValue(true)
 }
@@ -24,12 +25,23 @@ const mockAccessibility = {
   announceError: vi.fn()
 }
 
+// Mock smart context suggestions
+const mockSmartContextSuggestions = {
+  performTriModelSearch: vi.fn().mockResolvedValue({
+    data: { files: [] }
+  })
+}
+
 vi.mock('~/composables/useProjectStore', () => ({
   useProjectStore: () => mockProjectStore
 }))
 
 vi.mock('~/composables/useAccessibility', () => ({
   useAccessibility: () => mockAccessibility
+}))
+
+vi.mock('~/composables/useSmartContextSuggestions', () => ({
+  useSmartContextSuggestions: () => mockSmartContextSuggestions
 }))
 
 // Mock DOM focus methods to prevent errors
@@ -88,6 +100,12 @@ describe('ContextSetListManager', () => {
     mockProjectStore.contextSets.value = {}
     mockProjectStore.contextSetNames.value = []
     mockProjectStore.activeContextSetName.value = ''
+    mockProjectStore.fileTree.value = []
+    
+    // Mock window function for assisted search results
+    if (typeof window !== 'undefined') {
+      (window as any).setAssistedSearchResults = vi.fn().mockResolvedValue(true)
+    }
     
     // Clear any existing dialogs
     const existingDialogs = document.body.querySelectorAll('[data-slot="dialog-content"], [role="dialog"]')
@@ -129,9 +147,9 @@ describe('ContextSetListManager', () => {
     beforeEach(() => {
       mockProjectStore.contextSetNames.value = ['authentication', 'userManagement', 'billing']
       mockProjectStore.contextSets.value = {
-        authentication: { files: ['file1', 'file2'], workflow: ['step1'] },
-        userManagement: { files: ['file3'], workflow: ['step1', 'step2'] },
-        billing: { files: [], workflow: [] }
+        authentication: { files: ['file1', 'file2'], workflows: ['step1'] },
+        userManagement: { files: ['file3'], workflows: ['step1', 'step2'] },
+        billing: { files: [], workflows: [] }
       }
     })
 
@@ -150,7 +168,7 @@ describe('ContextSetListManager', () => {
       expect(addButton).toBeTruthy()
     })
 
-    it('should display file and workflow counts correctly', async () => {
+    it('should display file and workflows counts correctly', async () => {
       const wrapper = await mountSuspended(ContextSetListManager)
       
       expect(wrapper.text()).toContain('2 files')
@@ -206,15 +224,15 @@ describe('ContextSetListManager', () => {
         await createButton.trigger('click')
         await waitForDialog(true)
         
-        expect(getDialogText()).toContain('Context Set Name')
-        expect(getDialogText()).toContain('Use camelCase, snake_case, or single words')
+        expect(getDialogText()).toContain('Search Term')
+        expect(getDialogText()).toContain('Use natural language with spaces')
         
-        const input = findInDialog('input[placeholder*="authenticationSystem"], input[type="text"]')
+        const input = findInDialog('input[placeholder*="authentication system"], input[type="text"]')
         expect(input).toBeTruthy()
       }
     })
 
-    it('should validate context set name format', async () => {
+    it('should validate search term length', async () => {
       const wrapper = await mountSuspended(ContextSetListManager)
       
       const createButton = findButtonByText(wrapper, 'Create Context Set') || findButtonByText(wrapper, 'Add New Context Set')
@@ -224,18 +242,18 @@ describe('ContextSetListManager', () => {
         
         const input = findInDialog('input') as HTMLInputElement
         if (input) {
-          // Test invalid name with spaces
-          input.value = 'invalid name'
+          // Test search term too short
+          input.value = 'a'
           input.dispatchEvent(new Event('input', { bubbles: true }))
           
           await new Promise(resolve => setTimeout(resolve, 100))
           
-          expect(getDialogText()).toContain('Name cannot contain spaces')
+          expect(getDialogText()).toContain('Search term must be at least 2 characters')
         }
       }
     })
 
-    it('should validate name starts with letter', async () => {
+    it('should show generated context name preview', async () => {
       const wrapper = await mountSuspended(ContextSetListManager)
       
       const createButton = findButtonByText(wrapper, 'Create Context Set') || findButtonByText(wrapper, 'Add New Context Set')
@@ -245,13 +263,13 @@ describe('ContextSetListManager', () => {
         
         const input = findInDialog('input') as HTMLInputElement
         if (input) {
-          // Test invalid name starting with number
-          input.value = '123invalid'
+          // Test that search term generates context name
+          input.value = 'user management system'
           input.dispatchEvent(new Event('input', { bubbles: true }))
           
           await new Promise(resolve => setTimeout(resolve, 100))
           
-          expect(getDialogText()).toContain('Name must start with a letter')
+          expect(getDialogText()).toContain('userManagementSystem')
         }
       }
     })
@@ -273,7 +291,7 @@ describe('ContextSetListManager', () => {
           
           await new Promise(resolve => setTimeout(resolve, 100))
           
-          expect(getDialogText()).toContain('A context set with this name already exists')
+          expect(getDialogText()).toContain('A context set named "existing" already exists')
         }
       }
     })
@@ -288,8 +306,8 @@ describe('ContextSetListManager', () => {
         
         const input = findInDialog('input') as HTMLInputElement
         if (input) {
-          // Set valid name
-          input.value = 'validName'
+          // Set valid search term
+          input.value = 'valid search term'
           input.dispatchEvent(new Event('input', { bubbles: true }))
           
           // Wait for validation to complete
@@ -298,13 +316,13 @@ describe('ContextSetListManager', () => {
           // Find and click the submit button
           const submitButton = findInDialog('button[type="submit"]') as HTMLButtonElement
           if (submitButton && !submitButton.disabled) {
-            await new Promise(resolve => {
-              submitButton.click()
-              resolve(undefined)
-            })
+            submitButton.click()
             
-            expect(mockProjectStore.createContextSet).toHaveBeenCalledWith('validName')
-            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created and activated new context set: validName')
+            // Wait for async operations to complete
+            await new Promise(resolve => setTimeout(resolve, 200))
+            
+            expect(mockProjectStore.createContextSet).toHaveBeenCalledWith('validSearchTerm')
+            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: validSearchTerm. Searching for related files...')
           }
         }
       }
@@ -320,8 +338,8 @@ describe('ContextSetListManager', () => {
         
         const input = findInDialog('input') as HTMLInputElement
         if (input) {
-          // Set valid name
-          input.value = 'newActiveContext'
+          // Set valid search term
+          input.value = 'new active context'
           input.dispatchEvent(new Event('input', { bubbles: true }))
           
           // Wait for validation to complete
@@ -330,10 +348,10 @@ describe('ContextSetListManager', () => {
           // Find and click the submit button
           const submitButton = findInDialog('button[type="submit"]') as HTMLButtonElement
           if (submitButton && !submitButton.disabled) {
-            await new Promise(resolve => {
-              submitButton.click()
-              resolve(undefined)
-            })
+            submitButton.click()
+            
+            // Wait for async operations to complete
+            await new Promise(resolve => setTimeout(resolve, 200))
             
             // Verify context set was created
             expect(mockProjectStore.createContextSet).toHaveBeenCalledWith('newActiveContext')
@@ -341,8 +359,8 @@ describe('ContextSetListManager', () => {
             // Verify newly created context set was automatically set as active
             expect(mockProjectStore.setActiveContextSet).toHaveBeenCalledWith('newActiveContext')
             
-            // Verify the announcement message reflects both creation and activation
-            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created and activated new context set: newActiveContext')
+            // Verify the announcement message reflects creation and search initiation
+            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: newActiveContext. Searching for related files...')
           }
         }
       }
@@ -373,7 +391,7 @@ describe('ContextSetListManager', () => {
     beforeEach(() => {
       mockProjectStore.contextSetNames.value = ['testSet']
       mockProjectStore.contextSets.value = {
-        testSet: { files: [], workflow: [] }
+        testSet: { files: [], workflows: [] }
       }
     })
 
@@ -441,7 +459,7 @@ describe('ContextSetListManager', () => {
     it('should have proper ARIA labels', async () => {
       mockProjectStore.contextSetNames.value = ['testSet']
       mockProjectStore.contextSets.value = {
-        testSet: { files: [], workflow: [] }
+        testSet: { files: [], workflows: [] }
       }
       
       const wrapper = await mountSuspended(ContextSetListManager)
@@ -469,7 +487,7 @@ describe('ContextSetListManager', () => {
     it('should handle empty context sets gracefully', async () => {
       mockProjectStore.contextSetNames.value = ['empty']
       mockProjectStore.contextSets.value = {
-        empty: { files: undefined, workflow: undefined }
+        empty: { files: undefined, workflows: undefined }
       }
       
       const wrapper = await mountSuspended(ContextSetListManager)
@@ -517,7 +535,7 @@ describe('ContextSetListManager', () => {
       mockProjectStore.setActiveContextSet.mockReturnValue(false)
       mockProjectStore.contextSetNames.value = ['testSet']
       mockProjectStore.contextSets.value = {
-        testSet: { files: [], workflow: [] }
+        testSet: { files: [], workflows: [] }
       }
       
       const wrapper = await mountSuspended(ContextSetListManager)

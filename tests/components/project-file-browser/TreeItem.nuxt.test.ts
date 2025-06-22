@@ -17,7 +17,7 @@ const mockProjectStore = {
     name: 'test-context',
     description: 'Test context set',
     files: ['file-id-1'],
-    workflow: []
+    workflows: []
   }),
   findFileIdByPath: vi.fn(() => ref('file-id-1')) // Return a ref to match component expectations
 }

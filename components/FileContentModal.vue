@@ -1,8 +1,8 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+-->
 <template>
   <Dialog v-model:open="isOpen">
     <DialogContent class="max-w-6xl max-h-[90vh] flex flex-col">
@@ -35,24 +35,14 @@
           </div>
         </div>
         
-        <div v-else class="border rounded-lg overflow-auto h-[60vh]">
-          <div class="flex min-h-full">
-            <!-- Line Numbers -->
-            <div class="bg-muted/30 p-2 text-xs font-mono text-muted-foreground select-none min-w-[60px] border-r sticky left-0">
-              <div
-                v-for="lineNum in totalLines"
-                :key="lineNum"
-                class="h-5 flex items-center justify-end px-2"
-              >
-                {{ lineNum }}
-              </div>
-            </div>
-            
-            <!-- Content -->
-            <div class="flex-1 p-2">
-              <pre class="text-xs font-mono leading-5"><code v-for="(line, index) in fileLines" :key="index" class="block h-5 px-1">{{ line }}</code></pre>
-            </div>
-          </div>
+        <div v-else class="border rounded-lg overflow-auto h-[60vh] bg-slate-50 dark:bg-slate-900">
+          <CodeRenderer
+            :content="currentFileContent"
+            :file-path="currentFileName"
+            :allow-line-click="false"
+            line-numbers-class="bg-muted/30 border-muted"
+            line-numbers-text-class="text-muted-foreground"
+          />
         </div>
       </div>
 
@@ -72,6 +62,7 @@ const {
   isFileContentModalOpen, 
   closeFileContentModal 
 } = useProjectStore()
+
 
 const { success, error } = useNotifications()
 
@@ -103,6 +94,7 @@ const fileLines = computed(() => {
   if (!currentFileContent.value) return []
   return currentFileContent.value.split('\n')
 })
+
 
 const totalLines = computed(() => {
   return fileLines.value.length

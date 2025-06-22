@@ -62,7 +62,7 @@ describe('useLLMLoader', () => {
       
       await llmLoader.initializeLLM()
       
-      expect(mockLLMService.initializeAsync).toHaveBeenCalledWith(expect.any(Function))
+      expect(mockLLMService.initializeAsync).toHaveBeenCalledWith('embeddings', expect.any(Function))
       expect(llmLoader.loadingState.value.status).toBe('ready')
       expect(llmLoader.loadingState.value.progress).toBe(100)
       expect(llmLoader.loadingState.value.message).toBe('AI model ready!')
@@ -113,7 +113,7 @@ describe('useLLMLoader', () => {
       let progressCallback: Function | undefined
 
       // Capture the progress callback
-      mockLLMService.initializeAsync.mockImplementation(async (callback) => {
+      mockLLMService.initializeAsync.mockImplementation(async (modelKey, callback) => {
         progressCallback = callback
         
         // Simulate progress updates
@@ -149,7 +149,7 @@ describe('useLLMLoader', () => {
     it('should handle different progress statuses correctly', async () => {
       let progressCallback: Function | undefined
 
-      mockLLMService.initializeAsync.mockImplementation(async (callback) => {
+      mockLLMService.initializeAsync.mockImplementation(async (modelKey, callback) => {
         progressCallback = callback
         
         if (progressCallback) {
@@ -188,11 +188,12 @@ describe('useLLMLoader', () => {
     it('should handle progress callback without progress value', async () => {
       let progressCallback: Function | undefined
 
-      mockLLMService.initializeAsync.mockImplementation(async (callback) => {
+      mockLLMService.initializeAsync.mockImplementation(async (modelKey, callback) => {
         progressCallback = callback
         
         if (progressCallback) {
           progressCallback({ status: 'initiate', name: 'test-model' })
+          progressCallback({ status: 'done', progress: 1.0 })
         }
       })
 
@@ -282,7 +283,7 @@ describe('useLLMLoader', () => {
 
       // Check loading state during async operation
       expect(llmLoader.loadingState.value.status).toBe('loading')
-      expect(llmLoader.loadingState.value.message).toBe('Starting AI model initialization...')
+      expect(llmLoader.loadingState.value.message).toBe('Initializing local AI model...')
 
       // Resolve the async operation
       mockLLMService.getStatus.mockReturnValue('ready')
@@ -336,7 +337,7 @@ describe('useLLMLoader', () => {
 
       await llmLoader.initializeLLM()
 
-      expect(consoleSpy).toHaveBeenCalledWith('LLM initialization failed:', error)
+      expect(consoleSpy).toHaveBeenCalledWith('LLM initialization failed for embeddings:', error)
       
       consoleSpy.mockRestore()
     })
