@@ -21,8 +21,13 @@ export default defineVitestConfig({
         mock: {
           intersectionObserver: true,
           indexedDb: true,
-        }
+        },
+        // Suppress module warnings during tests
+        logLevel: 'silent'
       }
-    }
+    },
+    // Suppress console warnings in tests
+    silent: false,
+    reporters: ['verbose']
   }
 }) 
