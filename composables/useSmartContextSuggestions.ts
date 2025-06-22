@@ -489,7 +489,7 @@ export const useSmartContextSuggestions = () => {
   ): Promise<KeywordSearchSuggestion> => {
     console.log(`🚀 Starting tri-model search for keyword: "${keyword}"`)
     if (entryPointFile) {
-      console.log(`📍 Entry point: ${entryPointFile.path}`)
+      console.log(`📍 Starting point: ${entryPointFile.path}`)
     }
     
     // Check if we need to generate embeddings on-demand
@@ -503,7 +503,7 @@ export const useSmartContextSuggestions = () => {
     // Parse entry point if provided
     let entryPointInfo: RegexParsedCodeInfo | null = null
     if (entryPointFile) {
-      console.log('🔍 Parsing entry point for dependency analysis...')
+      console.log('🔍 Parsing starting point for dependency analysis...')
       entryPointInfo = await parseCode(entryPointFile.content, entryPointFile.path)
     }
     
