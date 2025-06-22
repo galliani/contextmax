@@ -21,24 +21,23 @@ export interface FileRef {
   classification?: string
 }
 
-export interface WorkflowStep {
-  fileRef: string
-  description: string
+export interface Workflow {
+  start: WorkflowPoint
+  end: WorkflowPoint
 }
 
-export interface EntryPoint {
+export interface WorkflowPoint {
   fileRef: string
   function: string
-  protocol: 'http' | 'ui' | 'cli' | 'function' | 'queue' | 'file' | 'hook' | 'websocket' | 'sse'
-  method: string
-  identifier: string
+  protocol?: 'http' | 'ui' | 'cli' | 'function' | 'queue' | 'file' | 'hook' | 'websocket' | 'sse'
+  method?: string
+  identifier?: string
 }
 
 export interface ContextSet {
   description: string
   files: (string | FileRef)[]
-  workflow: WorkflowStep[]
-  entryPoints?: EntryPoint[]
+  workflows: Workflow[]
   systemBehavior?: {
     processing?: {
       mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
@@ -117,7 +116,7 @@ export const useContextSets = () => {
     contextSets.value[name] = {
       description,
       files: [],
-      workflow: []
+      workflows: []
     }
     
     console.log(`Created new context set: ${name}`)
@@ -215,8 +214,7 @@ export const useContextSets = () => {
   const updateActiveContextSet = (updates: { 
     name?: string, 
     description?: string, 
-    workflow?: WorkflowStep[], 
-    entryPoints?: EntryPoint[],
+    workflows?: Workflow[],
     systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null
   }) => {
     if (!activeContextSetName.value) {
@@ -239,11 +237,8 @@ export const useContextSets = () => {
       if (updates.description !== undefined) {
         contextSets.value[updates.name].description = updates.description
       }
-      if (updates.workflow !== undefined) {
-        contextSets.value[updates.name].workflow = [...updates.workflow]
-      }
-      if (updates.entryPoints !== undefined) {
-        contextSets.value[updates.name].entryPoints = [...updates.entryPoints]
+      if (updates.workflows !== undefined) {
+        contextSets.value[updates.name].workflows = [...updates.workflows]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
@@ -266,11 +261,8 @@ export const useContextSets = () => {
       if (updates.description !== undefined) {
         currentSet.description = updates.description
       }
-      if (updates.workflow !== undefined) {
-        currentSet.workflow = [...updates.workflow]
-      }
-      if (updates.entryPoints !== undefined) {
-        currentSet.entryPoints = [...updates.entryPoints]
+      if (updates.workflows !== undefined) {
+        currentSet.workflows = [...updates.workflows]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {

@@ -53,13 +53,13 @@
               >
                 {{ getFileName(fileEntry) }}
               </h4>
-              <!-- Entry Point Indicator -->
+              <!-- Workflow Indicator -->
               <Icon 
-                v-if="isFileEntryPoint(fileEntry)"
-                name="lucide:door-open"
+                v-if="isFileInWorkflow(fileEntry)"
+                name="lucide:workflow"
                 class="w-4 h-4 text-primary flex-shrink-0"
                 aria-hidden="true"
-                title="Entry Point"
+                title="Part of Workflow"
               />
               <span 
                 v-if="getFileExtension(fileEntry)"
@@ -178,26 +178,26 @@
               <Icon name="lucide:function-square" size="21px" class="animate-pulse" aria-hidden="true" />
             </Button>
 
-            <!-- Entry Point Actions -->
+            <!-- Workflow Actions -->
             <Button
-              v-if="!isFileEntryPoint(fileEntry)"
-              @click="setAsEntryPoint(fileEntry)"
+              @click="setAsWorkflowStart(fileEntry)"
               variant="ghost"
               class="text-muted-foreground hover:text-foreground transition-colors duration-200 p-2"
-              :aria-label="`Set ${getFileName(fileEntry)} as entry point`"
-              title="Mark this file as an entry point"
+              :aria-label="`Set ${getFileName(fileEntry)} as workflow start point`"
+              title="Set this file as the start point of a workflow"
+              :class="{ 'text-green-600': isFileWorkflowStart(fileEntry) }"
             >
-              <Icon name="lucide:zap" size="21px" class="animate-bounce" aria-hidden="true" />
+              <Icon name="lucide:play" size="18px" aria-hidden="true" />
             </Button>
             <Button
-              v-else
-              @click="configureEntryPoint(fileEntry)"
+              @click="setAsWorkflowEnd(fileEntry)"
               variant="ghost"
               class="text-muted-foreground hover:text-foreground transition-colors duration-200 p-2"
-              :aria-label="`Configure entry point for ${getFileName(fileEntry)}`"
-              title="Configure entry point settings"
+              :aria-label="`Set ${getFileName(fileEntry)} as workflow end point`"
+              title="Set this file as the end point of a workflow"
+              :class="{ 'text-red-600': isFileWorkflowEnd(fileEntry) }"
             >
-              <Icon name="lucide:door-open" size="21px" class="animate-pulse" aria-hidden="true" />
+              <Icon name="lucide:square" size="18px" aria-hidden="true" />
             </Button>
 
             <!-- Remove from Context Set -->
@@ -213,15 +213,16 @@
           </div>
         </div>
 
-        <!-- Entry Point Configuration Form -->
-        <EntryPointsEditor
-          :is-expanded="isEntryPointFormExpanded(fileEntry)"
+        <!-- Workflow Point Configuration Form -->
+        <WorkflowPointEditor
+          :is-expanded="isWorkflowFormExpanded(fileEntry)"
           :file-id="getFileId(fileEntry)"
-          :existing-entry-point="getFileEntryPoint(fileEntry)"
-          :has-existing-entry-point="isFileEntryPoint(fileEntry)"
-          @cancel="cancelEntryPointConfig"
-          @save="handleEntryPointSave"
-          @remove="handleEntryPointRemove"
+          :workflow-point-type="expandedWorkflowPointType"
+          :existing-workflow-point="getFileWorkflowPoint(fileEntry)"
+          :has-existing-workflow-point="isFileInWorkflow(fileEntry)"
+          @cancel="cancelWorkflowConfig"
+          @save="handleWorkflowPointSave"
+          @remove="handleWorkflowPointRemove"
         />
       </div>
     </div>
@@ -252,9 +253,9 @@
 </template>
 
 <script setup lang="ts">
-import type { FileRef, FunctionRef, EntryPoint } from '~/composables/useProjectStore'
+import type { FileRef, FunctionRef, Workflow, WorkflowPoint } from '~/composables/useContextSets'
 import FunctionSelectorModal from './FunctionSelectorModal.vue'
-import EntryPointsEditor from './EntryPointsEditor.vue'
+import WorkflowPointEditor from './WorkflowPointEditor.vue'
 
 const {
   activeContextSet,
@@ -298,8 +299,9 @@ const isFunctionModalOpen = ref(false)
 const selectedFileId = ref('')
 const selectedFileFunctions = ref<FunctionRef[]>([])
 
-// Reactive state for entry point configuration
-const expandedEntryPointFileId = ref('')
+// Reactive state for workflow configuration
+const expandedWorkflowFileId = ref('')
+const expandedWorkflowPointType = ref<'start' | 'end'>('start')
 
 // Computed file list with resolved paths
 const fileList = computed(() => {
@@ -362,22 +364,50 @@ const getFileClassification = (fileEntry: string | FileRef): string | undefined 
   return searchInfo?.classification
 }
 
-// Entry point helper functions
-const isFileEntryPoint = (fileEntry: string | FileRef): boolean => {
-  if (!activeContextSet.value?.entryPoints) return false
+// Workflow helper functions
+const isFileInWorkflow = (fileEntry: string | FileRef): boolean => {
+  if (!activeContextSet.value?.workflows) return false
   const fileId = getFileId(fileEntry)
-  return activeContextSet.value.entryPoints.some(ep => ep.fileRef === fileId)
+  return activeContextSet.value.workflows.some(workflow => 
+    workflow.start.fileRef === fileId || workflow.end.fileRef === fileId
+  )
 }
 
-const getFileEntryPoint = (fileEntry: string | FileRef): EntryPoint | undefined => {
-  if (!activeContextSet.value?.entryPoints) return undefined
+const isFileWorkflowStart = (fileEntry: string | FileRef): boolean => {
+  if (!activeContextSet.value?.workflows) return false
   const fileId = getFileId(fileEntry)
-  return activeContextSet.value.entryPoints.find(ep => ep.fileRef === fileId)
+  return activeContextSet.value.workflows.some(workflow => 
+    workflow.start.fileRef === fileId
+  )
 }
 
-const isEntryPointFormExpanded = (fileEntry: string | FileRef): boolean => {
+const isFileWorkflowEnd = (fileEntry: string | FileRef): boolean => {
+  if (!activeContextSet.value?.workflows) return false
   const fileId = getFileId(fileEntry)
-  return expandedEntryPointFileId.value === fileId
+  return activeContextSet.value.workflows.some(workflow => 
+    workflow.end.fileRef === fileId
+  )
+}
+
+const getFileWorkflowPoint = (fileEntry: string | FileRef): WorkflowPoint | undefined => {
+  if (!activeContextSet.value?.workflows) return undefined
+  const fileId = getFileId(fileEntry)
+  
+  // Find if this file is a start or end point
+  for (const workflow of activeContextSet.value.workflows) {
+    if (workflow.start.fileRef === fileId) {
+      return workflow.start
+    }
+    if (workflow.end.fileRef === fileId) {
+      return workflow.end
+    }
+  }
+  return undefined
+}
+
+const isWorkflowFormExpanded = (fileEntry: string | FileRef): boolean => {
+  const fileId = getFileId(fileEntry)
+  return expandedWorkflowFileId.value === fileId
 }
 
 
@@ -561,102 +591,147 @@ const removeFile = (fileEntry: string | FileRef) => {
   }
 }
 
-// Entry point actions
-const setAsEntryPoint = (fileEntry: string | FileRef) => {
+// Workflow actions
+const setAsWorkflowStart = (fileEntry: string | FileRef) => {
   if (!activeContextSet.value) return
   
   const fileId = getFileId(fileEntry)
   const fileName = getFileName(fileEntry)
   
-  // Expand the entry point form
-  expandedEntryPointFileId.value = fileId
+  // Set as start point configuration
+  expandedWorkflowFileId.value = fileId
+  expandedWorkflowPointType.value = 'start'
   
-  announceStatus(`Setting up entry point for ${fileName}`)
+  announceStatus(`Setting up workflow start point for ${fileName}`)
 }
 
-const configureEntryPoint = (fileEntry: string | FileRef) => {
+const setAsWorkflowEnd = (fileEntry: string | FileRef) => {
+  if (!activeContextSet.value) return
+  
   const fileId = getFileId(fileEntry)
   const fileName = getFileName(fileEntry)
   
-  expandedEntryPointFileId.value = fileId
-  announceStatus(`Configuring entry point for ${fileName}`)
+  // Set as end point configuration
+  expandedWorkflowFileId.value = fileId
+  expandedWorkflowPointType.value = 'end'
+  
+  announceStatus(`Setting up workflow end point for ${fileName}`)
 }
 
-const cancelEntryPointConfig = () => {
-  expandedEntryPointFileId.value = ''
+const cancelWorkflowConfig = () => {
+  expandedWorkflowFileId.value = ''
+  expandedWorkflowPointType.value = 'start'
 }
 
 
-// Event handlers for EntryPointsEditor
-const handleEntryPointSave = async (entryPoint: EntryPoint) => {
+// Event handlers for WorkflowPointEditor
+const handleWorkflowPointSave = async (workflowPoint: WorkflowPoint) => {
   if (!activeContextSet.value) return
   
-  const fileName = filesManifest.value[entryPoint.fileRef]?.path.split('/').pop() || 'Unknown file'
+  const fileName = filesManifest.value[workflowPoint.fileRef]?.path.split('/').pop() || 'Unknown file'
   
   try {
-    // Create or update entry point
-    const entryPoints = activeContextSet.value.entryPoints || []
-    const existingIndex = entryPoints.findIndex(ep => ep.fileRef === entryPoint.fileRef)
+    const workflows = activeContextSet.value.workflows || []
+    const fileId = workflowPoint.fileRef
     
-    if (existingIndex >= 0) {
-      // Update existing entry point
-      entryPoints[existingIndex] = { ...entryPoint }
+    if (expandedWorkflowPointType.value === 'start') {
+      // Handle start point
+      const existingIndex = workflows.findIndex(w => w.start.fileRef === fileId)
+      
+      if (existingIndex >= 0) {
+        // Update existing workflow's start point
+        workflows[existingIndex].start = { ...workflowPoint }
+      } else {
+        // Create new workflow with this start point and placeholder end
+        const newWorkflow: Workflow = {
+          start: { ...workflowPoint },
+          end: {
+            fileRef: '', // Will be filled when end point is set
+            function: '',
+            protocol: 'function',
+            method: 'call',
+            identifier: ''
+          }
+        }
+        workflows.push(newWorkflow)
+      }
     } else {
-      // Add new entry point
-      entryPoints.push({ ...entryPoint })
+      // Handle end point
+      // Find an incomplete workflow (one without an end point) or create new one
+      let targetWorkflow = workflows.find(w => !w.end.fileRef || w.end.fileRef === '')
+      
+      if (targetWorkflow) {
+        // Complete existing incomplete workflow
+        targetWorkflow.end = { ...workflowPoint }
+      } else {
+        // Create new workflow with this end point and placeholder start
+        const newWorkflow: Workflow = {
+          start: {
+            fileRef: '', // Will be filled when start point is set
+            function: '',
+            protocol: 'function',
+            method: 'call',
+            identifier: ''
+          },
+          end: { ...workflowPoint }
+        }
+        workflows.push(newWorkflow)
+      }
     }
     
     // Update the context set (this will auto-save to OPFS)
-    updateActiveContextSet({ entryPoints })
+    updateActiveContextSet({ workflows })
     
     // Close form
-    cancelEntryPointConfig()
+    cancelWorkflowConfig()
     
-    announceStatus(`Entry point saved for ${fileName}`)
+    announceStatus(`Workflow ${expandedWorkflowPointType.value} point saved for ${fileName}`)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to save entry point'
+    const message = error instanceof Error ? error.message : 'Failed to save workflow point'
     announceError(message)
   }
 }
 
-const handleEntryPointRemove = async (fileId: string) => {
-  console.log('[FilesList] handleEntryPointRemove called with fileId:', fileId)
+const handleWorkflowPointRemove = async (fileId: string) => {
+  console.log('[FilesList] handleWorkflowPointRemove called with fileId:', fileId)
   
   if (!activeContextSet.value) {
     console.error('[FilesList] No active context set')
     return
   }
   
-  console.log('[FilesList] Current entry points before removal:', activeContextSet.value.entryPoints)
+  console.log('[FilesList] Current workflows before removal:', activeContextSet.value.workflows)
   
   const fileName = filesManifest.value[fileId]?.path.split('/').pop() || 'Unknown file'
-  console.log('[FilesList] Removing entry point for file:', fileName)
+  console.log('[FilesList] Removing workflow point for file:', fileName)
   
   try {
-    // Remove entry point from the list
-    const originalEntryPoints = activeContextSet.value.entryPoints || []
-    const entryPoints = originalEntryPoints.filter(ep => ep.fileRef !== fileId)
+    // Remove workflows that involve this file
+    const originalWorkflows = activeContextSet.value.workflows || []
+    const workflows = originalWorkflows.filter(w => 
+      w.start.fileRef !== fileId && w.end.fileRef !== fileId
+    )
     
-    console.log('[FilesList] Original entry points count:', originalEntryPoints.length)
-    console.log('[FilesList] Filtered entry points count:', entryPoints.length)
-    console.log('[FilesList] Entry points after filtering:', entryPoints)
+    console.log('[FilesList] Original workflows count:', originalWorkflows.length)
+    console.log('[FilesList] Filtered workflows count:', workflows.length)
+    console.log('[FilesList] Workflows after filtering:', workflows)
     
     // Update the context set (this will auto-save to OPFS)
-    updateActiveContextSet({ entryPoints })
+    updateActiveContextSet({ workflows })
     
-    console.log('[FilesList] Context set updated, new entry points:', activeContextSet.value.entryPoints)
+    console.log('[FilesList] Context set updated, new workflows:', activeContextSet.value.workflows)
     
     // Close form if it was expanded
-    if (expandedEntryPointFileId.value === fileId) {
+    if (expandedWorkflowFileId.value === fileId) {
       console.log('[FilesList] Closing expanded form for file:', fileId)
-      cancelEntryPointConfig()
+      cancelWorkflowConfig()
     }
     
-    announceStatus(`Removed entry point for ${fileName}`)
-    console.log('[FilesList] Entry point removal completed successfully')
+    announceStatus(`Removed workflow points for ${fileName}`)
+    console.log('[FilesList] Workflow point removal completed successfully')
   } catch (error) {
-    console.error('[FilesList] Error during entry point removal:', error)
-    const message = error instanceof Error ? error.message : 'Failed to remove entry point'
+    console.error('[FilesList] Error during workflow point removal:', error)
+    const message = error instanceof Error ? error.message : 'Failed to remove workflow point'
     announceError(message)
   }
 }

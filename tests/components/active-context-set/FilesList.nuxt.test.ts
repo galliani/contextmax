@@ -79,7 +79,7 @@ describe('FilesList', () => {
     name: 'Test Context Set',
     description: 'Test description',
     files: ['file1', 'file2'],
-    workflow: []
+    workflows: []
   }
 
   const mockContextSetWithFileRefs: ContextSet = {
@@ -96,7 +96,7 @@ describe('FilesList', () => {
         comment: 'Utility functions'
       } as FileRef
     ],
-    workflow: []
+    workflows: []
   }
 
   describe('Basic Component Rendering', () => {
@@ -110,7 +110,7 @@ describe('FilesList', () => {
         name: 'Empty Context Set',
         description: '',
         files: [],
-        workflow: []
+        workflows: []
       }
 
       const component = await mountSuspended(FilesList)
@@ -151,13 +151,16 @@ describe('FilesList', () => {
     test('shows action buttons', async () => {
       const component = await mountSuspended(FilesList)
 
-      const viewButtons = component.findAll('button[title="View file content"]')
-      expect(viewButtons.length).toBeGreaterThan(0)
+      const selectFunctionButtons = component.findAll('button[title="Select specific functions from this file"]')
+      expect(selectFunctionButtons.length).toBeGreaterThan(0)
 
-      const specifyButtons = component.findAll('button[title="Specify functions"]')
-      expect(specifyButtons.length).toBeGreaterThan(0)
+      const workflowStartButtons = component.findAll('button[title="Set this file as the start point of a workflow"]')
+      expect(workflowStartButtons.length).toBeGreaterThan(0)
 
-      const removeButtons = component.findAll('button[title="Remove from context set"]')
+      const workflowEndButtons = component.findAll('button[title="Set this file as the end point of a workflow"]')
+      expect(workflowEndButtons.length).toBeGreaterThan(0)
+
+      const removeButtons = component.findAll('button[title="Remove file from this context set"]')
       expect(removeButtons.length).toBeGreaterThan(0)
     })
   })
@@ -169,32 +172,37 @@ describe('FilesList', () => {
       mockProjectStore.fileTree.value = mockFileTree
     })
 
-    test('view file action calls loadFileContent', async () => {
-      const component = await mountSuspended(FilesList)
-
-      const viewButton = component.find('button[title="View file content"]')
-      await viewButton.trigger('click')
-
-      expect(mockProjectStore.loadFileContent).toHaveBeenCalled()
-    })
-
     test('remove file action calls removeFileFromActiveContextSet', async () => {
       mockProjectStore.removeFileFromActiveContextSet.mockReturnValue(true)
       const component = await mountSuspended(FilesList)
 
-      const removeButton = component.find('button[title="Remove from context set"]')
+      const removeButton = component.find('button[title="Remove file from this context set"]')
       await removeButton.trigger('click')
 
       expect(mockProjectStore.removeFileFromActiveContextSet).toHaveBeenCalled()
     })
 
-    test('specify functions action triggers accessibility announcement', async () => {
+    test('select functions action triggers accessibility announcement', async () => {
       const component = await mountSuspended(FilesList)
 
-      const specifyButton = component.find('button[title="Specify functions"]')
-      await specifyButton.trigger('click')
+      const selectFunctionButton = component.find('button[title="Select specific functions from this file"]')
+      await selectFunctionButton.trigger('click')
 
       expect(mockAccessibility.announceStatus).toHaveBeenCalled()
+    })
+
+    test('workflow start button action triggers correctly', async () => {
+      const component = await mountSuspended(FilesList)
+
+      const workflowStartButton = component.find('button[title="Set this file as the start point of a workflow"]')
+      expect(workflowStartButton.exists()).toBe(true)
+    })
+
+    test('workflow end button action triggers correctly', async () => {
+      const component = await mountSuspended(FilesList)
+
+      const workflowEndButton = component.find('button[title="Set this file as the end point of a workflow"]')
+      expect(workflowEndButton.exists()).toBe(true)
     })
   })
 

@@ -78,8 +78,8 @@ vi.mock('~/components/active-context-set/FilesList.vue', () => ({
 vi.mock('~/components/active-context-set/WorkflowEditor.vue', () => ({
   default: {
     name: 'WorkflowEditor',
-    props: ['workflow'],
-    emits: ['update:workflow'],
+    props: ['workflows'],
+    emits: ['update:workflows'],
     template: '<div>Mocked WorkflowEditor</div>'
   }
 }))
@@ -94,7 +94,7 @@ describe('Editor', () => {
     name: 'Test Context Set',
     description: 'Test description',
     files: ['file1', 'file2', 'file3'],
-    workflow: [
+    workflows: [
       { description: 'Step 1', fileRefs: ['file1'] },
       { description: 'Step 2', fileRefs: ['file2'] }
     ]
@@ -122,24 +122,24 @@ describe('Editor', () => {
   })
 
   describe('Workflow Updates', () => {
-    test('handles workflow update successfully', async () => {
+    test('handles workflows update successfully', async () => {
       mockProjectStore.activeContextSet.value = mockContextSet
       const component = await mountSuspended(Editor)
 
-      const newWorkflow: WorkflowStep[] = [
+      const newWorkflows: WorkflowStep[] = [
         { description: 'Updated Step 1', fileRefs: ['file1'] }
       ]
 
-      // Simulate workflow update from WorkflowEditor
-      await component.vm.updateWorkflow(newWorkflow)
+      // Simulate workflows update from WorkflowEditor
+      await component.vm.updateWorkflows(newWorkflows)
 
       expect(mockProjectStore.updateActiveContextSet).toHaveBeenCalledWith({
-        workflow: newWorkflow
+        workflows: newWorkflows
       })
-      expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Workflow updated')
+      expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Workflows updated')
     })
 
-    test('handles workflow update error', async () => {
+    test('handles workflows update error', async () => {
       mockProjectStore.activeContextSet.value = mockContextSet
       const component = await mountSuspended(Editor)
       
@@ -149,18 +149,18 @@ describe('Editor', () => {
         throw error
       })
 
-      const newWorkflow: WorkflowStep[] = []
-      await component.vm.updateWorkflow(newWorkflow)
+      const newWorkflows: WorkflowStep[] = []
+      await component.vm.updateWorkflows(newWorkflows)
 
       expect(mockAccessibility.announceError).toHaveBeenCalledWith('Update failed')
     })
 
-    test('does not update workflow when no active context set', async () => {
+    test('does not update workflows when no active context set', async () => {
       mockProjectStore.activeContextSet.value = null
       const component = await mountSuspended(Editor)
 
-      const newWorkflow: WorkflowStep[] = []
-      await component.vm.updateWorkflow(newWorkflow)
+      const newWorkflows: WorkflowStep[] = []
+      await component.vm.updateWorkflows(newWorkflows)
 
       expect(mockProjectStore.updateActiveContextSet).not.toHaveBeenCalled()
     })

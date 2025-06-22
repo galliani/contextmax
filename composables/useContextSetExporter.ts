@@ -6,7 +6,7 @@
 
 import { encode } from 'gpt-tokenizer'
 import * as yaml from 'js-yaml'
-import type { ContextSet, FileManifestEntry, WorkflowStep, EntryPoint } from './useContextSets'
+import type { ContextSet, FileManifestEntry, Workflow, WorkflowPoint } from './useContextSets'
 
 export interface ExportResult {
   success: boolean
@@ -94,6 +94,25 @@ export const useContextSetExporter = () => {
   }
 
   /**
+   * Transform workflows from using file IDs to file paths for export
+   */
+  const transformWorkflowsForExport = (
+    workflows: Workflow[],
+    filesManifest: Record<string, FileManifestEntry>
+  ): Workflow[] => {
+    return workflows.map(workflow => ({
+      start: {
+        ...workflow.start,
+        fileRef: filesManifest[workflow.start.fileRef]?.path || workflow.start.fileRef
+      },
+      end: {
+        ...workflow.end,
+        fileRef: filesManifest[workflow.end.fileRef]?.path || workflow.end.fileRef
+      }
+    }))
+  }
+
+  /**
    * Core function to build the context set string in Markdown with YAML frontmatter format
    */
   const _buildContextSetString = async (
@@ -112,12 +131,8 @@ export const useContextSetExporter = () => {
       frontmatterObject.description = contextSet.description
     }
 
-    if (contextSet.workflow && contextSet.workflow.length > 0) {
-      frontmatterObject.workflow = contextSet.workflow
-    }
-
-    if (contextSet.entryPoints && contextSet.entryPoints.length > 0) {
-      frontmatterObject.entryPoints = contextSet.entryPoints
+    if (contextSet.workflows && contextSet.workflows.length > 0) {
+      frontmatterObject.workflows = transformWorkflowsForExport(contextSet.workflows, filesManifest)
     }
 
     if (contextSet.systemBehavior && Object.keys(contextSet.systemBehavior).length > 0) {

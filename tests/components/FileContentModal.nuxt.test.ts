@@ -285,9 +285,9 @@ describe('FileContentModal', () => {
       const _component = await mountSuspended(FileContentModal)
       await new Promise(resolve => setTimeout(resolve, 50))
       
-      // Check that each line is rendered as a separate code element
+      // Check that each line is rendered as a separate code element (line numbers + content)
       const codeElements = findAllInDialog('code')
-      expect(codeElements.length).toBe(3)
+      expect(codeElements.length).toBe(6) // 3 lines + 3 line numbers = 6 code elements
     })
 
     it('should compute total lines correctly', async () => {

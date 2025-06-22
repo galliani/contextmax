@@ -138,7 +138,7 @@
               </p>
               <Button
                 @click="handleExportToClipboard"
-                :disabled="isExporting || !activeContextSet || activeContextSet.files.length === 0"
+                :disabled="isExporting || !activeContextSet || !activeContextSet.files || activeContextSet.files.length === 0"
                 class="flex items-center space-x-2"
                 variant="default"
                 size="sm"
@@ -155,8 +155,7 @@
             <div class="text-right">
               <div class="text-sm font-medium text-foreground">
                 {{ activeContextSet?.files?.length || 0 }} files • 
-                {{ activeContextSet?.workflow?.length || 0 }} workflow steps • 
-                {{ activeContextSet?.entryPoints?.length || 0 }} entry points
+                {{ activeContextSet?.workflows?.length || 0 }} workflows • 
                 <span v-if="activeContextSet?.systemBehavior?.processing?.mode" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
                   {{ activeContextSet.systemBehavior.processing.mode }}
                 </span>
@@ -348,7 +347,7 @@ const handleExportToClipboard = async () => {
     return
   }
 
-  if (activeContextSet.value.files.length === 0) {
+  if (!activeContextSet.value.files || activeContextSet.value.files.length === 0) {
     error('Export Failed', 'Context set has no files to export')
     return
   }

@@ -10,8 +10,8 @@ export type {
   FileManifestEntry,
   FunctionRef,
   FileRef,
-  WorkflowStep,
-  EntryPoint,
+  Workflow,
+  WorkflowPoint,
   ContextSet,
   ContextSetsData
 } from './useContextSets'

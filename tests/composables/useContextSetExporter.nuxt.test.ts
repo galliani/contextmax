@@ -39,25 +39,23 @@ vi.mock('js-yaml', () => ({
       lines.push(`description: ${obj.description}`)
     }
     
-    if (obj.entryPoints && obj.entryPoints.length > 0) {
-      lines.push('entryPoints:')
-      obj.entryPoints.forEach((ep: any) => {
-        lines.push(`  - fileRef: ${ep.fileRef}`)
-        lines.push(`    function: ${ep.function}`)
-        lines.push(`    protocol: ${ep.protocol}`)
-        lines.push(`    method: ${ep.method}`)
-        lines.push(`    identifier: ${ep.identifier}`)
-      })
-    }
-    
-    if (obj.workflow && obj.workflow.length > 0) {
-      lines.push('workflow:')
-      obj.workflow.forEach((step: any) => {
-        lines.push(`  - fileRefs:`)
-        step.fileRefs.forEach((ref: string) => {
-          lines.push(`      - ${ref}`)
-        })
-        lines.push(`    description: ${step.description}`)
+    if (obj.workflows && obj.workflows.length > 0) {
+      lines.push('workflows:')
+      obj.workflows.forEach((workflow: any) => {
+        lines.push(`  - start:`)
+        lines.push(`      fileRef: ${workflow.start.fileRef}`)
+        if (workflow.start.function) {
+          lines.push(`      function: ${workflow.start.function}`)
+        }
+        lines.push(`      startLine: ${workflow.start.startLine}`)
+        lines.push(`      endLine: ${workflow.start.endLine}`)
+        lines.push(`    end:`)
+        lines.push(`      fileRef: ${workflow.end.fileRef}`)
+        if (workflow.end.function) {
+          lines.push(`      function: ${workflow.end.function}`)
+        }
+        lines.push(`      startLine: ${workflow.end.startLine}`)
+        lines.push(`      endLine: ${workflow.end.endLine}`)
       })
     }
     
@@ -89,19 +87,19 @@ describe('useContextSetExporter', () => {
     mockContextSet = {
       description: 'Test context set with special chars: & < > " \'',
       files: ['file_1'],
-      workflow: [
+      workflows: [
         {
-          fileRefs: ['file_1'],
-          description: 'Test workflow step'
-        }
-      ],
-      entryPoints: [
-        {
-          fileRef: 'file_1',
-          function: 'main',
-          protocol: 'http',
-          method: 'GET',
-          identifier: '/api/test'
+          start: {
+            fileRef: 'file_1',
+            function: 'main',
+            startLine: 1,
+            endLine: 10
+          },
+          end: {
+            fileRef: 'file_1',
+            startLine: 15,
+            endLine: 20
+          }
         }
       ],
       systemBehavior: {
@@ -170,7 +168,7 @@ describe('useContextSetExporter', () => {
       const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
       
       // Check for system prompt
-      expect(exportedText).toContain('You are an expert AI software engineer')
+      expect(exportedText).toContain('You can analyze the provided project context to help with development tasks')
       
       // Check for YAML frontmatter structure
       expect(exportedText).toContain('---')
@@ -188,7 +186,7 @@ describe('useContextSetExporter', () => {
       const minimalContextSet: ContextSet = {
         description: '',
         files: ['file_1'],
-        workflow: []
+        workflows: []
       }
 
       const result = await exporter.exportContextSetToClipboard(
@@ -206,8 +204,7 @@ describe('useContextSetExporter', () => {
       expect(exportedText).toContain('contextSetName: minimal-set')
       // Should not contain empty fields
       expect(exportedText).not.toContain('description:')
-      expect(exportedText).not.toContain('workflow:')
-      expect(exportedText).not.toContain('entryPoints:')
+      expect(exportedText).not.toContain('workflows:')
       expect(exportedText).not.toContain('systemBehavior:')
     })
 
@@ -216,7 +213,7 @@ describe('useContextSetExporter', () => {
       const contextSetWithEmptySystemBehavior: ContextSet = {
         description: 'Test context set',
         files: ['file_1'],
-        workflow: [],
+        workflows: [],
         systemBehavior: {
           processing: {}
         }

@@ -88,21 +88,6 @@
                 <FilesList />
               </div>
 
-              <!-- Workflow Tab -->
-              <div
-                v-show="activeTab === 'workflow'"
-                id="tab-panel-workflow"
-                class="h-full overflow-y-auto p-6"
-                role="tabpanel"
-                aria-labelledby="tab-workflow"
-              >
-                <WorkflowEditor 
-                  :workflow="activeContextSet.workflow"
-                  @update:workflow="updateWorkflow"
-                />
-              </div>
-
-
             </div>
           </div>
         </div>
@@ -114,7 +99,6 @@
 <script setup lang="ts">
 import type { WorkflowStep } from '~/composables/useProjectStore'
 import FilesList from './FilesList.vue'
-import WorkflowEditor from './WorkflowEditor.vue'
 
 const {
   activeContextSet,
@@ -135,23 +119,17 @@ const tabs = computed(() => [
     icon: 'lucide:file-text',
     count: activeContextSet.value?.files.length || 0
   },
-  {
-    id: 'workflow',
-    label: 'Workflow',
-    icon: 'lucide:workflow',
-    count: activeContextSet.value?.workflow.length || 0
-  },
 ])
 
 // Actions
-const updateWorkflow = (newWorkflow: WorkflowStep[]) => {
+const updateWorkflows = (newWorkflows: WorkflowStep[]) => {
   if (!activeContextSet.value) return
   
   try {
-    updateActiveContextSet({ workflow: newWorkflow })
-    announceStatus('Workflow updated')
+    updateActiveContextSet({ workflows: newWorkflows })
+    announceStatus('Workflows updated')
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update workflow'
+    const message = error instanceof Error ? error.message : 'Failed to update workflows'
     announceError(message)
   }
 }

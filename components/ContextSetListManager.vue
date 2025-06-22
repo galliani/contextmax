@@ -206,7 +206,7 @@ const getContextSetFileCount = (setName: string) => {
 }
 
 const getContextSetWorkflowStepCount = (setName: string) => {
-  return contextSets.value[setName]?.workflow?.length || 0
+  return contextSets.value[setName]?.workflows?.length || 0
 }
 
 // Save last selected context set to localStorage
