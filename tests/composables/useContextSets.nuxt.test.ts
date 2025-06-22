@@ -6,7 +6,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useContextSets } from '~/composables/useContextSets'
-import type { ContextSetsData, WorkflowStep, EntryPoint } from '~/composables/useContextSets'
+import type { ContextSetsData, Workflow, WorkflowPoint } from '~/composables/useContextSets'
 
 describe('useContextSets', () => {
   let contextSets: ReturnType<typeof useContextSets>
@@ -71,7 +71,7 @@ describe('useContextSets', () => {
       expect(contextSets.contextSets.value['test-set']).toEqual({
         description: 'Test description',
         files: [],
-        workflow: []
+        workflows: []
       })
     })
 
@@ -223,29 +223,25 @@ describe('useContextSets', () => {
       expect(contextSets.contextSets.value['test-set'].description).toBe('Updated description')
     })
 
-    it('should update context set workflow', () => {
-      const workflow: WorkflowStep[] = [
+    it('should update context set workflows', () => {
+      const workflows: Workflow[] = [
         { fileRefs: ['file1'], description: 'Step 1' },
         { fileRefs: ['file2'], description: 'Step 2' }
       ]
       
-      contextSets.updateActiveContextSet({ workflow })
+      contextSets.updateActiveContextSet({ workflows })
       
-      expect(contextSets.contextSets.value['test-set'].workflow).toEqual(workflow)
+      expect(contextSets.contextSets.value['test-set'].workflows).toEqual(workflows)
     })
 
-    it('should update context set entry points', () => {
-      const entryPoints: EntryPoint[] = [{
-        fileRef: 'file1',
-        function: 'main',
-        protocol: 'http',
-        method: 'GET',
-        identifier: '/api/test'
-      }]
+    it('should handle updating non-existent properties gracefully', () => {
+      // Test that updating with legacy properties doesn't break the system
+      const legacyUpdate = { entryPoints: [] }
       
-      contextSets.updateActiveContextSet({ entryPoints })
-      
-      expect(contextSets.contextSets.value['test-set'].entryPoints).toEqual(entryPoints)
+      // Should not throw an error
+      expect(() => {
+        contextSets.updateActiveContextSet(legacyUpdate)
+      }).not.toThrow()
     })
 
     it('should rename context set', () => {
@@ -327,7 +323,7 @@ describe('useContextSets', () => {
           'loaded-set': {
             description: 'Loaded set',
             files: ['file_abc123'],
-            workflow: []
+            workflows: []
           }
         },
         fileContextsIndex: {
@@ -353,7 +349,7 @@ describe('useContextSets', () => {
           'test-set': {
             description: 'Test',
             files: ['referenced_file'], // Only references one file
-            workflow: []
+            workflows: []
           }
         },
         fileContextsIndex: {}
@@ -375,7 +371,7 @@ describe('useContextSets', () => {
         name: 'test-set',
         description: 'Test description',
         files: [],
-        workflow: []
+        workflows: []
       })
     })
 

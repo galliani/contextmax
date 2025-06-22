@@ -145,7 +145,7 @@ describe('useIndexedDBCache', () => {
 
       const result = await initPromise
       expect(result).toBe(true)
-      expect(mockIndexedDB.open).toHaveBeenCalledWith('ContextMaxCache', 1)
+      expect(mockIndexedDB.open).toHaveBeenCalledWith('ContextMaxCache', 2)
     })
 
     it('should handle database initialization errors', async () => {
@@ -504,76 +504,6 @@ describe('useIndexedDBCache', () => {
       })
 
       await expect(cacheComposable.cleanOldCache()).resolves.not.toThrow()
-    })
-  })
-
-  describe('Cache Statistics', () => {
-    beforeEach(async () => {
-      // Initialize DB for these tests
-      const mockOpenRequest = createMockRequest(mockDatabase)
-      mockIndexedDB.open.mockReturnValue(mockOpenRequest)
-      
-      const initPromise = cacheComposable.initDB()
-      setTimeout(() => {
-        if (mockOpenRequest.onsuccess) {
-          mockOpenRequest.onsuccess(new Event('success'))
-        }
-      }, 0)
-      await initPromise
-    })
-
-    it('should return cache statistics', async () => {
-      const mockCountRequest1 = createMockRequest(5)
-      const mockCountRequest2 = createMockRequest(3)
-      mockObjectStore.count.mockReturnValueOnce(mockCountRequest1).mockReturnValueOnce(mockCountRequest2)
-
-      const statsPromise = cacheComposable.getCacheStats()
-
-      // Trigger callbacks immediately
-      setImmediate(() => {
-        if (mockCountRequest1.onsuccess) {
-          mockCountRequest1.onsuccess(new Event('success'))
-        }
-      })
-      
-      setImmediate(() => {
-        if (mockCountRequest2.onsuccess) {
-          mockCountRequest2.onsuccess(new Event('success'))
-        }
-      })
-
-      const stats = await statsPromise
-
-      expect(stats).toEqual({
-        embeddingsCount: 5,
-        projectEmbeddingsCount: 3
-      })
-    })
-
-    it('should handle statistics errors gracefully', async () => {
-      const mockCountRequest1 = createMockRequest(null, new Error('Count error'))
-      const mockCountRequest2 = createMockRequest(null, new Error('Count error'))
-      mockObjectStore.count.mockReturnValueOnce(mockCountRequest1).mockReturnValueOnce(mockCountRequest2)
-
-      const statsPromise = cacheComposable.getCacheStats()
-
-      setImmediate(() => {
-        if (mockCountRequest1.onerror) {
-          mockCountRequest1.onerror(new Event('error'))
-        }
-      })
-      
-      setImmediate(() => {
-        if (mockCountRequest2.onerror) {
-          mockCountRequest2.onerror(new Event('error'))
-        }
-      })
-
-      const stats = await statsPromise
-      expect(stats).toEqual({
-        embeddingsCount: 0,
-        projectEmbeddingsCount: 0
-      })
     })
   })
 

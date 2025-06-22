@@ -34,7 +34,10 @@ export const useRegexCodeParser = () => {
     };
 
     const classRegex = createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:abstract\\s+)?class\\s+([a-zA-Z0-9_$]+)');
-    const functionRegex = createRefaPattern('(?:^|\\s)(?:export\\s+)?(?:async\\s+)?(?:function\\s+([a-zA-Z0-9_$]+)\\s*\\(|const\\s+([a-zA-Z0-9_$]+)\\s*=\\s*(?:async\\s+)?\\(|([a-zA-Z0-9_$]+)\\s*:\\s*\\([^)]*\\)\\s*=>|def\\s+([a-zA-Z0-9_]+)\\s*\\(|public\\s+(?:static\\s+)?(?:async\\s+)?[a-zA-Z0-9_<>\\[\\],\\s]*\\s+([a-zA-Z0-9_]+)\\s*\\()');
+    
+    // Universal function pattern for better multi-language detection
+    const functionPattern = /^\s*(?:(?:public|private|static|internal|protected|async|virtual|override|inline|tailrec|extern|pure|impure|elemental|recursive|module)\s+)*?(?:(?:function|def|fun|fn|sub|subroutine|procedure|declare|create(?:\s+or\s+replace)?\s+function|perform|defun)\b\s*)?(?:[\w\.\:\<\>\[\]\*\&\s]+\s+)?([a-zA-Z_@$][\w\-$]*[?!]?)\s*(?:<[^>]*>)?\s*\(/mi;
+    
     const importRegex = createRefaPattern('^(?:\\s*)import\\s+.*?from\\s+[\'\"](.*?)[\'\"]+|^(?:\\s*)import\\s+[\'\"](.*?)[\'\"]+|^(?:\\s*)from\\s+(.*?)\\s+import');
     const exportRegex = createRefaPattern('^(?:\\s*)export\\s+(?:default\\s+)?(?:function|class|const|let|var)\\s+([a-zA-Z0-9_$]+)|^(?:\\s*)export\\s*\\{\\s*([^}]+)\\s*\\}');
 
@@ -99,13 +102,17 @@ export const useRegexCodeParser = () => {
         }
       }
 
-      // Function matching with refa-enhanced regex
-      const funcMatch = line.match(functionRegex);
+      // Function matching with universal pattern
+      const funcMatch = line.match(functionPattern);
       if (funcMatch) {
-        const name = funcMatch[1] || funcMatch[2] || funcMatch[3] || funcMatch[4] || funcMatch[5];
-        if (name && !['if', 'for', 'while', 'with', 'try', 'catch'].includes(name)) {
-          const endLine = findBraceBlockEnd(lineNum);
-          info.functions.push({ name, startLine: lineNum, endLine });
+        const name = funcMatch[1];
+        if (name && !['if', 'for', 'while', 'with', 'try', 'catch', 'switch', 'case'].includes(name)) {
+          // Check if we already found this function (avoid duplicates)
+          const alreadyExists = info.functions.some(f => f.name === name && Math.abs(f.startLine - lineNum) <= 2);
+          if (!alreadyExists) {
+            const endLine = findBraceBlockEnd(lineNum);
+            info.functions.push({ name, startLine: lineNum, endLine });
+          }
         }
       }
     });

@@ -18,26 +18,26 @@ export interface FileRef {
   fileRef: string
   functionRefs?: FunctionRef[]
   comment?: string
+  classification?: string
 }
 
-export interface WorkflowStep {
-  fileRefs: string[]
-  description: string
+export interface Workflow {
+  start: WorkflowPoint
+  end: WorkflowPoint
 }
 
-export interface EntryPoint {
+export interface WorkflowPoint {
   fileRef: string
   function: string
-  protocol: 'http' | 'ui' | 'cli' | 'function' | 'queue' | 'file' | 'hook' | 'websocket' | 'sse'
-  method: string
-  identifier: string
+  protocol?: 'http' | 'ui' | 'cli' | 'function' | 'queue' | 'file' | 'hook' | 'websocket' | 'sse'
+  method?: string
+  identifier?: string
 }
 
 export interface ContextSet {
   description: string
   files: (string | FileRef)[]
-  workflow: WorkflowStep[]
-  entryPoints?: EntryPoint[]
+  workflows: Workflow[]
   systemBehavior?: {
     processing?: {
       mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
@@ -106,19 +106,21 @@ export const useContextSets = () => {
   }
 
   // Create new context set
-  const createContextSet = (name: string, description: string = '') => {
+  const createContextSet = (name: string, description: string = ''): boolean => {
     if (contextSets.value[name]) {
-      // Don't throw error, just return silently for duplicates
-      return
+      // Don't throw error, just return false for duplicates
+      console.warn(`Context set "${name}" already exists`)
+      return false
     }
     
     contextSets.value[name] = {
       description,
       files: [],
-      workflow: []
+      workflows: []
     }
     
     console.log(`Created new context set: ${name}`)
+    return true
   }
 
   // Set active context set
@@ -134,7 +136,11 @@ export const useContextSets = () => {
   }
 
   // Add file to active context set (and implicitly to files manifest)
-  const addFileToActiveContextSet = (filePath: string) => {
+  const addFileToActiveContextSet = (filePath: string, options?: {
+    classification?: string
+    comment?: string
+    functionRefs?: FunctionRef[]
+  }) => {
     if (!activeContextSetName.value) {
       throw new Error('No active context set selected')
     }
@@ -153,10 +159,26 @@ export const useContextSets = () => {
       return false
     }
     
-    // Add file as simple string reference (whole file)
-    activeSet.files.push(fileId)
+    // Add file with metadata if provided, otherwise as simple string reference
+    if (options?.classification || options?.comment || options?.functionRefs) {
+      const fileRef: FileRef = {
+        fileRef: fileId,
+        ...(options.classification && { classification: options.classification }),
+        ...(options.comment && { comment: options.comment }),
+        ...(options.functionRefs && { functionRefs: options.functionRefs })
+      }
+      activeSet.files.push(fileRef)
+      console.log('Added file with metadata to active context set:', { 
+        file: filePath, 
+        setName: activeContextSetName.value,
+        classification: options.classification 
+      })
+    } else {
+      // Add file as simple string reference (whole file)
+      activeSet.files.push(fileId)
+      console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
+    }
     
-    console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
     return true
   }
 
@@ -192,8 +214,7 @@ export const useContextSets = () => {
   const updateActiveContextSet = (updates: { 
     name?: string, 
     description?: string, 
-    workflow?: WorkflowStep[], 
-    entryPoints?: EntryPoint[],
+    workflows?: Workflow[],
     systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null
   }) => {
     if (!activeContextSetName.value) {
@@ -216,11 +237,8 @@ export const useContextSets = () => {
       if (updates.description !== undefined) {
         contextSets.value[updates.name].description = updates.description
       }
-      if (updates.workflow !== undefined) {
-        contextSets.value[updates.name].workflow = [...updates.workflow]
-      }
-      if (updates.entryPoints !== undefined) {
-        contextSets.value[updates.name].entryPoints = [...updates.entryPoints]
+      if (updates.workflows !== undefined) {
+        contextSets.value[updates.name].workflows = [...updates.workflows]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
@@ -243,11 +261,8 @@ export const useContextSets = () => {
       if (updates.description !== undefined) {
         currentSet.description = updates.description
       }
-      if (updates.workflow !== undefined) {
-        currentSet.workflow = [...updates.workflow]
-      }
-      if (updates.entryPoints !== undefined) {
-        currentSet.entryPoints = [...updates.entryPoints]
+      if (updates.workflows !== undefined) {
+        currentSet.workflows = [...updates.workflows]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
@@ -413,10 +428,25 @@ export const useContextSets = () => {
       console.log(`Cleaned up ${orphanedCount} orphaned files after loading data`)
     }
     
-    // Set first context set as active if any exist
+    // Try to restore last selected context set from localStorage, fallback to first available
     const setNames = Object.keys(contextSets.value)
     if (setNames.length > 0) {
-      activeContextSetName.value = setNames[0]
+      let selectedSet = setNames[0] // Default to first
+      
+      // Try to restore from localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const lastSelected = localStorage.getItem('contextmax-last-context-set')
+          if (lastSelected && setNames.includes(lastSelected)) {
+            selectedSet = lastSelected
+            console.log(`Restored last selected context set from localStorage: ${lastSelected}`)
+          }
+        } catch (error) {
+          console.warn('Failed to read last context set from localStorage:', error)
+        }
+      }
+      
+      activeContextSetName.value = selectedSet
     }
     
     console.log('Final loaded state:', { 

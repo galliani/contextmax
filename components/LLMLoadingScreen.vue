@@ -1,3 +1,8 @@
+<!--
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
 <template>
   <div class="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center">
     <div class="max-w-md w-full mx-4">

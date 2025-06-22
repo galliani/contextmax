@@ -1,15 +1,15 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+-->
 <template>  
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex-1 min-w-0">
       <h2 id="project-info-heading" class="text-xl lg:text-5xl xl:text-6xl mb-2 font-semibold tracking-tight">
         {{ selectedFolder?.name || 'Context Sets Manager' }}
       </h2>
-      <p class="text-sm lg:text-base text-muted-foreground">
+      <p class="text-sm lg:text-sm text-muted-foreground">
         {{ selectedFolder ? 
           `Project loaded seamlessly from browser cache (OPFS) - no re-uploading needed across sessions` : 
           'Create and manage context sets for your codebase' 
@@ -166,18 +166,6 @@
           </Button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Working Copy Status Message -->
-  <div v-if="hasAnyContextSets" class="flex items-center justify-center gap-3 text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-md border border-muted">
-    <div class="flex items-center gap-1">
-      <Icon name="lucide:check-circle-2" class="w-3 h-3 text-green-600" />
-      <span>Changes auto-saved to workspace</span>
-    </div>
-    <div v-if="!exportStatus.hasStableVersion" class="flex items-center gap-1">
-      <Icon name="lucide:upload" class="w-3 h-3 text-yellow-600" />
-      <span>Click "{{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}" to update project file</span>
     </div>
   </div>
 
