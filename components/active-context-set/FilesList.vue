@@ -263,7 +263,8 @@ const {
   loadFileContent,
   fileTree,
   saveWorkingCopyToOPFS,
-  selectedFolder
+  selectedFolder,
+  updateActiveContextSet
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
@@ -585,12 +586,6 @@ const cancelEntryPointConfig = () => {
   expandedEntryPointFileId.value = ''
 }
 
-// Helper function to update the active context set
-const updateActiveContextSet = (updates: Partial<typeof activeContextSet.value>) => {
-  if (activeContextSet.value) {
-    Object.assign(activeContextSet.value, updates)
-  }
-}
 
 // Event handlers for EntryPointsEditor
 const handleEntryPointSave = async (entryPoint: EntryPoint) => {
@@ -611,13 +606,8 @@ const handleEntryPointSave = async (entryPoint: EntryPoint) => {
       entryPoints.push({ ...entryPoint })
     }
     
-    // Update the context set
+    // Update the context set (this will auto-save to OPFS)
     updateActiveContextSet({ entryPoints })
-    
-    // Save to OPFS
-    if (selectedFolder.value) {
-      await saveWorkingCopyToOPFS(selectedFolder.value.name)
-    }
     
     // Close form
     cancelEntryPointConfig()
@@ -630,29 +620,42 @@ const handleEntryPointSave = async (entryPoint: EntryPoint) => {
 }
 
 const handleEntryPointRemove = async (fileId: string) => {
-  if (!activeContextSet.value) return
+  console.log('[FilesList] handleEntryPointRemove called with fileId:', fileId)
+  
+  if (!activeContextSet.value) {
+    console.error('[FilesList] No active context set')
+    return
+  }
+  
+  console.log('[FilesList] Current entry points before removal:', activeContextSet.value.entryPoints)
   
   const fileName = filesManifest.value[fileId]?.path.split('/').pop() || 'Unknown file'
+  console.log('[FilesList] Removing entry point for file:', fileName)
   
   try {
     // Remove entry point from the list
-    const entryPoints = (activeContextSet.value.entryPoints || []).filter(ep => ep.fileRef !== fileId)
+    const originalEntryPoints = activeContextSet.value.entryPoints || []
+    const entryPoints = originalEntryPoints.filter(ep => ep.fileRef !== fileId)
     
-    // Update the context set
+    console.log('[FilesList] Original entry points count:', originalEntryPoints.length)
+    console.log('[FilesList] Filtered entry points count:', entryPoints.length)
+    console.log('[FilesList] Entry points after filtering:', entryPoints)
+    
+    // Update the context set (this will auto-save to OPFS)
     updateActiveContextSet({ entryPoints })
     
-    // Save to OPFS
-    if (selectedFolder.value) {
-      await saveWorkingCopyToOPFS(selectedFolder.value.name)
-    }
+    console.log('[FilesList] Context set updated, new entry points:', activeContextSet.value.entryPoints)
     
     // Close form if it was expanded
     if (expandedEntryPointFileId.value === fileId) {
+      console.log('[FilesList] Closing expanded form for file:', fileId)
       cancelEntryPointConfig()
     }
     
     announceStatus(`Removed entry point for ${fileName}`)
+    console.log('[FilesList] Entry point removal completed successfully')
   } catch (error) {
+    console.error('[FilesList] Error during entry point removal:', error)
     const message = error instanceof Error ? error.message : 'Failed to remove entry point'
     announceError(message)
   }

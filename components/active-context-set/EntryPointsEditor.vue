@@ -298,7 +298,10 @@ const save = () => {
 }
 
 const remove = () => {
+  console.log('[EntryPointsEditor] Remove button clicked for fileId:', props.fileId)
+  console.log('[EntryPointsEditor] Emitting remove event with fileId:', props.fileId)
   emit('remove', props.fileId)
+  console.log('[EntryPointsEditor] Remove event emitted successfully')
 }
 
 const updateMethodOptions = () => {
