@@ -57,15 +57,15 @@
           </p>
         </div>
 
-        <!-- Entry Point File (Optional) -->
+        <!-- Do you know where to start? (Optional) -->
         <div class="space-y-2">
           <label class="text-sm font-medium text-foreground">
-            Entry Point File (Optional)
+            Do you know where to start? (Optional)
           </label>
           
-          <!-- Entry Point Help Text -->
+          <!-- Start Point Help Text -->
           <p class="text-xs text-muted-foreground">
-            Specify the file where this context flow starts (e.g., a button, API endpoint, or component).
+            If you know which file contains the starting point (e.g., a button, API endpoint, or component), select it here to help the search find more relevant files. This is only used to improve search results.
           </p>
           
           <!-- File Search -->
@@ -80,7 +80,7 @@
             <!-- Search Results for Entry Point Selection -->
             <div v-if="entryPointSearchResults.length > 0 && entryPointSearchTerm" class="mt-3 space-y-2 max-h-48 overflow-y-auto">
               <div class="text-xs font-medium text-muted-foreground mb-2">
-                Click to select entry point:
+                Click to select starting file:
               </div>
               <div
                 v-for="file in flattenedEntryPointFiles.slice(0, 10)"
@@ -103,17 +103,17 @@
             </div>
           </div>
           
-          <!-- Selected Entry Point Preview -->
+          <!-- Selected Start Point Preview -->
           <div v-if="selectedEntryPoint" class="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950 rounded border border-emerald-200 dark:border-emerald-800">
             <div class="flex items-center space-x-2">
               <Icon name="lucide:map-pin" class="w-4 h-4 text-emerald-600" />
-              <span class="text-sm text-emerald-700 dark:text-emerald-300">Entry point:</span>
+              <span class="text-sm text-emerald-700 dark:text-emerald-300">Starting from:</span>
               <span class="font-mono text-sm font-medium text-emerald-800 dark:text-emerald-200">{{ selectedEntryPoint.path }}</span>
             </div>
             <button 
               @click="clearEntryPoint"
               class="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200"
-              title="Clear entry point"
+              title="Clear starting point"
             >
               <Icon name="lucide:x" class="w-4 h-4" />
             </button>
@@ -339,30 +339,30 @@ const handleCreateContextSet = async () => {
         }
       }
       
-      // Prepare entry point file if selected
-      let entryPointFile
+      // Prepare starting point file if selected
+      let startingPointFile
       if (selectedEntryPoint.value) {
         try {
-          const entryPointHandle = selectedEntryPoint.value.handle as FileSystemFileHandle
-          const entryPointFileObj = await entryPointHandle.getFile()
-          const entryPointContent = await entryPointFileObj.text()
+          const startingPointHandle = selectedEntryPoint.value.handle as FileSystemFileHandle
+          const startingPointFileObj = await startingPointHandle.getFile()
+          const startingPointContent = await startingPointFileObj.text()
           
-          entryPointFile = {
+          startingPointFile = {
             path: selectedEntryPoint.value.path,
-            content: entryPointContent
+            content: startingPointContent
           }
         } catch (error) {
-          console.warn(`Failed to load entry point file: ${selectedEntryPoint.value.path}:`, error)
+          console.warn(`Failed to load starting point file: ${selectedEntryPoint.value.path}:`, error)
         }
       }
       
       // Perform the tri-model search using the original search term
-      const searchResults = await performTriModelSearch(term, filesToSearch, entryPointFile)
+      const searchResults = await performTriModelSearch(term, filesToSearch, startingPointFile)
       
       // Prepare search results for the AssistedCuration component
       const assistedResults = []
       
-      // Add entry point file first if specified (with highest priority)
+      // Add starting point file first if specified (with highest priority)
       if (selectedEntryPoint.value) {
         assistedResults.push({
           file: selectedEntryPoint.value.path,
@@ -379,9 +379,9 @@ const handleCreateContextSet = async () => {
         })
       }
       
-      // Add search results (excluding entry point if it exists)
+      // Add search results (excluding starting point if it exists)
       for (const result of searchResults.data.files) {
-        // Skip if this file is the entry point (already added above)
+        // Skip if this file is the starting point (already added above)
         if (selectedEntryPoint.value?.path !== result.file) {
           assistedResults.push({
             file: result.file,
@@ -404,14 +404,14 @@ const handleCreateContextSet = async () => {
       if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
         const metadata = {
           keyword: term,
-          entryPointFile: selectedEntryPoint.value?.path
+          startingPointFile: selectedEntryPoint.value?.path
         }
         await (window as any).setAssistedSearchResults(assistedResults, metadata)
       }
       
       const resultCount = assistedResults.length
-      const entryPointText = selectedEntryPoint.value ? ' (including entry point)' : ''
-      announceStatus(`Context set "${name}" created. Found ${resultCount} relevant files for assisted curation${entryPointText}`)
+      const startPointText = selectedEntryPoint.value ? ' (including starting point)' : ''
+      announceStatus(`Context set "${name}" created. Found ${resultCount} relevant files for assisted curation${startPointText}`)
     } catch (error) {
       console.error('Search failed:', error)
       // Don't fail the context creation if search fails
