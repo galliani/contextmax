@@ -1,208 +1,123 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+ -->
 <template>
-  <div class="space-y-6">
-    <!-- Explanation Section -->
-    <div class="bg-muted/30 rounded-lg p-4 space-y-3">
-      <div class="flex items-start space-x-3">
-        <Icon name="lucide:lightbulb" class="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-        <div class="flex-1 space-y-2">
-          <!-- Collapsible Toggle -->
-          <button
-            @click="showExplanation = !showExplanation"
-            class="flex items-center justify-between w-full text-left hover:text-primary transition-colors"
-          >
-            <h4 class="text-sm font-medium text-foreground">Why specify entry points?</h4>
-            <Icon 
-              :name="showExplanation ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
-              class="w-4 h-4 text-muted-foreground transition-transform"
-            />
-          </button>
-          
-          <!-- Collapsible Content -->
-          <div v-show="showExplanation" class="space-y-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">
-              Entry points help AI assistants understand exactly how users and systems can access your functionality. 
-              When you say "improve the user registration flow", the AI needs to know: Is this triggered by a web form? 
-              A CLI command? An API call? A button click?
-            </p>
-            <p class="text-sm text-muted-foreground leading-relaxed">
-              Having all entry points listed helps AI assistants <strong>test comprehensively</strong>, 
-              <strong>maintain consistency</strong> across all access methods, <strong>understand scope</strong> 
-              of changes, and <strong>debug effectively</strong> by knowing where problems might originate.
-            </p>
-          </div>
-        </div>
+  <!-- Entry Point Configuration Form (Accordion) -->
+  <div v-if="isExpanded" class="mt-4 p-4 bg-muted/20 rounded-lg border border-primary/20">
+    <h5 class="text-sm font-medium text-foreground mb-4 flex items-center">
+      <Icon name="lucide:door-open" class="w-4 h-4 mr-2 text-primary" />
+      Entry Point Configuration
+    </h5>
+
+    <div class="space-y-4">
+      <!-- Hidden File Reference (auto-set) -->
+      <input type="hidden" v-model="formData.fileRef" />
+
+      <!-- Function Name -->
+      <div>
+        <label class="text-xs font-medium text-foreground block mb-2">
+          Function Name
+        </label>
+        <Input
+          v-model="formData.function"
+          type="text"
+          placeholder="e.g., handleRequest, processData, main"
+          class="w-full"
+        />
+        <p class="text-xs text-muted-foreground mt-1">The specific function, method, or handler that processes this entry point</p>
       </div>
-    </div>
 
-    <!-- Header with Add Entry Point Button -->
-    <div class="flex items-center justify-between">
-      <p class="text-sm text-muted-foreground">
-        {{ entryPoints.length }} entry points
-      </p>
-      <Button @click="addEntryPoint" size="sm" variant="outline">
-        <Icon name="lucide:plus" class="w-4 h-4 mr-2" />
-        Add Entry Point
-      </Button>
-    </div>
-
-    <!-- Empty State -->
-    <div v-if="entryPoints.length === 0" class="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-      <Icon name="lucide:zap" class="w-8 h-8 mx-auto mb-2" />
-      <p class="text-sm">No entry points defined</p>
-      <p class="text-xs">Add entry points to specify how users and systems can access your functionality</p>
-    </div>
-
-    <!-- Entry Points List -->
-    <div v-else class="space-y-4">
-      <div
-        v-for="(entryPoint, index) in entryPoints"
-        :key="index"
-        class="border rounded-lg p-4 space-y-4"
-      >
-        <!-- Entry Point Header -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <div class="w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-medium">
-              {{ index + 1 }}
-            </div>
-            <span class="text-sm font-medium text-foreground">Entry Point {{ index + 1 }}</span>
-          </div>
-          
-          <div class="flex items-center space-x-1">
-            <!-- Move up button -->
-            <Button
-              @click="moveEntryPointUp(index)"
-              variant="ghost"
-              size="sm"
-              :disabled="index === 0"
-            >
-              <Icon name="lucide:chevron-up" class="w-4 h-4" />
-            </Button>
-            
-            <!-- Move down button -->
-            <Button
-              @click="moveEntryPointDown(index)"
-              variant="ghost"
-              size="sm"
-              :disabled="index === entryPoints.length - 1"
-            >
-              <Icon name="lucide:chevron-down" class="w-4 h-4" />
-            </Button>
-            
-            <!-- Remove entry point button -->
-            <Button
-              @click="removeEntryPoint(index)"
-              variant="ghost"
-              size="sm"
-              class="text-destructive hover:text-destructive"
-            >
-              <Icon name="lucide:trash-2" class="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        <!-- File Reference (Full Width) -->
+      <!-- Protocol and Method -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="text-xs font-medium text-foreground block mb-2">
-            File Reference
+            Protocol
           </label>
           <select
-            v-model="entryPoint.fileRef"
+            v-model="formData.protocol"
+            @change="updateMethodOptions"
             class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            @change="emitUpdate"
           >
-            <option value="">Select file...</option>
-            <option
-              v-for="[fileId, entry] in Object.entries(filesManifest)"
-              :key="fileId"
-              :value="fileId"
-            >
-              {{ entry.path }}
-            </option>
+            <option value="http">HTTP API</option>
+            <option value="ui">User Interface</option>
+            <option value="cli">Command Line</option>
+            <option value="function">Function Call</option>
+            <option value="queue">Message Queue</option>
+            <option value="file">File Operation</option>
+            <option value="hook">Hook/Webhook</option>
+            <option value="websocket">WebSocket</option>
+            <option value="sse">Server-Sent Events</option>
           </select>
-          <p class="text-xs text-muted-foreground mt-1">Choose the file that contains the entry point logic</p>
+          <p class="text-xs text-muted-foreground mt-1">How users or systems access this entry point</p>
         </div>
 
-        <!-- Function Name -->
         <div>
           <label class="text-xs font-medium text-foreground block mb-2">
-            Function Name
+            Method
           </label>
-          <Input
-            v-model="entryPoint.function"
-            type="text"
-            placeholder="e.g., handleRequest, processData, main"
-            class="w-full"
-            @input="emitUpdate"
-          />
-          <p class="text-xs text-muted-foreground mt-1">The specific function, method, or handler that processes this entry point</p>
-        </div>
-
-        <!-- Protocol and Method -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="text-xs font-medium text-foreground block mb-2">
-              Protocol
-            </label>
-            <select
-              v-model="entryPoint.protocol"
-              @change="updateMethodOptions(entryPoint); emitUpdate()"
-              class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          <select
+            v-model="formData.method"
+            class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            <option
+              v-for="method in availableMethods[formData.protocol]"
+              :key="method"
+              :value="method"
             >
-              <option value="http">HTTP API</option>
-              <option value="ui">User Interface</option>
-              <option value="cli">Command Line</option>
-              <option value="function">Function Call</option>
-              <option value="queue">Message Queue</option>
-              <option value="file">File Operation</option>
-              <option value="hook">Hook/Webhook</option>
-              <option value="websocket">WebSocket</option>
-              <option value="sse">Server-Sent Events</option>
-            </select>
-            <p class="text-xs text-muted-foreground mt-1">How users or systems access this entry point</p>
-          </div>
-
-          <div>
-            <label class="text-xs font-medium text-foreground block mb-2">
-              Method
-            </label>
-            <select
-              v-model="entryPoint.method"
-              class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              @change="emitUpdate"
-            >
-              <option
-                v-for="method in availableMethods[entryPoint.protocol]"
-                :key="method"
-                :value="method"
-              >
-                {{ method.toUpperCase() }}
-              </option>
-            </select>
-            <p class="text-xs text-muted-foreground mt-1">The specific action or operation type</p>
-          </div>
+              {{ method.toUpperCase() }}
+            </option>
+          </select>
+          <p class="text-xs text-muted-foreground mt-1">The specific action or operation type</p>
         </div>
+      </div>
 
-        <!-- Dynamic Identifier Field (only for relevant protocols) -->
-        <div v-if="needsIdentifier(entryPoint.protocol)">
-          <label class="text-xs font-medium text-foreground block mb-2">
-            {{ getIdentifierLabel(entryPoint.protocol) }}
-            <span class="text-muted-foreground text-xs ml-1">(optional)</span>
-          </label>
-          <Input
-            v-model="entryPoint.identifier"
-            type="text"
-            :placeholder="getIdentifierPlaceholder(entryPoint.protocol)"
-            class="w-full"
-            @input="emitUpdate"
-          />
-          <p class="text-xs text-muted-foreground mt-1">{{ getIdentifierDescription(entryPoint.protocol) }}</p>
+      <!-- Dynamic Identifier Field -->
+      <div v-if="needsIdentifier(formData.protocol)">
+        <label class="text-xs font-medium text-foreground block mb-2">
+          {{ getIdentifierLabel(formData.protocol) }}
+          <span class="text-muted-foreground text-xs ml-1">(optional)</span>
+        </label>
+        <Input
+          v-model="formData.identifier"
+          type="text"
+          :placeholder="getIdentifierPlaceholder(formData.protocol)"
+          class="w-full"
+        />
+        <p class="text-xs text-muted-foreground mt-1">{{ getIdentifierDescription(formData.protocol) }}</p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-between pt-4 border-t border-border">
+        <div class="flex items-center space-x-2">
+          <Button
+            @click="cancel"
+            variant="ghost"
+            size="sm"
+          >
+            Cancel
+          </Button>
+          <Button
+            @click="save"
+            variant="default"
+            size="sm"
+          >
+            Save Entry Point
+          </Button>
         </div>
+        
+        <!-- Remove Entry Point (if exists) -->
+        <Button
+          v-if="hasExistingEntryPoint"
+          @click="remove"
+          variant="ghost"
+          size="sm"
+          class="text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          <Icon name="lucide:trash-2" class="w-4 h-4 mr-2" />
+          Remove Entry Point
+        </Button>
       </div>
     </div>
   </div>
@@ -212,24 +127,33 @@
 import type { EntryPoint } from '~/composables/useProjectStore'
 
 interface Props {
-  entryPoints: EntryPoint[]
+  isExpanded: boolean
+  fileId: string
+  existingEntryPoint?: EntryPoint
+  hasExistingEntryPoint?: boolean
 }
 
-const props = defineProps<Props>()
+interface Emits {
+  (e: 'cancel'): void
+  (e: 'save', entryPoint: EntryPoint): void
+  (e: 'remove', fileId: string): void
+}
 
-const emit = defineEmits<{
-  'update:entry-points': [entryPoints: EntryPoint[]]
-}>()
+const props = withDefaults(defineProps<Props>(), {
+  hasExistingEntryPoint: false
+})
 
-const { filesManifest } = useProjectStore()
+const emit = defineEmits<Emits>()
 
-// Local state
-const showExplanation = ref(false)
+const { announceError } = useAccessibility()
 
-// Computed
-const entryPoints = computed({
-  get: () => props.entryPoints,
-  set: (value) => emit('update:entry-points', value)
+// Form data
+const formData = ref<EntryPoint>({
+  fileRef: '',
+  function: '',
+  protocol: 'function',
+  method: 'call',
+  identifier: ''
 })
 
 // Available methods for each protocol
@@ -246,12 +170,11 @@ const availableMethods = {
 }
 
 // Dynamic identifier field logic
-function needsIdentifier(protocol: string): boolean {
-  // Only show identifier field for protocols where it's really needed
+const needsIdentifier = (protocol: string): boolean => {
   return ['http', 'ui', 'cli', 'queue', 'file', 'hook', 'websocket', 'sse'].includes(protocol)
 }
 
-function getIdentifierLabel(protocol: string): string {
+const getIdentifierLabel = (protocol: string): string => {
   const labels = {
     'http': 'API Endpoint',
     'ui': 'Component/Element Name',
@@ -266,7 +189,7 @@ function getIdentifierLabel(protocol: string): string {
   return labels[protocol as keyof typeof labels] || 'Identifier'
 }
 
-function getIdentifierPlaceholder(protocol: string): string {
+const getIdentifierPlaceholder = (protocol: string): string => {
   const placeholders = {
     'http': '/api/v1/job_ads/:id/clip',
     'ui': '"Clip Job" or #clip-button or .action-btn',
@@ -281,7 +204,7 @@ function getIdentifierPlaceholder(protocol: string): string {
   return placeholders[protocol as keyof typeof placeholders] || ''
 }
 
-function getIdentifierDescription(protocol: string): string {
+const getIdentifierDescription = (protocol: string): string => {
   const descriptions = {
     'http': 'The specific API endpoint path with parameters',
     'ui': 'Button text, link text, or CSS selector to help identify the UI element',
@@ -296,50 +219,47 @@ function getIdentifierDescription(protocol: string): string {
   return descriptions[protocol as keyof typeof descriptions] || ''
 }
 
-// Entry point management functions
-function addEntryPoint() {
-  const newEntryPoints = [...entryPoints.value]
-  newEntryPoints.push({
-    fileRef: '',
-    function: '',
-    protocol: 'http',
-    method: 'GET',
-    identifier: ''
-  })
-  entryPoints.value = newEntryPoints
+// Actions
+const cancel = () => {
+  emit('cancel')
 }
 
-function removeEntryPoint(index: number) {
-  const newEntryPoints = [...entryPoints.value]
-  newEntryPoints.splice(index, 1)
-  entryPoints.value = newEntryPoints
+const save = () => {
+  // Validate required fields
+  if (!formData.value.function) {
+    announceError('Function name is required')
+    return
+  }
+  
+  emit('save', { ...formData.value })
 }
 
-function moveEntryPointUp(index: number) {
-  if (index === 0) return
-  const newEntryPoints = [...entryPoints.value]
-  const temp = newEntryPoints[index]
-  newEntryPoints[index] = newEntryPoints[index - 1]
-  newEntryPoints[index - 1] = temp
-  entryPoints.value = newEntryPoints
+const remove = () => {
+  emit('remove', props.fileId)
 }
 
-function moveEntryPointDown(index: number) {
-  if (index === entryPoints.value.length - 1) return
-  const newEntryPoints = [...entryPoints.value]
-  const temp = newEntryPoints[index]
-  newEntryPoints[index] = newEntryPoints[index + 1]
-  newEntryPoints[index + 1] = temp
-  entryPoints.value = newEntryPoints
-}
-
-function updateMethodOptions(entryPoint: EntryPoint) {
+const updateMethodOptions = () => {
   // Reset method when protocol changes
-  entryPoint.method = availableMethods[entryPoint.protocol][0]
+  formData.value.method = availableMethods[formData.value.protocol][0]
 }
 
-function emitUpdate() {
-  // This will trigger reactivity when fields are updated
-  emit('update:entry-points', [...entryPoints.value])
+// Initialize form data when component mounts or props change
+const initializeFormData = () => {
+  if (props.existingEntryPoint) {
+    formData.value = { ...props.existingEntryPoint }
+  } else {
+    formData.value = {
+      fileRef: props.fileId,
+      function: '',
+      protocol: 'function',
+      method: 'call',
+      identifier: ''
+    }
+  }
 }
-</script> 
+
+// Watch for changes in props to reinitialize form data
+watch([() => props.fileId, () => props.existingEntryPoint], () => {
+  initializeFormData()
+}, { immediate: true })
+</script>
