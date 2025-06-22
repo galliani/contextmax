@@ -110,6 +110,49 @@
           </div>
         </div>
 
+        <!-- File Reference -->
+        <div>
+          <label class="text-xs font-medium text-foreground block mb-2">
+            Referenced File
+          </label>
+          <div class="space-y-2">
+            <!-- Current file ref -->
+            <div v-if="step.fileRef" class="flex items-center space-x-2">
+              <span class="inline-flex items-center text-xs bg-muted px-2 py-1 rounded flex-1">
+                <Icon name="lucide:file" class="w-3 h-3 mr-1" />
+                <span class="truncate">{{ getFilePath(step.fileRef) }}</span>
+              </span>
+              <Button
+                @click="removeFileRef(index)"
+                variant="ghost"
+                size="sm"
+                class="text-muted-foreground hover:text-destructive"
+                title="Remove file reference"
+              >
+                <Icon name="lucide:x" class="w-3 h-3" />
+              </Button>
+            </div>
+            
+            <!-- Select file ref -->
+            <div v-else class="flex items-center space-x-2">
+              <select
+                v-model="selectedFileForStep[index]"
+                class="text-xs border rounded px-2 py-1 bg-background flex-1"
+                @change="setFileRef(index)"
+              >
+                <option value="">Select file to reference...</option>
+                <option
+                  v-for="[fileId, entry] in availableFiles"
+                  :key="fileId"
+                  :value="fileId"
+                >
+                  {{ entry.path }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- Step Description -->
         <div>
           <label class="text-xs font-medium text-foreground block mb-2">
@@ -122,51 +165,6 @@
             class="w-full"
             @input="emitUpdate"
           />
-        </div>
-
-        <!-- File References -->
-        <div>
-          <label class="text-xs font-medium text-foreground block mb-2">
-            Referenced Files
-          </label>
-          <div class="space-y-2">
-            <!-- Current file refs -->
-            <div v-if="step.fileRefs.length > 0" class="flex flex-wrap gap-2">
-              <span
-                v-for="(fileRef, fileIndex) in step.fileRefs"
-                :key="fileRef"
-                class="inline-flex items-center text-xs bg-muted px-2 py-1 rounded"
-              >
-                <span class="truncate">{{ getFilePath(fileRef) }}</span>
-                <Button
-                  @click="removeFileRef(index, fileIndex)"
-                  variant="ghost"
-                  size="sm"
-                  class="ml-1 h-auto p-0 w-4 h-4 text-muted-foreground hover:text-destructive"
-                >
-                  <Icon name="lucide:x" class="w-3 h-3" />
-                </Button>
-              </span>
-            </div>
-            
-            <!-- Add file refs -->
-            <div class="flex items-center space-x-2">
-              <select
-                v-model="selectedFileForStep[index]"
-                class="text-xs border rounded px-2 py-1 bg-background"
-                @change="addFileRef(index)"
-              >
-                <option value="">Select file to reference...</option>
-                <option
-                  v-for="[fileId, entry] in availableFilesForStep(index)"
-                  :key="fileId"
-                  :value="fileId"
-                >
-                  {{ entry.path }}
-                </option>
-              </select>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -203,17 +201,17 @@ function getFilePath(fileId: string): string {
   return filesManifest.value[fileId]?.path || 'Unknown file'
 }
 
-function availableFilesForStep(stepIndex: number) {
-  const usedFileRefs = new Set(workflow.value[stepIndex].fileRefs)
-  return Object.entries(filesManifest.value).filter(([fileId]) => !usedFileRefs.has(fileId))
-}
+// All available files (no need to filter since each step can only have one file)
+const availableFiles = computed(() => {
+  return Object.entries(filesManifest.value)
+})
 
 // Workflow management functions
 function addWorkflowStep() {
   const newWorkflow = [...workflow.value]
   newWorkflow.push({
     description: '',
-    fileRefs: []
+    fileRef: ''
   })
   console.log('new workflow after adding step:', newWorkflow)
   workflow.value = newWorkflow
@@ -243,23 +241,21 @@ function moveStepDown(index: number) {
   workflow.value = newWorkflow
 }
 
-function addFileRef(stepIndex: number) {
+function setFileRef(stepIndex: number) {
   const fileId = selectedFileForStep.value[stepIndex]
   if (!fileId) return
   
   const newWorkflow = [...workflow.value]
-  if (!newWorkflow[stepIndex].fileRefs.includes(fileId)) {
-    newWorkflow[stepIndex].fileRefs.push(fileId)
-    workflow.value = newWorkflow
-  }
+  newWorkflow[stepIndex].fileRef = fileId
+  workflow.value = newWorkflow
   
   // Clear selection
   selectedFileForStep.value[stepIndex] = ''
 }
 
-function removeFileRef(stepIndex: number, fileIndex: number) {
+function removeFileRef(stepIndex: number) {
   const newWorkflow = [...workflow.value]
-  newWorkflow[stepIndex].fileRefs.splice(fileIndex, 1)
+  newWorkflow[stepIndex].fileRef = ''
   workflow.value = newWorkflow
 }
 

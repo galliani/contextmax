@@ -22,7 +22,7 @@ export interface FileRef {
 }
 
 export interface WorkflowStep {
-  fileRefs: string[]
+  fileRef: string
   description: string
 }
 
