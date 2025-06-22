@@ -245,6 +245,7 @@
       v-model:open="isFunctionModalOpen"
       :file-id="selectedFileId"
       :existing-functions="selectedFileFunctions"
+      :entry-point-mode="false"
       @functions-updated="handleFunctionsUpdated"
     />
   </div>

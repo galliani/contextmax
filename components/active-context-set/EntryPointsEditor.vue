@@ -16,17 +16,41 @@
       <input type="hidden" v-model="formData.fileRef" />
 
       <!-- Function Name -->
-      <div>
+      <div :key="`function-selector-${specifiedFunctions.length}`">
         <label class="text-xs font-medium text-foreground block mb-2">
           Function Name
         </label>
-        <Input
-          v-model="formData.function"
-          type="text"
-          placeholder="e.g., handleRequest, processData, main"
-          class="w-full"
-        />
-        <p class="text-xs text-muted-foreground mt-1">The specific function, method, or handler that processes this entry point</p>
+        
+        <!-- Show button if no functions are specified -->
+        <div v-if="!hasSpecifiedFunctions">
+          <Button
+            @click="openFunctionSelector"
+            variant="outline"
+            class="w-full justify-start"
+          >
+            <Icon name="lucide:function-square" class="w-4 h-4 mr-2" />
+            Specify function name
+          </Button>
+          <p class="text-xs text-muted-foreground mt-1">Click to select a function from this file</p>
+        </div>
+        
+        <!-- Show select dropdown if functions are specified -->
+        <div v-else>
+          <select
+            v-model="formData.function"
+            class="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            <option value="" disabled>Select a function</option>
+            <option
+              v-for="func in specifiedFunctions"
+              :key="func.name"
+              :value="func.name"
+            >
+              {{ func.name }}{{ func.comment ? ` • ${func.comment}` : '' }}
+            </option>
+          </select>
+          <p class="text-xs text-muted-foreground mt-1">The specific function, method, or handler that processes this entry point</p>
+        </div>
       </div>
 
       <!-- Protocol and Method -->
@@ -121,10 +145,20 @@
       </div>
     </div>
   </div>
+  <!-- Function Selection Modal -->
+  <FunctionSelectorModal
+    v-model:open="isFunctionModalOpen"
+    :file-id="fileId"
+    :existing-functions="specifiedFunctions"
+    :entry-point-mode="true"
+    @functions-updated="handleFunctionsUpdated"
+    @entry-point-selected="handleEntryPointSelected"
+  />
 </template>
 
 <script setup lang="ts">
-import type { EntryPoint } from '~/composables/useProjectStore'
+import type { EntryPoint, FunctionRef, FileRef } from '~/composables/useProjectStore'
+import FunctionSelectorModal from './FunctionSelectorModal.vue'
 
 interface Props {
   isExpanded: boolean
@@ -146,6 +180,10 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const { announceError } = useAccessibility()
+const { activeContextSet, saveWorkingCopyToOPFS, selectedFolder } = useProjectStore()
+
+// Modal state
+const isFunctionModalOpen = ref(false)
 
 // Form data
 const formData = ref<EntryPoint>({
@@ -155,6 +193,31 @@ const formData = ref<EntryPoint>({
   method: 'call',
   identifier: ''
 })
+
+// Computed to check if this file has specified functions
+const specifiedFunctions = computed(() => {
+  if (!activeContextSet.value) {
+    console.log('[EntryPointsEditor] No active context set')
+    return []
+  }
+  
+  const fileEntry = activeContextSet.value.files.find(file => {
+    const fileId = typeof file === 'string' ? file : file.fileRef
+    return fileId === props.fileId
+  })
+  
+  console.log('[EntryPointsEditor] File entry for', props.fileId, ':', fileEntry)
+  
+  if (typeof fileEntry === 'object' && fileEntry.functionRefs?.length) {
+    console.log('[EntryPointsEditor] Found function refs:', fileEntry.functionRefs)
+    return fileEntry.functionRefs
+  }
+  
+  console.log('[EntryPointsEditor] No function refs found')
+  return []
+})
+
+const hasSpecifiedFunctions = computed(() => specifiedFunctions.value.length > 0)
 
 // Available methods for each protocol
 const availableMethods = {
@@ -262,4 +325,93 @@ const initializeFormData = () => {
 watch([() => props.fileId, () => props.existingEntryPoint], () => {
   initializeFormData()
 }, { immediate: true })
+
+// Watch for function selection to auto-populate identifier with comment
+watch(() => formData.value.function, (newFunction) => {
+  if (newFunction && hasSpecifiedFunctions.value) {
+    const selectedFunc = specifiedFunctions.value.find(f => f.name === newFunction)
+    if (selectedFunc?.comment && !formData.value.identifier) {
+      // Auto-populate identifier with function comment if it's empty
+      formData.value.identifier = selectedFunc.comment
+    }
+  }
+})
+
+// Watch for changes in specified functions
+watch(specifiedFunctions, (newFunctions, oldFunctions) => {
+  console.log('[EntryPointsEditor] specifiedFunctions changed from', oldFunctions, 'to', newFunctions)
+  console.log('[EntryPointsEditor] hasSpecifiedFunctions:', hasSpecifiedFunctions.value)
+}, { deep: true })
+
+// Functions
+const openFunctionSelector = () => {
+  isFunctionModalOpen.value = true
+}
+
+const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
+  console.log('[EntryPointsEditor] handleFunctionsUpdated called with:', functions)
+  
+  // We need to actually update the context set here!
+  if (!activeContextSet.value || !props.fileId) {
+    console.error('[EntryPointsEditor] No active context set or fileId')
+    return
+  }
+  
+  // Find the file entry in the active context set
+  const fileIndex = activeContextSet.value.files.findIndex(fileEntry => {
+    const entryId = typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
+    return entryId === props.fileId
+  })
+  
+  console.log('[EntryPointsEditor] Found file at index:', fileIndex)
+  
+  if (fileIndex === -1) {
+    console.error('[EntryPointsEditor] File not found in context set')
+    return
+  }
+  
+  // Update the file entry with new function refs
+  if (functions.length === 0) {
+    // Convert back to simple string reference (whole file)
+    activeContextSet.value.files[fileIndex] = props.fileId
+  } else {
+    // Create or update FileRef object with function refs
+    const existingFileRef = activeContextSet.value.files[fileIndex]
+    const fileRef: FileRef = {
+      fileRef: props.fileId,
+      functionRefs: [...functions],
+      comment: typeof existingFileRef === 'object' ? existingFileRef.comment : ''
+    }
+    activeContextSet.value.files[fileIndex] = fileRef
+  }
+  
+  console.log('[EntryPointsEditor] Updated context set files:', activeContextSet.value.files)
+  
+  // Save to OPFS
+  if (selectedFolder.value) {
+    await saveWorkingCopyToOPFS(selectedFolder.value.name)
+    console.log('[EntryPointsEditor] Saved to OPFS')
+  }
+  
+  // Force a re-render by triggering reactivity
+  await nextTick()
+  
+  // If we now have functions and a function name was passed, set it
+  if (functions.length > 0 && !formData.value.function) {
+    formData.value.function = functions[0].name
+    console.log('[EntryPointsEditor] Set default function:', functions[0].name)
+  }
+}
+
+const handleEntryPointSelected = (functionName: string) => {
+  console.log('[EntryPointsEditor] handleEntryPointSelected called with:', functionName)
+  // Wait a bit for the functions to be saved and the computed to update
+  setTimeout(() => {
+    console.log('[EntryPointsEditor] Setting entry point function:', functionName)
+    console.log('[EntryPointsEditor] Current specified functions:', specifiedFunctions.value)
+    // Directly set the selected function as the entry point function
+    formData.value.function = functionName
+    isFunctionModalOpen.value = false
+  }, 300) // Increased timeout
+}
 </script>

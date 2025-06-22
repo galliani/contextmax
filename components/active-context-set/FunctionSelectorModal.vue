@@ -110,6 +110,15 @@
               <Icon name="lucide:plus" class="w-4 h-4 mr-2" />
               Add
             </Button>
+            <Button 
+              v-if="props.entryPointMode"
+              @click="setAsEntryPoint" 
+              size="sm"
+              variant="default"
+            >
+              <Icon name="lucide:zap" class="w-4 h-4 mr-2" />
+              Set as entry point
+            </Button>
           </div>
         </div>
 
@@ -181,6 +190,7 @@ interface Props {
   open: boolean
   fileId: string
   existingFunctions: FunctionRef[]
+  entryPointMode?: boolean
 }
 
 const props = defineProps<Props>()
@@ -188,6 +198,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'functions-updated': [functions: FunctionRef[]]
+  'entry-point-selected': [functionName: string]
 }>()
 
 const { filesManifest, fileTree } = useProjectStore()
@@ -389,6 +400,42 @@ function addSelectedFunction() {
   window.getSelection()?.removeAllRanges()
 }
 
+function setAsEntryPoint() {
+  const functionName = selectionPopover.text
+  console.log('[FunctionSelectorModal] setAsEntryPoint called with:', functionName)
+  if (!functionName) return
+  
+  // First add to selected functions if not already there
+  const existingIndex = selectedFunctions.value.findIndex(f => f.name === functionName)
+  if (existingIndex === -1) {
+    selectedFunctions.value.push({
+      name: functionName,
+      comment: '',
+      lineIndex: selectionPopover.lineIndex
+    } as FunctionRef & { lineIndex: number })
+    updateHighlightedLines()
+    console.log('[FunctionSelectorModal] Added function to list:', functionName)
+  }
+  
+  console.log('[FunctionSelectorModal] Selected functions before save:', selectedFunctions.value)
+  
+  // Hide popover and clear selection first
+  selectionPopover.visible = false
+  selectionPopover.lineIndex = -1
+  window.getSelection()?.removeAllRanges()
+  
+  // Save the functions but keep modal open
+  saveFunctions(true)
+  
+  // Then emit the entry point selection and close modal after delay
+  setTimeout(() => {
+    console.log('[FunctionSelectorModal] Emitting entry-point-selected:', functionName)
+    emit('entry-point-selected', functionName)
+    // Now close the modal
+    open.value = false
+  }, 200)
+}
+
 // Add event listener for text selection
 onMounted(() => {
   document.addEventListener('mouseup', handleTextSelection)
@@ -432,9 +479,17 @@ function removeFunctionFromLine(line: string, lineIndex: number) {
   updateHighlightedLines()
 }
 
-function saveFunctions() {
-  emit('functions-updated', [...selectedFunctions.value])
-  open.value = false
+function saveFunctions(keepOpen = false) {
+  // Clean up functions by removing the temporary lineIndex property
+  const cleanedFunctions = selectedFunctions.value.map(f => ({
+    name: f.name,
+    comment: f.comment || ''
+  }))
+  console.log('[FunctionSelectorModal] saveFunctions called, emitting:', cleanedFunctions)
+  emit('functions-updated', cleanedFunctions)
+  if (!keepOpen) {
+    open.value = false
+  }
 }
 
 // Search functions
