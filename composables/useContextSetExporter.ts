@@ -6,7 +6,7 @@
 
 import { encode } from 'gpt-tokenizer'
 import * as yaml from 'js-yaml'
-import type { ContextSet, FileManifestEntry, Workflow, WorkflowPoint } from './useContextSets'
+import type { ContextSet, FileManifestEntry, FileIndexEntry, Workflow, WorkflowPoint } from './useContextSets'
 
 export interface ExportResult {
   success: boolean
@@ -98,7 +98,7 @@ export const useContextSetExporter = () => {
    */
   const transformWorkflowsForExport = (
     workflows: Workflow[],
-    filesManifest: Record<string, FileManifestEntry>
+    filesManifest: Record<string, FileManifestEntry> | Record<string, FileIndexEntry>
   ): Workflow[] => {
     return workflows.map(workflow => ({
       start: {
@@ -118,7 +118,7 @@ export const useContextSetExporter = () => {
   const _buildContextSetString = async (
     setName: string,
     contextSet: ContextSet,
-    filesManifest: Record<string, FileManifestEntry>,
+    filesManifest: Record<string, FileManifestEntry> | Record<string, FileIndexEntry>,
     fileTree: FileTreeItem[]
   ): Promise<string> => {
     // Step 1: Prepare the Frontmatter Object (only include non-empty fields)
@@ -212,7 +212,7 @@ export const useContextSetExporter = () => {
   const calculateTokenCount = async (
     setName: string,
     contextSet: ContextSet,
-    filesManifest: Record<string, FileManifestEntry>,
+    filesManifest: Record<string, FileManifestEntry> | Record<string, FileIndexEntry>,
     fileTree: FileTreeItem[]
   ): Promise<number> => {
     try {
@@ -231,7 +231,7 @@ export const useContextSetExporter = () => {
   const exportContextSetToClipboard = async (
     setName: string,
     contextSet: ContextSet,
-    filesManifest: Record<string, FileManifestEntry>,
+    filesManifest: Record<string, FileManifestEntry> | Record<string, FileIndexEntry>,
     fileTree: FileTreeItem[]
   ): Promise<ExportResult> => {
     if (isExporting.value) {

@@ -21,6 +21,15 @@
             <Icon name="lucide:clipboard" class="w-4 h-4 mr-2" />
             Copy to Clipboard
           </Button>
+          <Button
+            v-if="isContextSetsPreview"
+            variant="default"
+            size="sm"
+            @click="showUsageGuide"
+          >
+            <Icon name="lucide:info" class="w-4 h-4 mr-2" />
+            Usage Guide
+          </Button>
         </DialogTitle>
         <DialogDescription>
           File Content
@@ -50,9 +59,26 @@
         <Button @click="closeModal" variant="outline">
           Close
         </Button>
+        <Button
+          v-if="isContextSetsPreview"
+          @click="showUsageGuide"
+          variant="default"
+        >
+          <Icon name="lucide:info" class="w-4 h-4 mr-2" />
+          View Usage Guide
+        </Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <!-- Usage Guide Modal -->
+  <HowToUseModal 
+    v-model:open="showUsageModal" 
+    title="How to Use Context Sets"
+    description="Configure your IDE to work with the exported context-sets.json file for intelligent context switching."
+    :example-context-set-name="exampleContextSetName"
+    :show-success-icon="false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -60,17 +86,52 @@ const {
   currentFileContent, 
   currentFileName, 
   isFileContentModalOpen, 
-  closeFileContentModal 
+  closeFileContentModal,
+  generateContextSetsJSONWithPrefix,
+  contextSetNames
 } = useProjectStore()
 
-
 const { success, error } = useNotifications()
+
+// Modal state for usage guide
+const showUsageModal = ref(false)
+
+// Check if this is a context-sets.json preview
+const isContextSetsPreview = computed(() => {
+  return currentFileName.value?.includes('context-sets.json') && 
+         currentFileName.value?.includes('Preview')
+})
+
+// Get example context set name for the guide
+const exampleContextSetName = computed(() => {
+  const names = contextSetNames.value
+  return names.length > 0 ? `context:${names[0]}` : 'context:myContextSet'
+})
+
+// Show usage guide
+const showUsageGuide = () => {
+  showUsageModal.value = true
+}
 
 async function copyContent() {
   if (!currentFileContent.value) return
   
   try {
-    await navigator.clipboard.writeText(currentFileContent.value)
+    let contentToCopy = currentFileContent.value
+    
+    // Check if this is a JSON preview file - if so, regenerate with context: prefixes
+    if (currentFileName.value?.includes('context-sets.json') && 
+        currentFileName.value?.includes('Preview')) {
+      try {
+        const prefixedData = generateContextSetsJSONWithPrefix()
+        contentToCopy = JSON.stringify(prefixedData, null, 2)
+      } catch (error) {
+        console.warn('Failed to generate prefixed JSON, using original content:', error)
+        // Fall back to original content if prefix generation fails
+      }
+    }
+    
+    await navigator.clipboard.writeText(contentToCopy)
     success('Copied', 'Content copied to clipboard.')
   }
   catch (err) {
