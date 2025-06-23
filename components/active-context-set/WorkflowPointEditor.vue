@@ -231,6 +231,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import type { WorkflowPoint, Workflow, FunctionRef, FileRef } from '~/composables/useContextSets'
 import FunctionSelectorModal from './FunctionSelectorModal.vue'
 
@@ -276,7 +277,6 @@ const workflowPointData = ref<WorkflowPoint>({
 // Computed to check if this file has specified functions
 const specifiedFunctions = computed(() => {
   if (!activeContextSet.value) {
-    console.log('[WorkflowPointEditor] No active context set')
     return []
   }
   
@@ -285,14 +285,10 @@ const specifiedFunctions = computed(() => {
     return fileId === props.fileId
   })
   
-  console.log('[WorkflowPointEditor] File entry for', props.fileId, ':', fileEntry)
-  
   if (typeof fileEntry === 'object' && fileEntry.functionRefs?.length) {
-    console.log('[WorkflowPointEditor] Found function refs:', fileEntry.functionRefs)
     return fileEntry.functionRefs
   }
   
-  console.log('[WorkflowPointEditor] No function refs found')
   return []
 })
 
@@ -376,17 +372,13 @@ const save = () => {
   // For end points, function name is optional
   if (props.workflowPointType === 'end' && !workflowPointData.value.function) {
     // Allow empty function name for end points - will be filled later or left as placeholder
-    console.log('[WorkflowPointEditor] Saving end point without function name')
   }
   
   emit('save', { ...workflowPointData.value })
 }
 
 const remove = () => {
-  console.log('[WorkflowPointEditor] Remove button clicked for fileId:', props.fileId)
-  console.log('[WorkflowPointEditor] Emitting remove event with fileId:', props.fileId)
   emit('remove', props.fileId)
-  console.log('[WorkflowPointEditor] Remove event emitted successfully')
 }
 
 const updateMethodOptions = () => {
@@ -425,11 +417,6 @@ watch(() => workflowPointData.value.function, (newFunction) => {
   }
 })
 
-// Watch for changes in specified functions
-watch(specifiedFunctions, (newFunctions, oldFunctions) => {
-  console.log('[WorkflowPointEditor] specifiedFunctions changed from', oldFunctions, 'to', newFunctions)
-  console.log('[WorkflowPointEditor] hasSpecifiedFunctions:', hasSpecifiedFunctions.value)
-}, { deep: true })
 
 // Functions
 const openFunctionSelector = () => {
@@ -437,11 +424,9 @@ const openFunctionSelector = () => {
 }
 
 const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
-  console.log('[WorkflowPointEditor] handleFunctionsUpdated called with:', functions)
-  
   // We need to actually update the context set here!
   if (!activeContextSet.value || !props.fileId) {
-    console.error('[WorkflowPointEditor] No active context set or fileId')
+    logger.error('[WorkflowPointEditor] No active context set or fileId')
     return
   }
   
@@ -451,10 +436,8 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
     return entryId === props.fileId
   })
   
-  console.log('[WorkflowPointEditor] Found file at index:', fileIndex)
-  
   if (fileIndex === -1) {
-    console.error('[WorkflowPointEditor] File not found in context set')
+    logger.error('[WorkflowPointEditor] File not found in context set')
     return
   }
   
@@ -473,12 +456,9 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
     activeContextSet.value.files[fileIndex] = fileRef
   }
   
-  console.log('[WorkflowPointEditor] Updated context set files:', activeContextSet.value.files)
-  
   // Save to OPFS
   if (selectedFolder.value) {
     await saveWorkingCopyToOPFS(selectedFolder.value.name)
-    console.log('[WorkflowPointEditor] Saved to OPFS')
   }
   
   // Force a re-render by triggering reactivity
@@ -487,16 +467,12 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
   // If we now have functions and a function name was passed, set it
   if (functions.length > 0 && !workflowPointData.value.function) {
     workflowPointData.value.function = functions[0].name
-    console.log('[WorkflowPointEditor] Set default function:', functions[0].name)
   }
 }
 
 const handleEntryPointSelected = (functionName: string) => {
-  console.log('[WorkflowPointEditor] handleEntryPointSelected called with:', functionName)
   // Wait a bit for the functions to be saved and the computed to update
   setTimeout(() => {
-    console.log('[WorkflowPointEditor] Setting workflow point function:', functionName)
-    console.log('[WorkflowPointEditor] Current specified functions:', specifiedFunctions.value)
     // Directly set the selected function as the workflow point function
     workflowPointData.value.function = functionName
     isFunctionModalOpen.value = false

@@ -86,6 +86,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import {
   Dialog,
   DialogContent,
@@ -169,7 +170,7 @@ const copyToClipboard = async (text: string) => {
       copySuccess.value = false
     }, 2000)
   } catch (error) {
-    console.error('Failed to copy to clipboard:', error)
+    logger.error('Failed to copy to clipboard:', error)
     errorWithRetry('Copy Failed', 'Failed to copy to clipboard', () => copyToClipboard(text))
   }
 }

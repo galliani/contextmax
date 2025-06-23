@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface FileTreeItem {
   name: string
   path: string
@@ -36,7 +38,7 @@ export const useFileSystem = () => {
         }
       }
     } catch (error) {
-      console.error(`Error collecting files from directory ${currentPath}:`, error)
+      logger.error(`Error collecting files from directory ${currentPath}:`, error)
     }
     
     return allFiles
@@ -98,7 +100,7 @@ export const useFileSystem = () => {
         }
       }
     } catch (error) {
-      console.error(`Error reading directory ${currentPath}:`, error)
+      logger.error(`Error reading directory ${currentPath}:`, error)
     }
 
     // Sort: directories first, then files, both alphabetically
@@ -115,11 +117,9 @@ export const useFileSystem = () => {
     directoryHandle: FileSystemDirectoryHandle
   ): Promise<FileTreeItem[]> => {
     try {
-      console.log('🔍 Building filtered file tree with gitignore support...')
       
       // First, collect all files to create gitignore matcher
       const allFiles = await collectAllFiles(directoryHandle)
-      console.log(`📁 Collected ${allFiles.length} total files/directories`)
       
       // Create gitignore matcher
       const { createMatcher } = useGitignore()
@@ -128,13 +128,10 @@ export const useFileSystem = () => {
       // Build the filtered file tree
       const filteredTree = await readDirectoryRecursively(directoryHandle, '', gitignoreMatcher)
       
-      console.log(`✅ Built filtered file tree with ${countFileTreeNodes(filteredTree.map(item => removeHandles(item)))} nodes`)
-      
       return filteredTree
     } catch (error) {
-      console.error('❌ Error building filtered file tree:', error)
+      logger.error('❌ Error building filtered file tree:', error)
       // Fallback to basic filtering if gitignore fails
-      console.log('🔄 Falling back to basic file tree building...')
       return await readDirectoryRecursively(directoryHandle, '')
     }
   }
@@ -142,24 +139,17 @@ export const useFileSystem = () => {
   // Helper function to rebuild file tree from OPFS
   const rebuildFileTreeFromOPFS = async (directoryHandle: FileSystemDirectoryHandle): Promise<FileTreeItem[]> => {
     try {
-      console.log('🟡 Starting file tree rebuild from OPFS...')
       const files = await buildFilteredFileTree(directoryHandle)
       
       const hasHandlesAfterRebuild = checkFileTreeHasHandles(files)
-      console.log('🟡 File tree rebuilt from OPFS:', {
-        nodeCount: countFileTreeNodes(files.map(item => removeHandles(item))),
-        hasHandles: hasHandlesAfterRebuild,
-        topLevelItems: files.length,
-        samplePaths: files.slice(0, 3).map(item => ({ path: item.path, hasHandle: !!item.handle }))
-      })
       
       if (!hasHandlesAfterRebuild) {
-        console.error('🟡 WARNING: File tree rebuild completed but files still have no handles!')
+        logger.error('🟡 WARNING: File tree rebuild completed but files still have no handles!')
       }
       
       return files
     } catch (error) {
-      console.error('🟡 Failed to rebuild file tree from OPFS:', error)
+      logger.error('🟡 Failed to rebuild file tree from OPFS:', error)
       return []
     }
   }
@@ -203,37 +193,26 @@ export const useFileSystem = () => {
 
   // File content operations
   const loadFileContent = async (file: FileTreeItem): Promise<{ content: string; fileName: string } | null> => {
-    console.log('🟡 loadFileContent called with:', { 
-      name: file.name, 
-      path: file.path, 
-      type: file.type, 
-      hasHandle: !!file.handle 
-    })
     
     if (file.type !== 'file') {
-      console.log('🟡 Not a file, returning')
       return null
     }
     
     if (!file.handle) {
-      console.log('🟡 No file handle, returning')
       return null
     }
     
     try {
-      console.log('🟡 Attempting to read file content...')
       const fileHandle = file.handle as FileSystemFileHandle
       const fileObj = await fileHandle.getFile()
       const content = await fileObj.text()
-      
-      console.log('🟡 File content loaded, length:', content.length)
       
       return {
         content,
         fileName: file.path
       }
     } catch (error) {
-      console.error('🟡 Error loading file content:', error)
+      logger.error('🟡 Error loading file content:', error)
       return null
     }
   }
@@ -243,7 +222,7 @@ export const useFileSystem = () => {
     mode?: 'read' | 'readwrite'
   }): Promise<FileSystemDirectoryHandle | null> => {
     if (!isFileSystemSupported.value) {
-      console.error('File System Access API not supported')
+      logger.error('File System Access API not supported')
       return null
     }
 
@@ -254,7 +233,7 @@ export const useFileSystem = () => {
       return directoryHandle
     } catch (error) {
       if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Error selecting directory:', error)
+        logger.error('Error selecting directory:', error)
       }
       return null
     }
@@ -279,7 +258,7 @@ export const useFileSystem = () => {
       
       return entries.some(name => projectIndicators.includes(name))
     } catch (error) {
-      console.warn('Error validating project directory:', error)
+      logger.warn('Error validating project directory:', error)
       return true // Default to true if we can't validate
     }
   }

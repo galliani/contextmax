@@ -1,4 +1,5 @@
 import { pipeline, env, Pipeline } from '@huggingface/transformers';
+import { logger } from '~/utils/logger';
 
 // Skip local model check for this browser-based example.
 env.allowLocalModels = false;
@@ -12,30 +13,18 @@ class OPFSModelCache {
   private static cacheDir = 'hf-model-cache';
   
   static async init(): Promise<void> {
-    console.log('🔧 Initializing OPFS model cache...');
-    
     try {
       // Request persistent storage first
       if (navigator.storage && navigator.storage.persist) {
-        const persistent = await navigator.storage.persist();
-        console.log(persistent ? '✅ Persistent storage granted' : '⚠️ Persistent storage denied');
-      }
-      
-      // Check storage quota
-      if (navigator.storage && navigator.storage.estimate) {
-        const estimate = await navigator.storage.estimate();
-        const quotaMB = Math.round((estimate.quota || 0) / 1024 / 1024);
-        const usageMB = Math.round((estimate.usage || 0) / 1024 / 1024);
-        console.log(`📊 Storage quota: ${quotaMB}MB available, ${usageMB}MB used`);
+        await navigator.storage.persist();
       }
       
       // Create cache directory
       const opfsRoot = await navigator.storage.getDirectory();
       await opfsRoot.getDirectoryHandle(this.cacheDir, { create: true });
-      console.log('📂 OPFS cache directory ready');
       
     } catch (error) {
-      console.error('❌ Failed to initialize OPFS cache:', error);
+      logger.error('❌ Failed to initialize OPFS cache:', error);
       throw error;
     }
   }
@@ -48,10 +37,8 @@ class OPFSModelCache {
       
       // Check for completion marker
       await cacheDir.getFileHandle(`${safeModelName}.complete`);
-      console.log(`📦 Found cached model: ${modelName}`);
       return true;
     } catch {
-      console.log(`💾 Model not cached: ${modelName}`);
       return false;
     }
   }
@@ -70,10 +57,8 @@ class OPFSModelCache {
         version: '1.0'
       }));
       await writable.close();
-      
-      console.log(`✅ Model marked as cached: ${modelName}`);
     } catch (error) {
-      console.error(`❌ Failed to mark model complete: ${modelName}`, error);
+      logger.error(`❌ Failed to mark model complete: ${modelName}`, error);
     }
   }
   
@@ -81,38 +66,20 @@ class OPFSModelCache {
     try {
       const opfsRoot = await navigator.storage.getDirectory();
       await opfsRoot.removeEntry(this.cacheDir, { recursive: true });
-      console.log('🗑️ Model cache cleared');
     } catch (error) {
-      console.warn('Failed to clear cache:', error);
+      logger.warn('Failed to clear cache:', error);
     }
   }
 }
 
-// Custom fetch wrapper for model file caching with detailed debugging
+// Custom fetch wrapper for model file caching
 if (typeof window !== 'undefined') {
-  console.log('🌐 Setting up model file cache interceptor...');
-  
   const originalFetch = window.fetch;
   let downloadStats = { files: 0, totalSize: 0, cacheHits: 0 };
   
   window.fetch = async (input, init) => {
     const url = input.toString();
     
-    // Log ALL huggingface requests to debug what we're missing
-    if (url.includes('huggingface.co')) {
-      console.log(`🌐 ALL HF Request: ${url}`);
-      
-      // Check if this should be intercepted
-      const shouldIntercept = url.includes('.onnx') || 
-        url.includes('.bin') || 
-        url.includes('config.json') || 
-        url.includes('tokenizer.json') ||
-        url.includes('tokenizer_config.json');
-        
-      if (!shouldIntercept) {
-        console.log(`⚠️ NOT INTERCEPTED: ${url.split('/').pop()}`);
-      }
-    }
     
     // Only intercept HuggingFace model files
     if (url.includes('huggingface.co') && (
@@ -122,8 +89,6 @@ if (typeof window !== 'undefined') {
       url.includes('tokenizer.json') ||
       url.includes('tokenizer_config.json')
     )) {
-      console.log(`🔍 INTERCEPTING model file: ${url}`);
-      
       try {
         const opfsRoot = await navigator.storage.getDirectory();
         const cacheDir = await opfsRoot.getDirectoryHandle('hf-model-cache', { create: true });
@@ -139,7 +104,6 @@ if (typeof window !== 'undefined') {
           const cachedFile = await cacheDir.getFileHandle(cacheKey);
           const file = await cachedFile.getFile();
           downloadStats.cacheHits++;
-          console.log(`📦 Cache HIT: ${fileName} (${Math.round(file.size / 1024)}KB)`);
           
           return new Response(file, {
             status: 200,
@@ -150,7 +114,6 @@ if (typeof window !== 'undefined') {
           });
         } catch {
           // Not in cache, download and cache
-          console.log(`⬇️ Cache MISS: Downloading ${fileName}...`);
           const response = await originalFetch(input, init);
           
           if (response.ok) {
@@ -161,26 +124,16 @@ if (typeof window !== 'undefined') {
             downloadStats.files++;
             downloadStats.totalSize += arrayBuffer.byteLength;
             
-            console.log(`💾 Caching ${fileName} (${sizeMB}MB)...`);
-            
             try {
               const fileHandle = await cacheDir.getFileHandle(cacheKey, { create: true });
               const writable = await fileHandle.createWritable();
               await writable.write(arrayBuffer);
               await writable.close();
-              console.log(`✅ Successfully cached: ${fileName}`);
-              
-              // Update storage stats
-              if (navigator.storage && navigator.storage.estimate) {
-                const estimate = await navigator.storage.estimate();
-                const usageMB = Math.round((estimate.usage || 0) / 1024 / 1024);
-                console.log(`📊 Storage used: ${usageMB}MB`);
-              }
               
             } catch (cacheError) {
-              console.error(`❌ Failed to cache ${fileName}:`, cacheError);
+              logger.error(`❌ Failed to cache ${fileName}:`, cacheError);
               if (cacheError.name === 'QuotaExceededError') {
-                console.error('💥 Storage quota exceeded! Consider clearing cache or requesting more storage.');
+                logger.error('💥 Storage quota exceeded! Consider clearing cache or requesting more storage.');
               }
             }
           }
@@ -188,7 +141,7 @@ if (typeof window !== 'undefined') {
           return response;
         }
       } catch (error) {
-        console.error('❌ Cache interceptor error:', error);
+        logger.error('❌ Cache interceptor error:', error);
         return originalFetch(input, init);
       }
     }
@@ -197,13 +150,6 @@ if (typeof window !== 'undefined') {
     return originalFetch(input, init);
   };
   
-  // Log cache stats periodically
-  setInterval(() => {
-    if (downloadStats.files > 0 || downloadStats.cacheHits > 0) {
-      const totalSizeMB = Math.round(downloadStats.totalSize / 1024 / 1024 * 100) / 100;
-      console.log(`📈 Cache stats: ${downloadStats.cacheHits} hits, ${downloadStats.files} downloads (${totalSizeMB}MB)`);
-    }
-  }, 10000);
 }
 
 // Model configuration interface
@@ -261,12 +207,6 @@ class LLMServiceImpl {
         
         // Check if model is already cached
         const isCached = await OPFSModelCache.hasCompleteModel(modelConfig.modelId);
-        
-        if (isCached) {
-          console.log(`🎯 Loading model from cache: ${modelConfig.modelId}`);
-        } else {
-          console.log(`🚀 First-time download: ${modelConfig.modelId}`);
-        }
 
         // Enhanced progress callback with better cache verification
         let networkDownloadDetected = false;
@@ -298,32 +238,10 @@ class LLMServiceImpl {
           await OPFSModelCache.markModelComplete(modelConfig.modelId);
         }
         
-        // Smoke test: actually use the model to verify it works
-        console.log(`🧪 Running smoke test for ${modelConfig.name}...`);
-        try {
-          const testStart = performance.now();
-          const testResult = await instance('Hello world');
-          const testTime = Math.round(performance.now() - testStart);
-          
-          // Check if result is valid (different models return different formats)
-          if (testResult) {
-            console.log(`✅ SMOKE TEST PASSED: ${modelConfig.name} working correctly (${testTime}ms)`);
-            console.log(isCached ? 
-              `🎯 CACHE IS WORKING PERFECTLY - ${modelConfig.name} loaded and functional from OPFS!` :
-              `📦 First download complete - ${modelConfig.name} cached and functional`
-            );
-          } else {
-            console.error(`❌ SMOKE TEST FAILED: ${modelConfig.name} returned no result`);
-          }
-        } catch (smokeTestError) {
-          console.error(`❌ SMOKE TEST FAILED: ${modelConfig.name} threw error:`, smokeTestError);
-        }
-        
         this.statuses.set(modelKey, 'ready');
         this.errors.set(modelKey, null);
-        console.log(`🎉 ${modelConfig.name} Service initialized successfully`);
       } catch (error) {
-        console.error(`❌ Failed to initialize ${modelConfig.name} Service:`, error);
+        logger.error(`❌ Failed to initialize ${modelConfig.name} Service:`, error);
         this.statuses.set(modelKey, 'error');
         this.errors.set(modelKey, error instanceof Error ? error.message : 'Unknown error');        
         throw error;
@@ -345,20 +263,19 @@ class LLMServiceImpl {
       await this.getInstance(modelKey, progress_callback);
     } catch (error) {
       // Error is already handled in getInstance
-      console.error(`Async LLM initialization failed for ${modelKey}:`, error);
+      logger.error(`Async LLM initialization failed for ${modelKey}:`, error);
     }
   }
 
   static async initializeAllModels(progress_callback?: ProgressCallbackFunction): Promise<void> {
     const modelKeys = Object.keys(this.models);
-    console.log(`🚀 Initializing ${modelKeys.length} models:`, modelKeys);
     
     // Initialize models sequentially to avoid overwhelming the system
     for (const modelKey of modelKeys) {
       try {
         await this.initializeAsync(modelKey, progress_callback);
       } catch (error) {
-        console.error(`Failed to initialize model ${modelKey}:`, error);
+        logger.error(`Failed to initialize model ${modelKey}:`, error);
       }
     }
   }

@@ -1,5 +1,6 @@
 import ignore from 'ignore';
 import type { Ignore } from 'ignore';
+import { logger } from '~/utils/logger';
 
 /**
  * This composable creates a matcher instance based on all .gitignore files
@@ -23,7 +24,7 @@ export const useGitignore = () => {
         const fileObj = await handle.getFile();
         return await fileObj.text();
       } catch (e) {
-        console.warn(`Could not read .gitignore file: ${file.path}`, e);
+        logger.warn(`Could not read .gitignore file: ${file.path}`, e);
         return ''; // Return empty string on failure
       }
     });
@@ -33,7 +34,6 @@ export const useGitignore = () => {
     // Add rules from all .gitignore files found in the project
     if (gitignoreContents.length > 0) {
       ig.add(gitignoreContents.join('\n'));
-      console.log(`📋 Loaded rules from ${gitignoreFiles.length} .gitignore files`);
     }
 
     // Add our own custom, non-negotiable exclusion rules for common asset types
@@ -82,7 +82,6 @@ export const useGitignore = () => {
     ];
     
     ig.add(customExclusions.join('\n'));
-    console.log(`🔧 Applied ${customExclusions.length - 1} custom exclusion rules`);
     
     return ig;
   };

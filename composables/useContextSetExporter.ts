@@ -6,6 +6,7 @@
 
 import { encode } from 'gpt-tokenizer'
 import * as yaml from 'js-yaml'
+import { logger } from '~/utils/logger'
 import type { ContextSet, FileManifestEntry, Workflow, WorkflowPoint } from './useContextSets'
 
 export interface ExportResult {
@@ -155,7 +156,7 @@ export const useContextSetExporter = () => {
       const fileEntry = filesManifest[fileId]
       
       if (!fileEntry) {
-        console.warn(`File manifest entry not found for ID: ${fileId}`)
+        logger.warn(`File manifest entry not found for ID: ${fileId}`)
         continue
       }
 
@@ -165,7 +166,7 @@ export const useContextSetExporter = () => {
         // Find the file handle
         const fileHandle = findFileHandle(fileTree, filePath)
         if (!fileHandle) {
-          console.warn(`File handle not found for path: ${filePath}`)
+          logger.warn(`File handle not found for path: ${filePath}`)
           markdownBodyParts.push(`## FILE: ${filePath}`)
           markdownBodyParts.push('```text')
           markdownBodyParts.push('// File not accessible in current file tree')
@@ -189,7 +190,7 @@ export const useContextSetExporter = () => {
         markdownBodyParts.push('') // Empty line between files
         
       } catch (error) {
-        console.error(`Failed to read file ${filePath}:`, error)
+        logger.error(`Failed to read file ${filePath}:`, error)
         markdownBodyParts.push(`## FILE: ${filePath}`)
         markdownBodyParts.push('```text')
         markdownBodyParts.push(`// Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -220,7 +221,7 @@ export const useContextSetExporter = () => {
       const tokens = encode(contextString)
       return tokens.length
     } catch (error) {
-      console.error('Failed to calculate token count:', error)
+      logger.error('Failed to calculate token count:', error)
       return 0
     }
   }
@@ -258,7 +259,7 @@ export const useContextSetExporter = () => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('Export failed:', error)
+      logger.error('Export failed:', error)
       
       return {
         success: false,

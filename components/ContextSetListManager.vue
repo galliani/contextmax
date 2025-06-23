@@ -168,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import { Button } from '@/components/ui/button'
 import AddNewContext from '@/components/context-set-list/AddNewContext.vue'
 import DeleteContextConfirmation from '@/components/context-set-list/DeleteContextConfirmation.vue'
@@ -188,7 +189,6 @@ onMounted(() => {
     const lastSelected = loadLastSelectedContextSet()
     if (lastSelected && contextSetNames.value.includes(lastSelected)) {
       setActiveContextSet(lastSelected)
-      console.log(`Restored last selected context set on mount: ${lastSelected}`)
     }
   }
 })
@@ -215,7 +215,7 @@ const saveLastSelectedContextSet = (setName: string) => {
     try {
       localStorage.setItem('contextmax-last-context-set', setName)
     } catch (error) {
-      console.warn('Failed to save last context set to localStorage:', error)
+      logger.warn('Failed to save last context set to localStorage:', error)
     }
   }
 }
@@ -261,14 +261,13 @@ const onContextSetDeleted = (contextSetName: string) => {
     try {
       localStorage.removeItem('contextmax-last-context-set')
     } catch (error) {
-      console.warn('Failed to remove last context set from localStorage:', error)
+      logger.warn('Failed to remove last context set from localStorage:', error)
     }
   }
 }
 
 const onDeleteError = (error: string) => {
   // Optional: Additional error handling
-  console.error('Delete error from child component:', error)
 }
 
 

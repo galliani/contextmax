@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface FileSystemDirectoryHandleWithPermission extends FileSystemDirectoryHandle {
   queryPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>
   requestPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>
@@ -40,13 +42,8 @@ export const usePersistence = () => {
       }
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableState))
-      console.log('Project state saved to localStorage', {
-        folderName: serializableState.selectedFolderName,
-        fileTreeNodes: countNodes(serializableState.fileTree),
-        hasOPFSCopy: serializableState.hasOPFSCopy
-      })
     } catch (error) {
-      console.error('Failed to save project state to localStorage:', error)
+      logger.error('Failed to save project state to localStorage:', error)
     }
   }
 
@@ -60,15 +57,9 @@ export const usePersistence = () => {
 
       const state: SerializableProjectState = JSON.parse(stored)
       
-      console.log('Project metadata loaded from localStorage', {
-        folderName: state.selectedFolderName,
-        fileTreeNodes: countNodes(state.fileTree),
-        hasOPFSCopy: state.hasOPFSCopy
-      })
-      
       return state
     } catch (error) {
-      console.error('Failed to load project metadata from localStorage:', error)
+      logger.error('Failed to load project metadata from localStorage:', error)
       return null
     }
   }
@@ -76,7 +67,6 @@ export const usePersistence = () => {
   // Clear localStorage
   const clearLocalStorage = () => {
     localStorage.removeItem(STORAGE_KEY)
-    console.log('Project state cleared from localStorage')
   }
 
   // Check if there's saved data
@@ -175,7 +165,6 @@ export const usePersistence = () => {
       await writable.write(jsonContent)
       await writable.close()
 
-      console.log(`✅ Successfully exported context sets to project folder: ${selectedFolder.name}`)
       return { success: true }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -206,7 +195,7 @@ export const usePersistence = () => {
         }
       } else {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        console.error('❌ Failed to export context sets to project folder:', error)
+        logger.error('❌ Failed to export context sets to project folder:', error)
         return { 
           success: false, 
           error: `Failed to export: ${errorMessage}` 
@@ -237,10 +226,8 @@ export const usePersistence = () => {
       const content = await file.text()
       const data = JSON.parse(content)
       
-      console.log(`✅ Loaded stable version from project folder: ${directoryHandle.name}`)
       return data
     } catch {
-      console.log(`ℹ️ No stable version found in project folder: ${directoryHandle.name}`)
       return null
     }
   }
@@ -278,7 +265,7 @@ export const usePersistence = () => {
         const { warning } = useNotifications()
         warning('No Content', 'There are no context sets to preview.')
       } else {
-        console.warn('No context sets to preview.')
+        logger.warn('No context sets to preview.')
       }
       return null
     }
@@ -295,7 +282,7 @@ export const usePersistence = () => {
         const { errorWithRetry } = useNotifications()
         errorWithRetry('Preview Failed', `Could not generate JSON preview: ${message}`, () => previewContextSetsJSON(contextSetsData))
       } else {
-        console.error('Error generating context sets JSON for preview:', error)
+        logger.error('Error generating context sets JSON for preview:', error)
       }
       return null
     }

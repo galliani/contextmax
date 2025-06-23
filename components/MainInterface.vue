@@ -163,15 +163,6 @@ const showFullScreenLoader = computed(() => {
   const embedState = getModelState('embeddings').value
   const textGenState = getModelState('textGeneration').value
   
-  console.log('🔍 Debug showFullScreenLoader:', {
-    areAllModelsReady: areAllModelsReady.value,
-    hasDownloadingModels: hasDownloadingModels.value,
-    embeddingsStatus: LLMService.getStatus('embeddings'),
-    textGenStatus: LLMService.getStatus('textGeneration'),
-    embeddingsState: { status: embedState.status, progress: embedState.progress, message: embedState.message },
-    textGenState: { status: textGenState.status, progress: textGenState.progress, message: textGenState.message },
-    availableModels: LLMService.getAvailableModels()
-  })
   
   // Never show if all models are ready (using composable that checks service status)
   if (areAllModelsReady.value) return false

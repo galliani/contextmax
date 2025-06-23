@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import ProjectFileBrowser from './ProjectFileBrowser.vue'
 import AssistedCuration from './project-file-browser/AssistedCuration.vue'
 import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
@@ -150,12 +151,11 @@ const saveSearchResults = async (keyword: string, results: any[], entryPointFile
 
   try {
     await storeSearchResults(searchData)
-    console.log(`💾 Saved/updated search results for "${keyword}" in project "${projectName}" (${results.length} files)`)
     
     // Refresh search history in AssistedCuration component
     await refreshSearchHistory()
   } catch (error) {
-    console.warn('Failed to save search results:', error)
+    logger.warn('Failed to save search results:', error)
   }
 }
 
@@ -215,7 +215,7 @@ const setMode = (mode: BrowserMode) => {
     try {
       localStorage.setItem('contextmax-file-browser-mode', mode)
     } catch (error) {
-      console.warn('Failed to save file browser mode to localStorage:', error)
+      logger.warn('Failed to save file browser mode to localStorage:', error)
     }
   }
 }
