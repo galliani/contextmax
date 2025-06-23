@@ -340,7 +340,7 @@ const handleRefreshFiles = async () => {
 // Download JSON functionality (existing)
 const handleDownloadJSON = async () => {
   try {
-    const contextSetsData = generateContextSetsJSONWithPrefix()
+    const contextSetsData = generateContextSetsJSONWithPrefix(undefined, true) // Include timestamp
     const jsonString = JSON.stringify(contextSetsData, null, 2)
     
     // Create and download the file

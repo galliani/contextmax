@@ -364,7 +364,7 @@ export const useProjectStore = () => {
 
   const previewContextSetsJSON = () => {
     const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
+    const contextSetsData = contextSets.generateContextSetsJSON(projectName, true) // Include timestamp
     const result = persistence.previewContextSetsJSON(contextSetsData)
     
     if (result) {
@@ -376,7 +376,7 @@ export const useProjectStore = () => {
 
   const previewContextSetsJSONWithPrefix = () => {
     const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSONWithPrefix(projectName)
+    const contextSetsData = contextSets.generateContextSetsJSONWithPrefix(projectName, true) // Include timestamp
     const result = persistence.previewContextSetsJSON(contextSetsData)
     
     if (result) {

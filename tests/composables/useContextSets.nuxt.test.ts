@@ -733,4 +733,88 @@ describe('useContextSets', () => {
       })
     })
   })
+
+  describe('LastUpdated Timestamp', () => {
+    beforeEach(() => {
+      contextSets.clearAll()
+    })
+
+    it('should not include lastUpdated by default', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const json = contextSets.generateContextSetsJSON('test-project')
+      
+      expect(json).not.toHaveProperty('lastUpdated')
+    })
+
+    it('should include lastUpdated when explicitly requested', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const json = contextSets.generateContextSetsJSON('test-project', true)
+      
+      expect(json).toHaveProperty('lastUpdated')
+      expect(json.lastUpdated).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) // ISO format
+    })
+
+    it('should include current timestamp when requested', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const beforeTime = new Date()
+      const json = contextSets.generateContextSetsJSON('test-project', true)
+      const afterTime = new Date()
+      
+      expect(json.lastUpdated).toBeDefined()
+      const timestamp = new Date(json.lastUpdated!)
+      expect(timestamp.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime())
+      expect(timestamp.getTime()).toBeLessThanOrEqual(afterTime.getTime())
+    })
+
+    it('should not include lastUpdated in prefixed JSON by default', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const json = contextSets.generateContextSetsJSONWithPrefix('test-project')
+      
+      expect(json).not.toHaveProperty('lastUpdated')
+    })
+
+    it('should include lastUpdated in prefixed JSON when requested', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const json = contextSets.generateContextSetsJSONWithPrefix('test-project', true)
+      
+      expect(json).toHaveProperty('lastUpdated')
+      expect(json.lastUpdated).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) // ISO format
+    })
+
+    it('should generate different timestamps for sequential calls', async () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      
+      const json1 = contextSets.generateContextSetsJSON('test-project', true)
+      
+      // Wait a tiny bit to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 1))
+      
+      const json2 = contextSets.generateContextSetsJSON('test-project', true)
+      
+      expect(json1.lastUpdated).toBeDefined()
+      expect(json2.lastUpdated).toBeDefined()
+      expect(json1.lastUpdated).not.toBe(json2.lastUpdated)
+    })
+
+    it('should maintain other properties when including timestamp', () => {
+      contextSets.createContextSet('test-set', 'Test description')
+      contextSets.setActiveContextSet('test-set')
+      contextSets.addFileToActiveContextSet('/src/test.js')
+      
+      const json = contextSets.generateContextSetsJSON('test-project', true)
+      
+      expect(json).toEqual({
+        schemaVersion: '1.0',
+        projectName: 'test-project',
+        lastUpdated: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+        filesIndex: expect.any(Object),
+        sets: expect.any(Object)
+      })
+    })
+  })
 })

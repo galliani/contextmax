@@ -56,6 +56,7 @@ export interface ContextSet {
 export interface ContextSetsData {
   schemaVersion: string
   projectName?: string
+  lastUpdated?: string
   filesIndex: Record<string, FileIndexEntry>
   sets: Record<string, ContextSet>
 }
@@ -390,7 +391,7 @@ export const useContextSets = () => {
   }
 
   // Generate complete context sets JSON
-  const generateContextSetsJSON = (projectName?: string): ContextSetsData => {
+  const generateContextSetsJSON = (projectName?: string, includeTimestamp?: boolean): ContextSetsData => {
     // Clean up context sets before exporting
     const cleanedSets: Record<string, ContextSet> = {}
     for (const [name, contextSet] of Object.entries(contextSets.value)) {
@@ -400,6 +401,7 @@ export const useContextSets = () => {
     return {
       schemaVersion: "1.0",
       ...(projectName && { projectName }),
+      ...(includeTimestamp && { lastUpdated: new Date().toISOString() }),
       filesIndex: generateFilesIndex(),
       sets: cleanedSets
     }
@@ -452,8 +454,8 @@ export const useContextSets = () => {
   }
 
   // Generate context sets JSON with 'context:' prefix for export/preview
-  const generateContextSetsJSONWithPrefix = (projectName?: string): ContextSetsData => {
-    const baseData = generateContextSetsJSON(projectName)
+  const generateContextSetsJSONWithPrefix = (projectName?: string, includeTimestamp?: boolean): ContextSetsData => {
+    const baseData = generateContextSetsJSON(projectName, includeTimestamp)
     
     // Transform context set names to have 'context:' prefix
     const prefixedSets: Record<string, ContextSet> = {}
