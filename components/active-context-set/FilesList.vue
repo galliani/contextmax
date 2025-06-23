@@ -253,6 +253,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import type { FileRef, FunctionRef, Workflow, WorkflowPoint } from '~/composables/useContextSets'
 import FunctionSelectorModal from './FunctionSelectorModal.vue'
 import WorkflowPointEditor from './WorkflowPointEditor.vue'
@@ -498,7 +499,7 @@ const viewFile = async (fileEntry: string | FileRef) => {
   
   if (!fileItem) {
     announceError(`Could not find file in project tree: ${fileName}`)
-    console.error('File not found in tree:', filePath)
+    logger.error('File not found in tree:', filePath)
     return
   }
   
@@ -508,7 +509,7 @@ const viewFile = async (fileEntry: string | FileRef) => {
     announceStatus(`Opened file viewer for: ${fileName}`)
   } catch (error) {
     announceError(`Failed to load file content: ${fileName}`)
-    console.error('Error loading file content:', error)
+    logger.error('Error loading file content:', error)
   }
 }
 
@@ -693,18 +694,13 @@ const handleWorkflowPointSave = async (workflowPoint: WorkflowPoint) => {
 }
 
 const handleWorkflowPointRemove = async (fileId: string, pointType: 'start' | 'end') => {
-  console.log('[FilesList] handleWorkflowPointRemove called with fileId:', fileId, 'pointType:', pointType)
-  
   if (!activeContextSet.value) {
-    console.error('[FilesList] No active context set')
+    logger.error('[FilesList] No active context set')
     return
   }
-  
-  console.log('[FilesList] Current workflows before removal:', activeContextSet.value.workflows)
-  
+
   const fileName = filesManifest.value[fileId]?.path.split('/').pop() || 'Unknown file'
-  console.log('[FilesList] Removing workflow point for file:', fileName, 'type:', pointType)
-  
+
   try {
     const originalWorkflows = activeContextSet.value.workflows || []
     let workflows = [...originalWorkflows]
@@ -719,25 +715,18 @@ const handleWorkflowPointRemove = async (fileId: string, pointType: 'start' | 'e
       console.log('[FilesList] Removed end point workflows for file:', fileId)
     }
     
-    console.log('[FilesList] Original workflows count:', originalWorkflows.length)
-    console.log('[FilesList] Filtered workflows count:', workflows.length)
-    console.log('[FilesList] Workflows after filtering:', workflows)
-    
     // Update the context set (this will auto-save to OPFS)
     updateActiveContextSet({ workflows })
     
-    console.log('[FilesList] Context set updated, new workflows:', activeContextSet.value.workflows)
-    
     // Close form if it was expanded
     if (expandedWorkflowFileId.value === fileId) {
-      console.log('[FilesList] Closing expanded form for file:', fileId)
       cancelWorkflowConfig()
     }
-    
+
     announceStatus(`Removed workflow ${pointType} point for ${fileName}`)
-    console.log('[FilesList] Workflow point removal completed successfully')
+
   } catch (error) {
-    console.error('[FilesList] Error during workflow point removal:', error)
+    logger.error('[FilesList] Error during workflow point removal:', error)
     const message = error instanceof Error ? error.message : 'Failed to remove workflow point'
     announceError(message)
   }

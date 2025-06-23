@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import FullScreenLoader from '~/components/ui/FullScreenLoader.vue'
 
 // Use the project store
@@ -94,8 +95,7 @@ onMounted(async () => {
   if (hasSavedProjects()) {
     // Check if we have saved data and should show workspace
     if (hasSavedData()) {
-      console.log('🔄 Found saved data, attempting auto-restoration...')
-      
+        
       // Track data restoration
       trackDataRestored(savedProjectName.value)
       
@@ -103,27 +103,25 @@ onMounted(async () => {
       try {
         const { metadataLoaded, opfsRestored } = await loadFromLocalStorage()
         if (metadataLoaded && opfsRestored) {
-          console.log('✅ Project fully restored including OPFS data')
+          // Project fully restored including OPFS data
         } else if (metadataLoaded && !opfsRestored) {
-          console.log('⚠️ Project metadata restored from localStorage, but OPFS data unavailable')
-          console.log('ℹ️ You will need to reconnect to the project folder to browse files')
+          // Project metadata restored from localStorage, but OPFS data unavailable
+          // User will need to reconnect to the project folder to browse files
         } else {
-          console.warn('⚠️ Failed to restore project metadata from localStorage')
+          logger.warn('⚠️ Failed to restore project metadata from localStorage')
         }
       } catch (error) {
-        console.error('❌ Error during restoration:', error)
+        logger.error('❌ Error during restoration:', error)
       }
       
       // Always go to workspace if we have saved data
       goToWorkspace()
     } else {
       // We have saved projects but no current project data - stay on landing
-      console.log('ℹ️ Saved projects found, but no current project data - staying on landing page')
       goToLanding()
     }
   } else {
     // No saved projects - force to landing page
-    console.log('ℹ️ No saved projects found - showing landing page')
     goToLanding()
   }
 })

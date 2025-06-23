@@ -203,6 +203,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -268,7 +269,7 @@ const allFiles = computed(() => {
     const treeValue = fileTree?.value || []
     return getAllFilesFromTree(treeValue)
   } catch (error) {
-    console.warn('Error getting all files:', error)
+    logger.warn('Error getting all files:', error)
     return []
   }
 })
@@ -277,7 +278,7 @@ const hasFiles = computed(() => {
   try {
     return allFiles.value.length > 0
   } catch (error) {
-    console.warn('Error accessing files:', error)
+    logger.warn('Error accessing files:', error)
     return false
   }
 })
@@ -286,7 +287,7 @@ const hasActiveContextSet = computed(() => {
   try {
     return !!(activeContextSetName.value && activeContextSetName.value.trim())
   } catch (error) {
-    console.warn('Error checking active context set:', error)
+    logger.warn('Error checking active context set:', error)
     return false
   }
 })
@@ -298,7 +299,7 @@ const findFileInTree = (filePath: string): FileTreeItem | null => {
   try {
     return allFiles.value.find(file => file?.path === filePath) || null
   } catch (error) {
-    console.warn('Error searching file tree:', error)
+    logger.warn('Error searching file tree:', error)
     return null
   }
 }
@@ -347,18 +348,17 @@ const performKeywordSearch = async () => {
           })
         }
       } catch (error) {
-        console.warn(`Failed to load content for search: ${file.path}:`, error)
+        logger.warn(`Failed to load content for search: ${file.path}:`, error)
       }
     }
 
-    console.log(`🔍 Performing hybrid search for: "${searchKeyword.value}"`)
     const searchResults = await performHybridKeywordSearch(searchKeyword.value, filesToSearch)
     
     keywordSearchResults.value = searchResults
 
     announceStatus(`Search complete. Found ${searchResults.data.files.length} relevant files.`)
   } catch (error) {
-    console.error('Keyword search failed:', error)
+    logger.error('Keyword search failed:', error)
     announceStatus('Search failed. Please try again.')
   } finally {
     isSearching.value = false
@@ -382,7 +382,7 @@ const createContextFromSearch = (suggestion: KeywordSearchSuggestion) => {
           const success = addFileToActiveContextSet(fileItem)
           if (success) addedCount++
         } catch (error) {
-          console.warn(`Failed to add file ${result.file}:`, error)
+          logger.warn(`Failed to add file ${result.file}:`, error)
         }
       }
     }
@@ -409,7 +409,6 @@ watch(() => fileTree?.value, async (newTree, _oldTree) => {
       // But give a small delay to avoid interfering with automatic analysis
       clearAnalysisState()
       
-      console.log('🔄 Project switched, cleared analysis state')
       
       // Small delay to ensure UI updates and let automatic analysis start
       await nextTick()
@@ -417,7 +416,7 @@ watch(() => fileTree?.value, async (newTree, _oldTree) => {
       // Note: No need for analysis delay since search works on-demand
     }
   } catch (error) {
-    console.warn('Error in fileTree watcher:', error)
+    logger.warn('Error in fileTree watcher:', error)
   }
 }, { immediate: false })
 

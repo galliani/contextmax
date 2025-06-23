@@ -1,4 +1,5 @@
 import { LLMService } from '~/plugins/llm.client'
+import { logger } from '~/utils/logger'
 
 interface LLMLoadingState {
   status: 'loading' | 'ready' | 'error';
@@ -131,7 +132,7 @@ export const useLLMLoader = () => {
       }
       
     } catch (error) {
-      console.error(`LLM initialization failed for ${modelKey}:`, error)
+      logger.error(`LLM initialization failed for ${modelKey}:`, error)
       modelStates.value[modelKey] = {
         status: 'error',
         progress: 0,
@@ -150,7 +151,6 @@ export const useLLMLoader = () => {
   const initializeAllModels = async () => {
     try {
       const availableModels = LLMService.getAvailableModels()
-      console.log(`Initializing ${availableModels.length} models:`, availableModels)
 
       // Initialize all models concurrently
       const initPromises = availableModels.map(modelKey => initializeLLM(modelKey))
@@ -161,7 +161,7 @@ export const useLLMLoader = () => {
         loadingState.value = { ...modelStates.value['embeddings'] }
       }
     } catch (error) {
-      console.error('Failed to initialize all models:', error)
+      logger.error('Failed to initialize all models:', error)
     }
   }
 
@@ -216,7 +216,6 @@ export const useLLMLoader = () => {
       if (hasChanges) {
         // Force reactive update
         forceUpdate.value++
-        console.log('🔄 Synced model states with service status')
       }
     }
     
@@ -234,7 +233,7 @@ export const useLLMLoader = () => {
       // Stop polling after 5 minutes to avoid infinite polling
       if (elapsed > maxPollingTime) {
         clearInterval(interval)
-        console.warn('⏰ Stopped model status polling after 5 minutes timeout')
+        logger.warn('⏰ Stopped model status polling after 5 minutes timeout')
         return
       }
       
@@ -245,7 +244,6 @@ export const useLLMLoader = () => {
       if (allReady) {
         syncStates()
         clearInterval(interval)
-        console.log('✅ All models ready, stopped status polling')
       } else {
         syncStates()
         
@@ -254,7 +252,6 @@ export const useLLMLoader = () => {
           const statuses = LLMService.getAvailableModels().map(key => 
             `${key}: ${LLMService.getStatus(key)}`
           )
-          console.log(`⏳ Polling model status (${Math.round(elapsed/1000)}s): ${statuses.join(', ')}`)
         }
       }
     }, 500)

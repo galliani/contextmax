@@ -273,7 +273,6 @@ const showUsage = (fileId: string) => {
   announceStatus(`${fileName} is used in ${usageCount} context set${usageCount !== 1 ? 's' : ''}`)
   
   // TODO: Implement usage modal/drawer (future enhancement)
-  console.log('Would show usage for:', fileId)
 }
 
 const viewFile = (fileId: string, filePath: string) => {
@@ -281,6 +280,5 @@ const viewFile = (fileId: string, filePath: string) => {
   announceStatus(`Viewing file: ${fileName}`)
   
   // TODO: Implement file content viewer (CP03 enhancement)
-  console.log('Would view file:', filePath)
 }
 </script> 

@@ -4,6 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 import type { FileTreeItem } from '~/composables/useFileSystem'
+import { logger } from '~/utils/logger'
 
 // Saved projects management interface
 export interface SavedProject {
@@ -59,18 +60,14 @@ export function useProjectManager() {
         
         // Only process if we haven't already processed this file tree
         if (processedEmbeddingsForFileTree.value !== fileTreeHash) {
-          console.log('🎯 Embeddings model ready and files loaded, generating embeddings...')
           try {
             const filesToProcess = await prepareFilesForEmbedding(fileTree)
             if (filesToProcess.length > 0) {
               await generateEmbeddingsOnDemand(filesToProcess)
-              console.log('✅ Automatic embedding generation completed successfully')
               processedEmbeddingsForFileTree.value = fileTreeHash
-            } else {
-              console.log('📭 No supported files found for embedding generation')
             }
           } catch (error) {
-            console.warn('⚠️ Error during automatic embedding generation:', error)
+            logger.warn('⚠️ Error during automatic embedding generation:', error)
           }
         }
       }
@@ -97,7 +94,7 @@ export function useProjectManager() {
       const projects: SavedProject[] = JSON.parse(saved)
       savedProjects.value = projects.sort((a, b) => b.lastAccessed - a.lastAccessed)
     } catch (error) {
-      console.error('Failed to load saved projects:', error)
+      logger.error('Failed to load saved projects:', error)
       savedProjects.value = []
     }
   }
@@ -107,7 +104,7 @@ export function useProjectManager() {
     try {
       localStorage.setItem(SAVED_PROJECTS_KEY, JSON.stringify(savedProjects.value))
     } catch (error) {
-      console.error('Failed to save projects to localStorage:', error)
+      logger.error('Failed to save projects to localStorage:', error)
     }
   }
 
@@ -128,9 +125,8 @@ export function useProjectManager() {
       
       savedProjects.value.sort((a: SavedProject, b: SavedProject) => b.lastAccessed - a.lastAccessed)
       saveSavedProjectsToStorage()
-      console.log(`Added project to saved list: ${projectName}`)
     } catch (error) {
-      console.error('Failed to add project to saved list:', error)
+      logger.error('Failed to add project to saved list:', error)
     }
   }
 
@@ -141,10 +137,9 @@ export function useProjectManager() {
       if (index >= 0) {
         savedProjects.value.splice(index, 1)
         saveSavedProjectsToStorage()
-        console.log(`Removed project from saved list: ${projectName}`)
       }
     } catch (error) {
-      console.error('Failed to remove project from saved list:', error)
+      logger.error('Failed to remove project from saved list:', error)
     }
   }
 
@@ -167,7 +162,7 @@ export function useProjectManager() {
             const content = await file.text()
             files.push({ path: item.path, content })
           } catch (error) {
-            console.warn(`Failed to read file ${item.path}:`, error)
+            logger.warn(`Failed to read file ${item.path}:`, error)
           }
         } else if (item.type === 'directory' && item.children) {
           await traverse(item.children)
@@ -176,7 +171,6 @@ export function useProjectManager() {
     }
     
     await traverse(fileTree)
-    console.log(`📁 Prepared ${files.length} supported files for embedding generation`)
     return files
   }
   
@@ -190,14 +184,11 @@ export function useProjectManager() {
     try {
       // Only try to auto-load context-sets.json if we don't already have saved data
       if (!hadSavedDataBefore) {
-        console.log('Attempting to auto-load context-sets.json...')
         const autoLoaded = await autoLoadContextSetsFromProject(directoryHandle)
         if (autoLoaded) {
           autoLoadedFromProject.value = true
-          console.log('Successfully auto-loaded existing context-sets.json')
         }
       } else {
-        console.log('Skipping auto-load from project file - using saved localStorage data')
       }
       
       // Always load the file tree to enable file browsing
@@ -215,11 +206,9 @@ export function useProjectManager() {
         if (!hadSavedDataBefore) {
           // Fresh project selection - always copy
           shouldCopyToOPFS = true
-          console.log('Copying new project to OPFS for persistent access...')
         } else if (forceOPFSRefresh) {
           // Force refresh for reload operations - always copy to update OPFS with fresh files
           shouldCopyToOPFS = true
-          console.log('Forcing OPFS refresh with updated files from local folder...')
         } else {
           // Reconnecting to existing project - check if OPFS copy exists
           try {
@@ -227,12 +216,9 @@ export function useProjectManager() {
             const hasOPFSCopy = opfsProjects.includes(projectName)
             if (!hasOPFSCopy) {
               shouldCopyToOPFS = true
-              console.log('No OPFS copy found for existing project, creating one...')
-            } else {
-              console.log('OPFS copy already exists for project, skipping copy')
             }
           } catch (error) {
-            console.warn('Failed to check OPFS projects, will attempt copy anyway:', error)
+            logger.warn('Failed to check OPFS projects, will attempt copy anyway:', error)
             shouldCopyToOPFS = true
           }
         }
@@ -241,14 +227,13 @@ export function useProjectManager() {
           try {
             const copied = await copyProjectToOPFS(directoryHandle)
             if (copied) {
-              console.log('Project successfully copied to OPFS')
               // Add to saved projects when successfully copied
               addToSavedProjects(projectName)
             } else {
-              console.warn('Failed to copy project to OPFS, but continuing with regular functionality')
+              logger.warn('Failed to copy project to OPFS, but continuing with regular functionality')
             }
           } catch (error) {
-            console.warn('OPFS copy failed, but continuing with regular functionality:', error)
+            logger.warn('OPFS copy failed, but continuing with regular functionality:', error)
           }
         } else {
           // Project already exists in OPFS, just update the saved projects list
@@ -267,7 +252,7 @@ export function useProjectManager() {
         trackProjectRestored(directoryHandle.name)
       }
     } catch (error) {
-      console.error('Error loading project:', error)
+      logger.error('Error loading project:', error)
       if (error instanceof Error) {
         autoLoadError.value = error.message
       }
@@ -279,7 +264,6 @@ export function useProjectManager() {
 
   // Switch to a different saved project using existing loadProjectFiles logic
   async function switchToProject(projectName: string): Promise<boolean> {
-    console.log(`🔄 Switching to project: ${projectName}`)
     
     try {
       // Update last accessed time
@@ -289,7 +273,7 @@ export function useProjectManager() {
       const { getProjectFromOPFS } = useProjectStore()
       const opfsHandle = await getProjectFromOPFS(projectName)
       if (!opfsHandle) {
-        console.error(`❌ Project not found in OPFS: ${projectName}`)
+        logger.error(`❌ Project not found in OPFS: ${projectName}`)
         return false
       }
       
@@ -303,30 +287,24 @@ export function useProjectManager() {
       // Load project files (this handles file tree building, context sets loading, etc.)
       await loadProjectFiles(opfsHandle, true) // Mark as having saved data to preserve context sets
       
-      console.log(`✅ Successfully switched to project: ${projectName}`)
       return true
     } catch (error) {
-      console.error(`❌ Failed to switch to project ${projectName}:`, error)
+      logger.error(`❌ Failed to switch to project ${projectName}:`, error)
       return false
     }
   }
 
   async function selectProjectFolder() {
-    console.log('selectProjectFolder called (Add Project), isFileSystemSupported:', isFileSystemSupported.value)
-
     if (!isFileSystemSupported.value) {
-      console.log('File System Access API not supported')
       return
     }
 
     try {
-      console.log('Calling showDirectoryPicker for new project...')
       
       const directoryHandle = await window.showDirectoryPicker({
         mode: 'readwrite'
       })
       
-      console.log('Directory selected for new project:', directoryHandle)
       
       // Start loading immediately to show loader without delay
       projectLoading.startFileLoading()
@@ -337,14 +315,13 @@ export function useProjectManager() {
       setSelectedFolder(directoryHandle)
       await loadProjectFiles(directoryHandle, false, false, true) // Always treat as fresh selection, skip starting loading since we already started it
       
-      console.log('✅ New project added successfully - navigating to workspace')
       goToWorkspace()
     } catch (error: unknown) {
       // Stop loading on error
       projectLoading.stopFileLoading()
       
       if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Error selecting folder for new project:', error)
+        logger.error('Error selecting folder for new project:', error)
         // Clear auto-detection state on error
         resetState()
         // TODO: Show user-friendly error message
@@ -354,10 +331,8 @@ export function useProjectManager() {
 
   // Reload files from local folder using existing selectProjectFolder logic
   async function reloadFilesFromLocal(): Promise<boolean> {
-    console.log('🔄 Starting file refresh from local folder...')
     
     if (!isFileSystemSupported.value) {
-      console.log('File System Access API not supported')
       return false
     }
     
@@ -371,7 +346,6 @@ export function useProjectManager() {
         return false
       }
       
-      console.log('Directory selected for refresh:', directoryHandle.name)
       
       // Start loading immediately to show loader without delay
       projectLoading.startFileLoading()
@@ -382,7 +356,7 @@ export function useProjectManager() {
       const newProjectName = directoryHandle.name
       
       if (currentProjectName && currentProjectName !== newProjectName) {
-        console.warn(`⚠️ Selected folder "${newProjectName}" differs from current project "${currentProjectName}"`)
+        logger.warn(`⚠️ Selected folder "${newProjectName}" differs from current project "${currentProjectName}"`)
         // We'll proceed but this might be intentional (user wants to switch projects via refresh)
       }
       
@@ -394,14 +368,13 @@ export function useProjectManager() {
       // Force OPFS refresh when reloading to ensure fresh files are copied, skip starting loading since we already started it
       await loadProjectFiles(directoryHandle, hadSavedDataBefore, true, true)
       
-      console.log(`✅ File refresh completed for: ${newProjectName}`)
       return true
     } catch (error) {
       // Stop loading on error
       projectLoading.stopFileLoading()
       
       if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('❌ Error refreshing files from local folder:', error)
+        logger.error('❌ Error refreshing files from local folder:', error)
       }
       return false
     }

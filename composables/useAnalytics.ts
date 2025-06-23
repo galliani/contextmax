@@ -4,6 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 import { posthog } from 'posthog-js'
+import { logger } from '~/utils/logger'
 
 export interface AnalyticsEvent {
   name: string
@@ -37,10 +38,8 @@ export const useAnalytics = () => {
           opt_out_capturing_by_default: false,
           respect_dnt: true,
         })
-        
-        console.log('PostHog initialized successfully')
       } catch (error) {
-        console.error('Failed to initialize PostHog:', error)
+        logger.error('Failed to initialize PostHog:', error)
       }
     }
     
@@ -55,11 +54,9 @@ export const useAnalytics = () => {
           script.setAttribute('data-website-id', config.public.umamiWebsiteId)
           script.setAttribute('data-auto-track', 'false') // We'll handle tracking manually
           document.head.appendChild(script)
-          
-          console.log('Umami script injected successfully')
         }
       } catch (error) {
-        console.error('Failed to initialize Umami:', error)
+        logger.error('Failed to initialize Umami:', error)
       }
     }
   }
@@ -83,7 +80,7 @@ export const useAnalytics = () => {
           $referrer: pageData.referrer,
         })
       } catch (error) {
-        console.error('PostHog page view tracking failed:', error)
+        logger.error('PostHog page view tracking failed:', error)
       }
     }
     
@@ -95,7 +92,7 @@ export const useAnalytics = () => {
           (window as any).umami.track(pageData.url)
         }
       } catch (error) {
-        console.error('Umami page view tracking failed:', error)
+        logger.error('Umami page view tracking failed:', error)
       }
     }
   }
@@ -109,7 +106,7 @@ export const useAnalytics = () => {
       try {
         posthog.capture(event.name, event.properties)
       } catch (error) {
-        console.error('PostHog event tracking failed:', error)
+        logger.error('PostHog event tracking failed:', error)
       }
     }
     
@@ -120,7 +117,7 @@ export const useAnalytics = () => {
           (window as any).umami.track(event.name, event.properties)
         }
       } catch (error) {
-        console.error('Umami event tracking failed:', error)
+        logger.error('Umami event tracking failed:', error)
       }
     }
   }
@@ -133,7 +130,7 @@ export const useAnalytics = () => {
       try {
         posthog.identify(userId, traits)
       } catch (error) {
-        console.error('PostHog user identification failed:', error)
+        logger.error('PostHog user identification failed:', error)
       }
     }
   }
@@ -146,7 +143,7 @@ export const useAnalytics = () => {
       try {
         posthog.reset()
       } catch (error) {
-        console.error('PostHog user reset failed:', error)
+        logger.error('PostHog user reset failed:', error)
       }
     }
   }
@@ -159,7 +156,7 @@ export const useAnalytics = () => {
       try {
         posthog.people.set(properties)
       } catch (error) {
-        console.error('PostHog set user properties failed:', error)
+        logger.error('PostHog set user properties failed:', error)
       }
     }
   }
@@ -172,7 +169,7 @@ export const useAnalytics = () => {
       try {
         posthog.opt_out_capturing()
       } catch (error) {
-        console.error('PostHog opt out failed:', error)
+        logger.error('PostHog opt out failed:', error)
       }
     }
   }
@@ -185,7 +182,7 @@ export const useAnalytics = () => {
       try {
         posthog.opt_in_capturing()
       } catch (error) {
-        console.error('PostHog opt in failed:', error)
+        logger.error('PostHog opt in failed:', error)
       }
     }
   }

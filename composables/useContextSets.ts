@@ -4,9 +4,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface FileManifestEntry {
   path: string
   comment: string
+}
+
+export interface FileIndexEntry {
+  path: string
+  contexts: string[]
 }
 
 export interface FunctionRef {
@@ -38,6 +45,7 @@ export interface ContextSet {
   description: string
   files: (string | FileRef)[]
   workflows: Workflow[]
+  uses?: string[] // Array of child context names that this context uses
   systemBehavior?: {
     processing?: {
       mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
@@ -47,9 +55,9 @@ export interface ContextSet {
 
 export interface ContextSetsData {
   schemaVersion: string
-  filesManifest: Record<string, FileManifestEntry>
-  contextSets: Record<string, ContextSet>
-  fileContextsIndex: Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>>
+  projectName?: string
+  filesIndex: Record<string, FileIndexEntry>
+  sets: Record<string, ContextSet>
 }
 
 // Global state for context sets (shared across all instances)
@@ -101,7 +109,6 @@ export const useContextSets = () => {
       comment: ''
     }
     
-    console.log('Auto-created new file manifest entry:', { id: newId, path: filePath })
     return newId
   }
 
@@ -109,29 +116,28 @@ export const useContextSets = () => {
   const createContextSet = (name: string, description: string = ''): boolean => {
     if (contextSets.value[name]) {
       // Don't throw error, just return false for duplicates
-      console.warn(`Context set "${name}" already exists`)
+      logger.warn(`Context set "${name}" already exists`)
       return false
     }
     
     contextSets.value[name] = {
       description,
       files: [],
-      workflows: []
+      workflows: [],
+      uses: []
     }
     
-    console.log(`Created new context set: ${name}`)
     return true
   }
 
   // Set active context set
   const setActiveContextSet = (name: string | null) => {
     if (name && !contextSets.value[name]) {
-      console.warn(`Context set "${name}" does not exist`)
+      logger.warn(`Context set "${name}" does not exist`)
       return false
     }
     
     activeContextSetName.value = name
-    console.log('Set active context set:', name)
     return true
   }
 
@@ -155,7 +161,7 @@ export const useContextSets = () => {
     })
     
     if (alreadyIncluded) {
-      console.warn('File already included in active context set:', filePath)
+      logger.warn('File already included in active context set:', filePath)
       return false
     }
     
@@ -168,15 +174,9 @@ export const useContextSets = () => {
         ...(options.functionRefs && { functionRefs: options.functionRefs })
       }
       activeSet.files.push(fileRef)
-      console.log('Added file with metadata to active context set:', { 
-        file: filePath, 
-        setName: activeContextSetName.value,
-        classification: options.classification 
-      })
     } else {
       // Add file as simple string reference (whole file)
       activeSet.files.push(fileId)
-      console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
     }
     
     return true
@@ -196,12 +196,10 @@ export const useContextSets = () => {
     
     if (index !== -1) {
       activeSet.files.splice(index, 1)
-      console.log('Removed file from active context set:', { fileId, setName: activeContextSetName.value })
       
       // Clean up orphaned files after removal
       const orphanedCount = cleanupOrphanedFiles()
       if (orphanedCount > 0) {
-        console.log(`Cleaned up ${orphanedCount} orphaned files after removal`)
       }
       
       return true
@@ -215,6 +213,7 @@ export const useContextSets = () => {
     name?: string, 
     description?: string, 
     workflows?: Workflow[],
+    uses?: string[],
     systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null
   }) => {
     if (!activeContextSetName.value) {
@@ -240,6 +239,9 @@ export const useContextSets = () => {
       if (updates.workflows !== undefined) {
         contextSets.value[updates.name].workflows = [...updates.workflows]
       }
+      if (updates.uses !== undefined) {
+        contextSets.value[updates.name].uses = [...updates.uses]
+      }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
           delete contextSets.value[updates.name].systemBehavior
@@ -255,7 +257,6 @@ export const useContextSets = () => {
       // Update active reference
       activeContextSetName.value = updates.name
       
-      console.log('Renamed context set:', { from: currentName, to: updates.name })
     } else {
       // Just update fields
       if (updates.description !== undefined) {
@@ -263,6 +264,9 @@ export const useContextSets = () => {
       }
       if (updates.workflows !== undefined) {
         currentSet.workflows = [...updates.workflows]
+      }
+      if (updates.uses !== undefined) {
+        currentSet.uses = [...updates.uses]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
@@ -308,7 +312,6 @@ export const useContextSets = () => {
       }
       filesManifest.value = newManifest
       
-      console.log('Cleaned up orphaned files from manifest:', orphanedFiles)
     }
     
     return orphanedFiles.length
@@ -326,7 +329,6 @@ export const useContextSets = () => {
       typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
     )
     
-    console.log('Deleting context set:', name, 'with referenced files:', referencedFiles)
     
     // Remove the context set
     const { [name]: removed, ...rest } = contextSets.value
@@ -340,7 +342,6 @@ export const useContextSets = () => {
     // Clean up orphaned files from manifest
     const orphanedCount = cleanupOrphanedFiles()
     
-    console.log('Deleted context set:', name, `- cleaned up ${orphanedCount} orphaned files`)
     return true
   }
 
@@ -353,10 +354,11 @@ export const useContextSets = () => {
     return false
   }
 
-  // Generate file contexts index
-  const generateFileContextsIndex = (): Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>> => {
-    const index: Record<string, Array<{ setName: string, functionRefs?: FunctionRef[] }>> = {}
+  // Generate files index
+  const generateFilesIndex = (): Record<string, FileIndexEntry> => {
+    const index: Record<string, FileIndexEntry> = {}
     
+    // First, add all files that are referenced by context sets
     for (const [setName, set] of Object.entries(contextSets.value)) {
       for (const fileEntry of set.files) {
         const fileId = typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
@@ -364,16 +366,15 @@ export const useContextSets = () => {
         if (!filesManifest.value[fileId]) continue
         
         if (!index[fileId]) {
-          index[fileId] = []
+          index[fileId] = {
+            path: filesManifest.value[fileId].path,
+            contexts: []
+          }
         }
         
-        const contextReference: { setName: string, functionRefs?: FunctionRef[] } = { setName }
-        
-        if (typeof fileEntry === 'object' && fileEntry.functionRefs) {
-          contextReference.functionRefs = fileEntry.functionRefs
+        if (!index[fileId].contexts.includes(setName)) {
+          index[fileId].contexts.push(setName)
         }
-        
-        index[fileId].push(contextReference)
       }
     }
     
@@ -381,51 +382,98 @@ export const useContextSets = () => {
   }
 
   // Generate complete context sets JSON
-  const generateContextSetsJSON = (): ContextSetsData => {
+  const generateContextSetsJSON = (projectName?: string): ContextSetsData => {
     return {
       schemaVersion: "1.0",
-      filesManifest: { ...filesManifest.value },
-      contextSets: { ...contextSets.value },
-      fileContextsIndex: generateFileContextsIndex()
+      ...(projectName && { projectName }),
+      filesIndex: generateFilesIndex(),
+      sets: { ...contextSets.value }
+    }
+  }
+
+  // Generate context sets JSON with 'context:' prefix for export/preview
+  const generateContextSetsJSONWithPrefix = (projectName?: string): ContextSetsData => {
+    const baseData = generateContextSetsJSON(projectName)
+    
+    // Transform context set names to have 'context:' prefix
+    const prefixedSets: Record<string, ContextSet> = {}
+    for (const [name, contextSet] of Object.entries(baseData.sets)) {
+      const prefixedName = name.startsWith('context:') ? name : `context:${name}`
+      prefixedSets[prefixedName] = {
+        ...contextSet,
+        // Also update the 'uses' array to have prefixed names
+        uses: contextSet.uses?.map(usedName => 
+          usedName.startsWith('context:') ? usedName : `context:${usedName}`
+        ) || []
+      }
+    }
+    
+    // Update filesIndex to reference prefixed context names
+    const prefixedFilesIndex: Record<string, FileIndexEntry> = {}
+    for (const [fileId, fileIndex] of Object.entries(baseData.filesIndex)) {
+      prefixedFilesIndex[fileId] = {
+        ...fileIndex,
+        contexts: fileIndex.contexts.map(contextName => 
+          contextName.startsWith('context:') ? contextName : `context:${contextName}`
+        )
+      }
+    }
+    
+    return {
+      ...baseData,
+      sets: prefixedSets,
+      filesIndex: prefixedFilesIndex
     }
   }
 
   // Load context sets from JSON data
   const loadContextSetsData = (data: ContextSetsData) => {
-    // First, load context sets
-    contextSets.value = { ...data.contextSets }
+    // First, load context sets from either new 'sets' or legacy 'contextSets' format
+    if (data.sets) {
+      contextSets.value = { ...data.sets }
+    } else if ((data as any).contextSets) {
+      // Legacy format support
+      contextSets.value = { ...(data as any).contextSets }
+    }
     
-    // Then, only import files that are actually referenced by the loaded context sets
-    const referencedFileIds = new Set<string>()
+    // Convert filesIndex to filesManifest for internal use
+    // We still use filesManifest internally but generate filesIndex on export
+    const newFilesManifest: Record<string, FileManifestEntry> = {}
     
-    // Collect all file IDs that are actually used in context sets
-    for (const contextSet of Object.values(contextSets.value)) {
-      for (const fileEntry of contextSet.files) {
-        const fileId = typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
-        referencedFileIds.add(fileId)
+    if (data.filesIndex) {
+      // New format with filesIndex
+      for (const [fileId, fileIndex] of Object.entries(data.filesIndex)) {
+        newFilesManifest[fileId] = {
+          path: fileIndex.path,
+          comment: '' // Comments are no longer stored in the index
+        }
+      }
+    } else if ((data as any).filesManifest) {
+      // Legacy format support
+      const legacyData = data as any
+      const referencedFileIds = new Set<string>()
+      
+      // Collect all file IDs that are actually used in context sets
+      for (const contextSet of Object.values(contextSets.value)) {
+        for (const fileEntry of contextSet.files) {
+          const fileId = typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
+          referencedFileIds.add(fileId)
+        }
+      }
+      
+      // Only import files that are actually referenced
+      for (const fileId of referencedFileIds) {
+        if (legacyData.filesManifest[fileId]) {
+          newFilesManifest[fileId] = legacyData.filesManifest[fileId]
+        }
       }
     }
     
-    // Only import files that are actually referenced
-    const filteredFilesManifest: Record<string, FileManifestEntry> = {}
-    for (const fileId of referencedFileIds) {
-      if (data.filesManifest[fileId]) {
-        filteredFilesManifest[fileId] = data.filesManifest[fileId]
-      }
-    }
-    
-    filesManifest.value = filteredFilesManifest
-    
-    console.log('Loaded context sets data with filtered manifest:', { 
-      totalFilesInJSON: Object.keys(data.filesManifest).length,
-      actuallyReferencedFiles: Object.keys(filteredFilesManifest).length,
-      contextSetsCount: Object.keys(contextSets.value).length
-    })
+    filesManifest.value = newFilesManifest
     
     // Clean up any orphaned files (though there shouldn't be any now)
     const orphanedCount = cleanupOrphanedFiles()
     if (orphanedCount > 0) {
-      console.log(`Cleaned up ${orphanedCount} orphaned files after loading data`)
     }
     
     // Try to restore last selected context set from localStorage, fallback to first available
@@ -439,21 +487,15 @@ export const useContextSets = () => {
           const lastSelected = localStorage.getItem('contextmax-last-context-set')
           if (lastSelected && setNames.includes(lastSelected)) {
             selectedSet = lastSelected
-            console.log(`Restored last selected context set from localStorage: ${lastSelected}`)
           }
         } catch (error) {
-          console.warn('Failed to read last context set from localStorage:', error)
+          logger.warn('Failed to read last context set from localStorage:', error)
         }
       }
       
       activeContextSetName.value = selectedSet
     }
     
-    console.log('Final loaded state:', { 
-      filesCount: Object.keys(filesManifest.value).length,
-      contextSetsCount: setNames.length,
-      activeSet: activeContextSetName.value
-    })
   }
 
   // Clear all context sets and files
@@ -518,8 +560,10 @@ export const useContextSets = () => {
 
     // JSON operations
     generateContextSetsJSON,
+    generateContextSetsJSONWithPrefix,
     loadContextSetsData,
-    generateFileContextsIndex,
+    generateFilesIndex,
+    generateFileContextsIndex: generateFilesIndex, // Alias for backward compatibility
 
     // Utility operations
     clearAll,

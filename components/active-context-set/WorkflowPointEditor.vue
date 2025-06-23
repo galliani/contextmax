@@ -6,7 +6,7 @@
 <template>
   <!-- Workflow Point Configuration Form (Accordion) -->
   <div v-if="isExpanded" class="mt-4 p-4 bg-muted/20 rounded-lg border border-primary/20">
-    <h5 class="text-sm font-medium text-foreground mb-4 flex items-center">
+    <h5 class="text-sm font-medium text-foreground mb-2 flex items-center">
       <Icon 
         :name="workflowPointType === 'start' ? 'lucide:play' : 'lucide:square'" 
         class="w-4 h-4 mr-2"
@@ -14,6 +14,48 @@
       />
       {{ workflowPointType === 'start' ? 'Start Point' : 'End Point' }} Configuration
     </h5>
+    
+    <!-- Workflow Point Description -->
+    <div class="mb-4 p-3 bg-background/50 rounded border border-border/50">
+      <p class="text-sm text-muted-foreground leading-relaxed mb-2">
+        <template v-if="workflowPointType === 'start'">
+          <strong>Start Point:</strong> Mark this file as the entry point for your entire context set's workflow. This is where the process begins across all files in this context set - like a button click, API call, or command that triggers the whole feature.
+        </template>
+        <template v-else>
+          <strong>End Point:</strong> Mark this file as where your context set's workflow completes. This is the final step across all files that produces the result - like saving data, sending a response, or displaying the final output.
+        </template>
+      </p>
+      
+      <!-- Collapsible Guide -->
+      <button
+        @click="showExplanation = !showExplanation"
+        class="flex items-center justify-between w-full text-left hover:text-primary transition-colors"
+      >
+        <h4 class="text-sm font-medium text-foreground">Why specify workflow steps?</h4>
+        <Icon 
+          :name="showExplanation ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
+          class="w-4 h-4 text-muted-foreground transition-transform"
+        />
+      </button>
+      
+      <!-- Collapsible Content -->
+      <div v-show="showExplanation" class="space-y-2 mt-2">
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          The workflow describes the step-by-step data flow through your entire context set (all files included). When you ask "add salary extraction to job clipping", 
+          AI assistants can see exactly which step handles data processing and needs modification across all the files.
+        </p>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          This helps AI assistants <strong>understand the big picture</strong> of how all files in your context set work together, 
+          <strong>make smarter changes</strong> by knowing which files to modify, <strong>avoid breaking changes</strong> 
+          by understanding dependencies between files, and <strong>debug issues faster</strong> by following the data flow across your entire codebase.
+        </p>
+        <div class="bg-background/50 rounded p-3 mt-3">
+          <p class="text-xs text-muted-foreground">
+            <strong>Example workflow across your context set:</strong> User clicks button (frontend file) → API receives request (backend file) → Background job starts (worker file) → AI processes data (service file) → User gets notified (notification file)
+          </p>
+        </div>
+      </div>
+    </div>
 
     <div class="space-y-4">
       <!-- Workflow Point Configuration -->
@@ -189,6 +231,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import type { WorkflowPoint, Workflow, FunctionRef, FileRef } from '~/composables/useContextSets'
 import FunctionSelectorModal from './FunctionSelectorModal.vue'
 
@@ -219,6 +262,9 @@ const { activeContextSet, saveWorkingCopyToOPFS, selectedFolder } = useProjectSt
 // Modal state
 const isFunctionModalOpen = ref(false)
 
+// Guide state
+const showExplanation = ref(false)
+
 // Form data for the workflow point
 const workflowPointData = ref<WorkflowPoint>({
   fileRef: '',
@@ -231,7 +277,6 @@ const workflowPointData = ref<WorkflowPoint>({
 // Computed to check if this file has specified functions
 const specifiedFunctions = computed(() => {
   if (!activeContextSet.value) {
-    console.log('[WorkflowPointEditor] No active context set')
     return []
   }
   
@@ -240,14 +285,10 @@ const specifiedFunctions = computed(() => {
     return fileId === props.fileId
   })
   
-  console.log('[WorkflowPointEditor] File entry for', props.fileId, ':', fileEntry)
-  
   if (typeof fileEntry === 'object' && fileEntry.functionRefs?.length) {
-    console.log('[WorkflowPointEditor] Found function refs:', fileEntry.functionRefs)
     return fileEntry.functionRefs
   }
   
-  console.log('[WorkflowPointEditor] No function refs found')
   return []
 })
 
@@ -331,17 +372,14 @@ const save = () => {
   // For end points, function name is optional
   if (props.workflowPointType === 'end' && !workflowPointData.value.function) {
     // Allow empty function name for end points - will be filled later or left as placeholder
-    console.log('[WorkflowPointEditor] Saving end point without function name')
   }
   
   emit('save', { ...workflowPointData.value })
 }
 
 const remove = () => {
-  console.log('[WorkflowPointEditor] Remove button clicked for fileId:', props.fileId, 'pointType:', props.workflowPointType)
   console.log('[WorkflowPointEditor] Emitting remove event with fileId:', props.fileId, 'and pointType:', props.workflowPointType)
   emit('remove', props.fileId, props.workflowPointType)
-  console.log('[WorkflowPointEditor] Remove event emitted successfully')
 }
 
 const updateMethodOptions = () => {
@@ -380,11 +418,6 @@ watch(() => workflowPointData.value.function, (newFunction) => {
   }
 })
 
-// Watch for changes in specified functions
-watch(specifiedFunctions, (newFunctions, oldFunctions) => {
-  console.log('[WorkflowPointEditor] specifiedFunctions changed from', oldFunctions, 'to', newFunctions)
-  console.log('[WorkflowPointEditor] hasSpecifiedFunctions:', hasSpecifiedFunctions.value)
-}, { deep: true })
 
 // Functions
 const openFunctionSelector = () => {
@@ -392,11 +425,9 @@ const openFunctionSelector = () => {
 }
 
 const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
-  console.log('[WorkflowPointEditor] handleFunctionsUpdated called with:', functions)
-  
   // We need to actually update the context set here!
   if (!activeContextSet.value || !props.fileId) {
-    console.error('[WorkflowPointEditor] No active context set or fileId')
+    logger.error('[WorkflowPointEditor] No active context set or fileId')
     return
   }
   
@@ -406,10 +437,8 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
     return entryId === props.fileId
   })
   
-  console.log('[WorkflowPointEditor] Found file at index:', fileIndex)
-  
   if (fileIndex === -1) {
-    console.error('[WorkflowPointEditor] File not found in context set')
+    logger.error('[WorkflowPointEditor] File not found in context set')
     return
   }
   
@@ -428,12 +457,9 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
     activeContextSet.value.files[fileIndex] = fileRef
   }
   
-  console.log('[WorkflowPointEditor] Updated context set files:', activeContextSet.value.files)
-  
   // Save to OPFS
   if (selectedFolder.value) {
     await saveWorkingCopyToOPFS(selectedFolder.value.name)
-    console.log('[WorkflowPointEditor] Saved to OPFS')
   }
   
   // Force a re-render by triggering reactivity
@@ -442,16 +468,12 @@ const handleFunctionsUpdated = async (functions: FunctionRef[]) => {
   // If we now have functions and a function name was passed, set it
   if (functions.length > 0 && !workflowPointData.value.function) {
     workflowPointData.value.function = functions[0].name
-    console.log('[WorkflowPointEditor] Set default function:', functions[0].name)
   }
 }
 
 const handleEntryPointSelected = (functionName: string) => {
-  console.log('[WorkflowPointEditor] handleEntryPointSelected called with:', functionName)
   // Wait a bit for the functions to be saved and the computed to update
   setTimeout(() => {
-    console.log('[WorkflowPointEditor] Setting workflow point function:', functionName)
-    console.log('[WorkflowPointEditor] Current specified functions:', specifiedFunctions.value)
     // Directly set the selected function as the workflow point function
     workflowPointData.value.function = functionName
     isFunctionModalOpen.value = false

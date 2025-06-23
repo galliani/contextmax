@@ -143,6 +143,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -335,7 +336,7 @@ const handleCreateContextSet = async () => {
             })
           }
         } catch (error) {
-          console.warn(`Failed to load content for search: ${file.path}:`, error)
+          logger.warn(`Failed to load content for search: ${file.path}:`, error)
         }
       }
       
@@ -352,7 +353,7 @@ const handleCreateContextSet = async () => {
             content: startingPointContent
           }
         } catch (error) {
-          console.warn(`Failed to load starting point file: ${selectedEntryPoint.value.path}:`, error)
+          logger.warn(`Failed to load starting point file: ${selectedEntryPoint.value.path}:`, error)
         }
       }
       
@@ -413,7 +414,7 @@ const handleCreateContextSet = async () => {
       const startPointText = selectedEntryPoint.value ? ' (including starting point)' : ''
       announceStatus(`Context set "${name}" created. Found ${resultCount} relevant files for assisted curation${startPointText}`)
     } catch (error) {
-      console.error('Search failed:', error)
+      logger.error('Search failed:', error)
       // Don't fail the context creation if search fails
       announceStatus(`Context set "${name}" created (search failed)`)
     } finally {

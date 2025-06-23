@@ -43,7 +43,7 @@
           size="default"
           class="px-4 py-2.5 font-medium hover:bg-muted/50 transition-all duration-200"
           title="Preview context-sets.json output"
-          @click="previewContextSetsJSON"
+          @click="handlePreviewContextSetsJSON"
         >
           <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
           Preview JSON
@@ -238,6 +238,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import {
   Dialog,
   DialogContent,
@@ -267,11 +268,12 @@ const {
   selectedFolder,
   contextSets,
   generateContextSetsJSON,
+  generateContextSetsJSONWithPrefix,
   exportToProjectFolder,
   getExportStatus,
   hasStableVersionInProject,
   fileTree,
-  previewContextSetsJSON
+  previewContextSetsJSONWithPrefix
 } = useProjectStore()
 
 // Smart Context Suggestions (for cache clearing and embedding generation)
@@ -303,7 +305,6 @@ const { state: autoSaveState, forceSave, undo, redo } = useAutoSave(
     enableUndo: true,
     onSave: async (data) => {
       // Auto-save to localStorage (silent background operation)
-      console.log('Auto-saving context sets:', data)
     },
     onRestore: (_data) => {
       // Handle restored data
@@ -337,7 +338,7 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
           const content = await file.text()
           files.push({ path: item.path, content })
         } catch (error) {
-          console.warn(`Failed to read file ${item.path}:`, error)
+          logger.warn(`Failed to read file ${item.path}:`, error)
         }
       } else if (item.type === 'directory' && item.children) {
         await traverse(item.children)
@@ -346,7 +347,6 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
   }
   
   await traverse(fileTree)
-  console.log(`📁 Prepared ${files.length} supported files for embedding generation`)
   return files
 }
 
@@ -405,7 +405,6 @@ const handleRefreshFiles = async () => {
   
   try {
     // Clear analysis cache before reloading files to ensure fresh analysis
-    console.log('🧹 Clearing analysis cache before project reload...')
     clearCache()
     await clearIndexedDBCache()
     
@@ -420,7 +419,6 @@ const handleRefreshFiles = async () => {
       
       // Auto-generate embeddings for refreshed projects
       try {
-        console.log('🚀 Auto-generating embeddings for refreshed project...')
         
         // Convert file tree to simple format for embedding generation
         const treeValue = fileTree?.value || []
@@ -428,12 +426,10 @@ const handleRefreshFiles = async () => {
         
         if (filesToAnalyze.length > 0) {
           await generateEmbeddingsOnDemand(filesToAnalyze)
-          console.log('✅ Automatic embedding generation completed after refresh')
         } else {
-          console.log('📭 No supported files found for embedding generation after refresh')
         }
       } catch (error) {
-        console.warn('⚠️ Error during automatic embedding generation after refresh:', error)
+        logger.warn('⚠️ Error during automatic embedding generation after refresh:', error)
       }
     } else {
       warning(
@@ -469,7 +465,7 @@ const handleExportMenuChoice = async (action: 'download' | 'export') => {
 // Download JSON functionality (existing)
 const handleDownloadJSON = async () => {
   try {
-    const contextSetsData = generateContextSetsJSON()
+    const contextSetsData = generateContextSetsJSONWithPrefix()
     const jsonString = JSON.stringify(contextSetsData, null, 2)
     
     // Create and download the file
@@ -635,6 +631,11 @@ function handleRedo() {
   } else {
     warning('Nothing to Redo', 'No actions available to redo')
   }
+}
+
+// Preview JSON with context: prefix
+const handlePreviewContextSetsJSON = () => {
+  previewContextSetsJSONWithPrefix()
 }
 
 // Watch for auto-load announcements with enhanced feedback

@@ -176,6 +176,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import type { FunctionRef, FileTreeItem } from '~/composables/useProjectStore'
 import {
   Select,
@@ -269,7 +270,6 @@ watchEffect(() => {
 watchEffect(() => {
   if (fileContent.value) {
     detectFunctions()
-    console.log('Detected functions:', detectedFunctions.value)
   }
 })
 
@@ -302,7 +302,7 @@ async function loadFileContentForSelection(fileId: string) {
       fileContent.value = await fileObj.text()
     }
   } catch (error) {
-    console.error('Error loading file content:', error)
+    logger.error('Error loading file content:', error)
     fileContent.value = ''
   } finally {
     isLoadingContent.value = false
@@ -402,7 +402,6 @@ function addSelectedFunction() {
 
 function setAsEntryPoint() {
   const functionName = selectionPopover.text
-  console.log('[FunctionSelectorModal] setAsEntryPoint called with:', functionName)
   if (!functionName) return
   
   // First add to selected functions if not already there
@@ -414,10 +413,7 @@ function setAsEntryPoint() {
       lineIndex: selectionPopover.lineIndex
     } as FunctionRef & { lineIndex: number })
     updateHighlightedLines()
-    console.log('[FunctionSelectorModal] Added function to list:', functionName)
   }
-  
-  console.log('[FunctionSelectorModal] Selected functions before save:', selectedFunctions.value)
   
   // Hide popover and clear selection first
   selectionPopover.visible = false
@@ -429,7 +425,6 @@ function setAsEntryPoint() {
   
   // Then emit the entry point selection and close modal after delay
   setTimeout(() => {
-    console.log('[FunctionSelectorModal] Emitting entry-point-selected:', functionName)
     emit('entry-point-selected', functionName)
     // Now close the modal
     open.value = false
@@ -473,7 +468,7 @@ function removeFunctionFromLine(line: string, lineIndex: number) {
       }
     }
   } catch (error) {
-    console.error('Error parsing line for function removal:', error)
+    logger.error('Error parsing line for function removal:', error)
   }
   
   updateHighlightedLines()
@@ -485,7 +480,6 @@ function saveFunctions(keepOpen = false) {
     name: f.name,
     comment: f.comment || ''
   }))
-  console.log('[FunctionSelectorModal] saveFunctions called, emitting:', cleanedFunctions)
   emit('functions-updated', cleanedFunctions)
   if (!keepOpen) {
     open.value = false
@@ -576,7 +570,7 @@ function detectFunctions() {
     functions.sort((a, b) => a.line - b.line)
     detectedFunctions.value = functions
   } catch (error) {
-    console.error('Error parsing functions with regex parser:', error)
+    logger.error('Error parsing functions with regex parser:', error)
     detectedFunctions.value = []
   }
 }
