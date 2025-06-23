@@ -103,106 +103,6 @@ export const usePersistence = () => {
     return count
   }
 
-  // Export working copy to stable version in project folder
-  const exportToProjectFolder = async (
-    selectedFolder: FileSystemDirectoryHandle | null,
-    contextSetsData: any
-  ): Promise<{ success: boolean, error?: string, warning?: string }> => {
-    if (!selectedFolder) {
-      return { success: false, error: 'No project folder selected' }
-    }
-
-    if (Object.keys(contextSetsData.sets || contextSetsData.contextSets || {}).length === 0) {
-      return { success: false, error: 'No context sets to export' }
-    }
-
-    try {
-      // Check if File System Access API is supported
-      if (!('showDirectoryPicker' in window)) {
-        // Fallback to regular download if API not supported
-        const jsonContent = JSON.stringify(contextSetsData, null, 2)
-        const blob = new Blob([jsonContent], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'context-sets.json'
-        a.click()
-        URL.revokeObjectURL(url)
-        return { 
-          success: true, 
-          warning: 'File saved to Downloads folder (browser API not supported)' 
-        }
-      }
-
-      // Check if we have write permissions
-      const permissionStatus = await (selectedFolder as FileSystemDirectoryHandleWithPermission).queryPermission({ mode: 'readwrite' })
-      if (permissionStatus !== 'granted') {
-        // Request write permission
-        const newPermissionStatus = await (selectedFolder as FileSystemDirectoryHandleWithPermission).requestPermission({ mode: 'readwrite' })
-        if (newPermissionStatus !== 'granted') {
-          // Fallback to regular download if permission not granted
-          const jsonContent = JSON.stringify(contextSetsData, null, 2)
-          const blob = new Blob([jsonContent], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = 'context-sets.json'
-          a.click()
-          URL.revokeObjectURL(url)
-          return { 
-            success: true, 
-            warning: 'File saved to Downloads folder (write permission not granted)' 
-          }
-        }
-      }
-
-      // Generate the context sets JSON data
-      const jsonContent = JSON.stringify(contextSetsData, null, 2)
-
-      // Try to write the file to the project directory
-      const fileHandle = await selectedFolder.getFileHandle('context-sets.json', { create: true })
-      const writable = await fileHandle.createWritable()
-      await writable.write(jsonContent)
-      await writable.close()
-
-      return { success: true }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        // Fallback to regular download if permission error
-        try {
-          const jsonContent = JSON.stringify(contextSetsData, null, 2)
-          const blob = new Blob([jsonContent], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = 'context-sets.json'
-          a.click()
-          URL.revokeObjectURL(url)
-          return { 
-            success: true, 
-            warning: 'File saved to Downloads folder (permission denied)' 
-          }
-        } catch (downloadError) {
-          return { 
-            success: false, 
-            error: 'Failed to export file: Permission denied and download fallback failed' 
-          }
-        }
-      } else if (error instanceof DOMException && error.name === 'AbortError') {
-        return { 
-          success: false, 
-          error: 'Export cancelled by user.' 
-        }
-      } else {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        logger.error('❌ Failed to export context sets to project folder:', error)
-        return { 
-          success: false, 
-          error: `Failed to export: ${errorMessage}` 
-        }
-      }
-    }
-  }
 
   // Check if stable version exists in project folder
   const hasStableVersionInProject = async (selectedFolder: FileSystemDirectoryHandle | null): Promise<boolean> => {
@@ -297,7 +197,6 @@ export const usePersistence = () => {
     getSavedProjectName,
 
     // Export/Import operations
-    exportToProjectFolder,
     hasStableVersionInProject,
     tryLoadStableVersionFromProject,
     getExportStatus,

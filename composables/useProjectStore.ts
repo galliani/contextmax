@@ -361,12 +361,6 @@ export const useProjectStore = () => {
     return result
   }
 
-  // Export operations
-  const exportToProjectFolder = async (): Promise<{ success: boolean, error?: string, warning?: string }> => {
-    const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
-    return await persistence.exportToProjectFolder(globalState.selectedFolder, contextSetsData)
-  }
 
   const previewContextSetsJSON = () => {
     const projectName = globalState.selectedFolder?.name
@@ -500,7 +494,6 @@ export const useProjectStore = () => {
 
     // Export functions
     saveWorkingCopyToOPFS,
-    exportToProjectFolder,
     hasStableVersionInProject: () => persistence.hasStableVersionInProject(globalState.selectedFolder),
     getExportStatus,
     previewContextSetsJSON,
