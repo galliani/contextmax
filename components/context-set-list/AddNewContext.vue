@@ -127,15 +127,15 @@
           <Button 
             id="submit-new-context"
             type="submit" 
-            :disabled="!isFormValid || isSearching"
-            :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isSearching }"
+            :disabled="!isFormValid || isCreating"
+            :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isCreating }"
           >
             <Icon 
-              :name="isSearching ? 'lucide:loader-2' : 'lucide:plus'" 
+              :name="isCreating ? 'lucide:loader-2' : 'lucide:plus'" 
               class="w-4 h-4 mr-2"
-              :class="{ 'animate-spin': isSearching }"
+              :class="{ 'animate-spin': isCreating }"
             />
-            {{ isSearching ? 'Creating & Searching...' : 'Create Context Set' }}
+            {{ isCreating ? 'Creating...' : 'Create Context Set' }}
           </Button>
         </div>
       </form>
@@ -317,120 +317,30 @@ const handleCreateContextSet = async () => {
     // Automatically set the newly created context set as active
     setActiveContextSet(name)
     
-    // Perform keyword search using the context name
-    announceStatus(`Created context set: ${name}. Searching for related files...`)
-    isSearching.value = true
-    
-    try {
-      // Get all files from the file tree (already filtered by buildFilteredFileTree)
-      const allFiles = flattenFileTree(fileTree.value || [])
-      const filesToSearch: Array<{ path: string; content: string }> = []
-      
-      // Load file contents for search
-      for (const file of allFiles) {
-        try {
-          if (file.handle && file.type === 'file') {
-            const fileHandle = file.handle as FileSystemFileHandle
-            const fileObj = await fileHandle.getFile()
-            const content = await fileObj.text()
-            
-            filesToSearch.push({
-              path: file.path,
-              content: content
-            })
-          }
-        } catch (error) {
-          logger.warn(`Failed to load content for search: ${file.path}:`, error)
-        }
-      }
-      
-      // Prepare starting point file if selected
-      let startingPointFile
-      if (selectedEntryPoint.value) {
-        try {
-          const startingPointHandle = selectedEntryPoint.value.handle as FileSystemFileHandle
-          const startingPointFileObj = await startingPointHandle.getFile()
-          const startingPointContent = await startingPointFileObj.text()
-          
-          startingPointFile = {
-            path: selectedEntryPoint.value.path,
-            content: startingPointContent
-          }
-        } catch (error) {
-          logger.warn(`Failed to load starting point file: ${selectedEntryPoint.value.path}:`, error)
-        }
-      }
-      
-      // Perform the tri-model search using the original search term
-      const searchResults = await performTriModelSearch(term, filesToSearch, startingPointFile)
-      
-      // Prepare search results for the AssistedCuration component
-      const assistedResults = []
-      
-      // Add starting point file first if specified (with highest priority)
-      if (selectedEntryPoint.value) {
-        assistedResults.push({
-          file: selectedEntryPoint.value.path,
-          scorePercentage: 100,
-          finalScore: 1.0,
-          astScore: 1.0,
-          llmScore: 1.0,
-          flanScore: 1.0,
-          syntaxScore: 1.0,
-          hasSynergy: true,
-          matches: [term],
-          classification: 'entry-point',
-          workflowPosition: 'entry'
-        })
-      }
-      
-      // Add search results (excluding starting point if it exists)
-      for (const result of searchResults.data.files) {
-        // Skip if this file is the starting point (already added above)
-        if (selectedEntryPoint.value?.path !== result.file) {
-          assistedResults.push({
-            file: result.file,
-            scorePercentage: result.scorePercentage,
-            finalScore: result.finalScore,
-            astScore: result.astScore,
-            llmScore: result.llmScore,
-            flanScore: result.flanScore,
-            syntaxScore: result.syntaxScore,
-            hasSynergy: result.hasSynergy,
-            matches: result.matches || [],
-            classification: result.classification,
-            workflowPosition: result.workflowPosition,
-            relevantFunctions: result.relevantFunctions
-          })
-        }
-      }
-      
-      // Send search results to the TabbedFileBrowser component with metadata
-      if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
-        const metadata = {
-          keyword: term,
-          startingPointFile: selectedEntryPoint.value?.path
-        }
-        await (window as any).setAssistedSearchResults(assistedResults, metadata)
-      }
-      
-      const resultCount = assistedResults.length
-      const startPointText = selectedEntryPoint.value ? ' (including starting point)' : ''
-      announceStatus(`Context set "${name}" created. Found ${resultCount} relevant files for assisted curation${startPointText}`)
-    } catch (error) {
-      logger.error('Search failed:', error)
-      // Don't fail the context creation if search fails
-      announceStatus(`Context set "${name}" created (search failed)`)
-    } finally {
-      isSearching.value = false
-    }
-    
-    // Close modal and reset form
+    // Close modal immediately after successful context creation
     isOpen.value = false
-    resetForm()
+    announceStatus(`Created context set: ${name}`)
     
     // Emit created event
     emit('created', name)
+    
+    // Reset form
+    resetForm()
+    
+    // Trigger async search in the AssistedCuration tab
+    if (typeof window !== 'undefined') {
+      // Dispatch event to switch to AssistedCuration tab and start search
+      window.dispatchEvent(new CustomEvent('startAssistedSearch', {
+        detail: {
+          keyword: term,
+          contextSetName: name,
+          startingPointFile: selectedEntryPoint.value?.path
+        }
+      }))
+    }
+    
+    // Perform search asynchronously (non-blocking)
+    performAsyncSearch(term, name)
   } catch (error) {
     createError.value = error instanceof Error ? error.message : 'Failed to create context set'
     announceError(`Error creating context set: ${createError.value}`)
@@ -451,6 +361,133 @@ const resetForm = () => {
   selectedEntryPoint.value = null
   createError.value = ''
   isCreating.value = false
+}
+
+// Perform search asynchronously after context creation
+const performAsyncSearch = async (term: string, contextName: string) => {
+  try {
+    // Get all files from the file tree (already filtered by buildFilteredFileTree)
+    const allFiles = flattenFileTree(fileTree.value || [])
+    const filesToSearch: Array<{ path: string; content: string }> = []
+    
+    // Load file contents for search
+    for (const file of allFiles) {
+      try {
+        if (file.handle && file.type === 'file') {
+          const fileHandle = file.handle as FileSystemFileHandle
+          const fileObj = await fileHandle.getFile()
+          const content = await fileObj.text()
+          
+          filesToSearch.push({
+            path: file.path,
+            content: content
+          })
+        }
+      } catch (error) {
+        logger.warn(`Failed to load content for search: ${file.path}:`, error)
+      }
+    }
+    
+    // Prepare starting point file if selected
+    let startingPointFile
+    const savedEntryPoint = selectedEntryPoint.value // Save reference before form reset
+    if (savedEntryPoint) {
+      try {
+        const startingPointHandle = savedEntryPoint.handle as FileSystemFileHandle
+        const startingPointFileObj = await startingPointHandle.getFile()
+        const startingPointContent = await startingPointFileObj.text()
+        
+        startingPointFile = {
+          path: savedEntryPoint.path,
+          content: startingPointContent
+        }
+      } catch (error) {
+        logger.warn(`Failed to load starting point file: ${savedEntryPoint.path}:`, error)
+      }
+    }
+    
+    // Perform the tri-model search using the original search term
+    const searchResults = await performTriModelSearch(term, filesToSearch, startingPointFile)
+    
+    // Prepare search results for the AssistedCuration component
+    const assistedResults = []
+    
+    // Add starting point file first if specified (with highest priority)
+    if (savedEntryPoint) {
+      assistedResults.push({
+        file: savedEntryPoint.path,
+        scorePercentage: 100,
+        finalScore: 1.0,
+        astScore: 1.0,
+        llmScore: 1.0,
+        flanScore: 1.0,
+        syntaxScore: 1.0,
+        hasSynergy: true,
+        matches: [term],
+        classification: 'entry-point',
+        workflowPosition: 'entry'
+      })
+    }
+    
+    // Add search results (excluding starting point if it exists)
+    for (const result of searchResults.data.files) {
+      // Skip if this file is the starting point (already added above)
+      if (savedEntryPoint?.path !== result.file) {
+        assistedResults.push({
+          file: result.file,
+          scorePercentage: result.scorePercentage,
+          finalScore: result.finalScore,
+          astScore: result.astScore,
+          llmScore: result.llmScore,
+          flanScore: result.flanScore,
+          syntaxScore: result.syntaxScore,
+          hasSynergy: result.hasSynergy,
+          matches: result.matches || [],
+          classification: result.classification,
+          workflowPosition: result.workflowPosition,
+          relevantFunctions: result.relevantFunctions
+        })
+      }
+    }
+    
+    // Send search results to the TabbedFileBrowser component with metadata
+    if (typeof window !== 'undefined' && (window as any).setAssistedSearchResults) {
+      const metadata = {
+        keyword: term,
+        startingPointFile: savedEntryPoint?.path
+      }
+      await (window as any).setAssistedSearchResults(assistedResults, metadata)
+    }
+    
+    const resultCount = assistedResults.length
+    const startPointText = savedEntryPoint ? ' (including starting point)' : ''
+    announceStatus(`Found ${resultCount} relevant files for "${contextName}"${startPointText}`)
+    
+    // Dispatch completion event to stop loading state
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('assistedSearchCompleted', {
+        detail: {
+          keyword: term,
+          contextSetName: contextName,
+          resultCount: resultCount
+        }
+      }))
+    }
+  } catch (error) {
+    logger.error('Async search failed:', error)
+    announceError(`Search failed for "${contextName}"`)
+    
+    // Dispatch failure event to stop loading state
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('assistedSearchFailed', {
+        detail: {
+          keyword: term,
+          contextSetName: contextName,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }))
+    }
+  }
 }
 
 // Entry point file selection handlers
