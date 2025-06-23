@@ -8,7 +8,7 @@ import { logger } from '~/utils/logger'
 
 export interface FileManifestEntry {
   path: string
-  comment: string
+  comment?: string
 }
 
 export interface FileIndexEntry {
@@ -42,7 +42,7 @@ export interface WorkflowPoint {
 }
 
 export interface ContextSet {
-  description: string
+  description?: string
   files: (string | FileRef)[]
   workflows: Workflow[]
   uses?: string[] // Array of child context names that this context uses
@@ -105,8 +105,7 @@ export const useContextSets = () => {
     // Create new file entry
     const newId = generateFileId()
     filesManifest.value[newId] = {
-      path: filePath,
-      comment: ''
+      path: filePath
     }
     
     return newId
@@ -120,12 +119,18 @@ export const useContextSets = () => {
       return false
     }
     
-    contextSets.value[name] = {
-      description,
+    const contextSet: ContextSet = {
       files: [],
       workflows: [],
       uses: []
     }
+    
+    // Only add description if it's not empty
+    if (description && description.trim()) {
+      contextSet.description = description
+    }
+    
+    contextSets.value[name] = contextSet
     
     return true
   }
@@ -166,12 +171,15 @@ export const useContextSets = () => {
     }
     
     // Add file with metadata if provided, otherwise as simple string reference
-    if (options?.classification || options?.comment || options?.functionRefs) {
+    const cleanedFunctionRefs = options?.functionRefs ? cleanFunctionRefs(options.functionRefs) : undefined
+    const hasNonEmptyFunctionRefs = cleanedFunctionRefs && cleanedFunctionRefs.length > 0
+    
+    if (options?.classification || (options?.comment && options.comment.trim()) || hasNonEmptyFunctionRefs) {
       const fileRef: FileRef = {
         fileRef: fileId,
         ...(options.classification && { classification: options.classification }),
-        ...(options.comment && { comment: options.comment }),
-        ...(options.functionRefs && { functionRefs: options.functionRefs })
+        ...(options.comment && options.comment.trim() && { comment: options.comment }),
+        ...(hasNonEmptyFunctionRefs && { functionRefs: cleanedFunctionRefs })
       }
       activeSet.files.push(fileRef)
     } else {
@@ -383,12 +391,64 @@ export const useContextSets = () => {
 
   // Generate complete context sets JSON
   const generateContextSetsJSON = (projectName?: string): ContextSetsData => {
+    // Clean up context sets before exporting
+    const cleanedSets: Record<string, ContextSet> = {}
+    for (const [name, contextSet] of Object.entries(contextSets.value)) {
+      cleanedSets[name] = cleanContextSet(contextSet)
+    }
+    
     return {
       schemaVersion: "1.0",
       ...(projectName && { projectName }),
       filesIndex: generateFilesIndex(),
-      sets: { ...contextSets.value }
+      sets: cleanedSets
     }
+  }
+
+  // Helper function to clean up empty properties from objects
+  const cleanEmptyProperties = <T extends Record<string, any>>(obj: T): T => {
+    const cleaned = { ...obj }
+    Object.keys(cleaned).forEach(key => {
+      const value = cleaned[key]
+      if (value === '' || value === undefined || value === null) {
+        delete cleaned[key]
+      } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0) {
+        delete cleaned[key]
+      }
+    })
+    return cleaned
+  }
+
+  // Helper function to clean up function refs
+  const cleanFunctionRefs = (functionRefs: FunctionRef[]): FunctionRef[] => {
+    return functionRefs.map(ref => cleanEmptyProperties(ref))
+  }
+
+  // Helper function to clean up file refs
+  const cleanFileRefs = (files: (string | FileRef)[]): (string | FileRef)[] => {
+    return files.map(file => {
+      if (typeof file === 'string') {
+        return file
+      }
+      const cleaned = cleanEmptyProperties(file)
+      if (cleaned.functionRefs) {
+        cleaned.functionRefs = cleanFunctionRefs(cleaned.functionRefs)
+        // Remove functionRefs if it becomes empty after cleaning
+        if (cleaned.functionRefs.length === 0) {
+          delete cleaned.functionRefs
+        }
+      }
+      return cleaned
+    })
+  }
+
+  // Helper function to clean up context sets
+  const cleanContextSet = (contextSet: ContextSet): ContextSet => {
+    const cleaned = cleanEmptyProperties(contextSet)
+    if (cleaned.files) {
+      cleaned.files = cleanFileRefs(cleaned.files)
+    }
+    return cleaned
   }
 
   // Generate context sets JSON with 'context:' prefix for export/preview
@@ -399,13 +459,15 @@ export const useContextSets = () => {
     const prefixedSets: Record<string, ContextSet> = {}
     for (const [name, contextSet] of Object.entries(baseData.sets)) {
       const prefixedName = name.startsWith('context:') ? name : `context:${name}`
-      prefixedSets[prefixedName] = {
+      const cleanedContextSet = cleanContextSet({
         ...contextSet,
         // Also update the 'uses' array to have prefixed names
-        uses: contextSet.uses?.map(usedName => 
+        uses: contextSet.uses?.filter(use => use.trim()).map(usedName => 
           usedName.startsWith('context:') ? usedName : `context:${usedName}`
         ) || []
-      }
+      })
+      
+      prefixedSets[prefixedName] = cleanedContextSet
     }
     
     // Update filesIndex to reference prefixed context names
@@ -444,8 +506,7 @@ export const useContextSets = () => {
       // New format with filesIndex
       for (const [fileId, fileIndex] of Object.entries(data.filesIndex)) {
         newFilesManifest[fileId] = {
-          path: fileIndex.path,
-          comment: '' // Comments are no longer stored in the index
+          path: fileIndex.path
         }
       }
     } else if ((data as any).filesManifest) {

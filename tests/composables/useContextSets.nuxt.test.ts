@@ -49,8 +49,7 @@ describe('useContextSets', () => {
       
       expect(fileId).toMatch(/^file_[a-z0-9]{8}$/)
       expect(contextSets.filesManifest.value[fileId]).toEqual({
-        path: filePath,
-        comment: ''
+        path: filePath
       })
     })
 
@@ -144,8 +143,7 @@ describe('useContextSets', () => {
       
       const fileId = activeSet.files[0] as string
       expect(contextSets.filesManifest.value[fileId]).toEqual({
-        path: filePath,
-        comment: ''
+        path: filePath
       })
     })
 
@@ -457,6 +455,282 @@ describe('useContextSets', () => {
       contextSets.addFileToManifestForTesting('new_id', testEntry)
       
       expect(contextSets.filesManifest.value['new_id']).toEqual(testEntry)
+    })
+  })
+
+  describe('Blank Property Filtering', () => {
+    beforeEach(() => {
+      contextSets.clearAll()
+    })
+
+    describe('Context Set Creation', () => {
+      it('should not include description when empty string is provided', () => {
+        contextSets.createContextSet('test-set', '')
+        
+        const contextSet = contextSets.contextSets.value['test-set']
+        expect(contextSet).toEqual({
+          files: [],
+          workflows: [],
+          uses: []
+        })
+        expect(contextSet).not.toHaveProperty('description')
+      })
+
+      it('should not include description when only whitespace is provided', () => {
+        contextSets.createContextSet('test-set', '   ')
+        
+        const contextSet = contextSets.contextSets.value['test-set']
+        expect(contextSet).toEqual({
+          files: [],
+          workflows: [],
+          uses: []
+        })
+        expect(contextSet).not.toHaveProperty('description')
+      })
+
+      it('should include description when meaningful content is provided', () => {
+        contextSets.createContextSet('test-set', 'Meaningful description')
+        
+        const contextSet = contextSets.contextSets.value['test-set']
+        expect(contextSet.description).toBe('Meaningful description')
+      })
+    })
+
+    describe('File Manifest Creation', () => {
+      it('should not include comment property in file manifest when created', () => {
+        const filePath = '/src/test.js'
+        const fileId = contextSets.getOrCreateFileId(filePath)
+        
+        expect(contextSets.filesManifest.value[fileId]).toEqual({
+          path: filePath
+        })
+        expect(contextSets.filesManifest.value[fileId]).not.toHaveProperty('comment')
+      })
+    })
+
+    describe('File Addition to Context Sets', () => {
+      beforeEach(() => {
+        contextSets.createContextSet('test-set')
+        contextSets.setActiveContextSet('test-set')
+      })
+
+      it('should not include comment when empty string is provided', () => {
+        const filePath = '/src/test.js'
+        
+        contextSets.addFileToActiveContextSet(filePath, {
+          comment: '',
+          classification: 'core-logic'
+        })
+        
+        const activeSet = contextSets.contextSets.value['test-set']
+        const fileRef = activeSet.files[0] as any
+        
+        expect(fileRef).toEqual({
+          fileRef: expect.any(String),
+          classification: 'core-logic'
+        })
+        expect(fileRef).not.toHaveProperty('comment')
+      })
+
+      it('should not include comment when only whitespace is provided', () => {
+        const filePath = '/src/test.js'
+        
+        contextSets.addFileToActiveContextSet(filePath, {
+          comment: '   ',
+          classification: 'helper'
+        })
+        
+        const activeSet = contextSets.contextSets.value['test-set']
+        const fileRef = activeSet.files[0] as any
+        
+        expect(fileRef).toEqual({
+          fileRef: expect.any(String),
+          classification: 'helper'
+        })
+        expect(fileRef).not.toHaveProperty('comment')
+      })
+
+      it('should include comment when meaningful content is provided', () => {
+        const filePath = '/src/test.js'
+        
+        contextSets.addFileToActiveContextSet(filePath, {
+          comment: 'This is a meaningful comment',
+          classification: 'core-logic'
+        })
+        
+        const activeSet = contextSets.contextSets.value['test-set']
+        const fileRef = activeSet.files[0] as any
+        
+        expect(fileRef).toEqual({
+          fileRef: expect.any(String),
+          comment: 'This is a meaningful comment',
+          classification: 'core-logic'
+        })
+      })
+
+      it('should use simple string reference when no meaningful metadata is provided', () => {
+        const filePath = '/src/test.js'
+        
+        contextSets.addFileToActiveContextSet(filePath, {
+          comment: '',
+          // no classification or functionRefs
+        })
+        
+        const activeSet = contextSets.contextSets.value['test-set']
+        expect(typeof activeSet.files[0]).toBe('string')
+      })
+
+      it('should include functionRefs with cleaned up comments', () => {
+        const filePath = '/src/test.js'
+        
+        contextSets.addFileToActiveContextSet(filePath, {
+          functionRefs: [
+            { name: 'func1', comment: '' },
+            { name: 'func2', comment: 'Meaningful comment' },
+            { name: 'func3' } // no comment property
+          ]
+        })
+        
+        const activeSet = contextSets.contextSets.value['test-set']
+        const fileRef = activeSet.files[0] as any
+        
+        expect(fileRef.functionRefs).toHaveLength(3)
+        expect(fileRef.functionRefs[0]).toEqual({ name: 'func1' })
+        expect(fileRef.functionRefs[1]).toEqual({ name: 'func2', comment: 'Meaningful comment' })
+        expect(fileRef.functionRefs[2]).toEqual({ name: 'func3' })
+      })
+    })
+
+    describe('JSON Generation', () => {
+      beforeEach(() => {
+        contextSets.createContextSet('test-set', 'Test description')
+        contextSets.setActiveContextSet('test-set')
+      })
+
+      it('should clean up empty properties in generated JSON', () => {
+        // Add file with mixed empty and meaningful properties
+        contextSets.addFileToActiveContextSet('/src/test.js', {
+          comment: '',
+          classification: 'core-logic',
+          functionRefs: [
+            { name: 'func1', comment: '' },
+            { name: 'func2', comment: 'Real comment' }
+          ]
+        })
+
+        const json = contextSets.generateContextSetsJSON()
+        
+        expect(json.sets['test-set']).toEqual({
+          description: 'Test description',
+          files: [{
+            fileRef: expect.any(String),
+            classification: 'core-logic',
+            functionRefs: [
+              { name: 'func1' },
+              { name: 'func2', comment: 'Real comment' }
+            ]
+          }],
+          workflows: [],
+          uses: []
+        })
+      })
+
+      it('should clean up empty properties in prefixed JSON generation', () => {
+        // Create context set with empty description
+        contextSets.createContextSet('empty-desc', '')
+        contextSets.setActiveContextSet('empty-desc')
+        contextSets.addFileToActiveContextSet('/src/empty.js')
+
+        const json = contextSets.generateContextSetsJSONWithPrefix()
+        
+        const contextSet = json.sets['context:empty-desc']
+        expect(contextSet.files).toHaveLength(1)
+        expect(typeof contextSet.files[0]).toBe('string')
+        expect(contextSet.workflows).toEqual([])
+        expect(contextSet.uses).toEqual([])
+        expect(contextSet).not.toHaveProperty('description')
+      })
+
+      it('should preserve meaningful properties while removing empty ones', () => {
+        // Create a complex scenario with mixed properties
+        contextSets.addFileToActiveContextSet('/src/complex.js', {
+          comment: 'File comment',
+          classification: 'entry-point',
+          functionRefs: [
+            { name: 'emptyFunc', comment: '' },
+            { name: 'goodFunc', comment: 'Good comment' },
+            { name: 'noCommentFunc' }
+          ]
+        })
+
+        // Add another file with no metadata
+        contextSets.addFileToActiveContextSet('/src/simple.js')
+
+        const json = contextSets.generateContextSetsJSON()
+        const testSet = json.sets['test-set']
+        
+        expect(testSet.files).toHaveLength(2)
+        
+        // First file should have cleaned properties
+        expect(testSet.files[0]).toEqual({
+          fileRef: expect.any(String),
+          comment: 'File comment',
+          classification: 'entry-point',
+          functionRefs: [
+            { name: 'emptyFunc' },
+            { name: 'goodFunc', comment: 'Good comment' },
+            { name: 'noCommentFunc' }
+          ]
+        })
+        
+        // Second file should be simple string reference
+        expect(typeof testSet.files[1]).toBe('string')
+      })
+    })
+
+    describe('Edge Cases', () => {
+      it('should handle null and undefined values', () => {
+        contextSets.createContextSet('test-set')
+        contextSets.setActiveContextSet('test-set')
+        
+        // Add file using the normal API, then manually create a context set with null/undefined properties for testing
+        contextSets.addFileToActiveContextSet('/src/test.js', {
+          functionRefs: [
+            { name: 'func1', comment: null as any },
+            { name: 'func2', comment: undefined as any }
+          ]
+        })
+
+        const json = contextSets.generateContextSetsJSON()
+        const testSet = json.sets['test-set']
+        
+        expect(testSet.files).toHaveLength(1)
+        const fileRef = testSet.files[0] as any
+        
+        expect(fileRef).toEqual({
+          fileRef: expect.any(String),
+          functionRefs: [
+            { name: 'func1' },
+            { name: 'func2' }
+          ]
+        })
+      })
+
+      it('should handle empty arrays and objects', () => {
+        contextSets.createContextSet('test-set')
+        contextSets.setActiveContextSet('test-set')
+        
+        // Add file with empty arrays
+        contextSets.addFileToActiveContextSet('/src/test.js', {
+          functionRefs: []
+        })
+
+        const json = contextSets.generateContextSetsJSON()
+        const fileRef = json.sets['test-set'].files[0]
+        
+        // Should be simple string reference since functionRefs is empty
+        expect(typeof fileRef).toBe('string')
+      })
     })
   })
 })
