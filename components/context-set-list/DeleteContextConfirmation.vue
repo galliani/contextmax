@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
@@ -76,7 +77,7 @@ const handleDeleteContextSet = async () => {
       emit('error', errorMessage)
     }
   } catch (error) {
-    console.error('Error deleting context set:', error)
+    logger.error('Error deleting context set:', error)
     const errorMessage = `Failed to delete context set: ${props.contextSetName}`
     announceError(errorMessage)
     emit('error', errorMessage)

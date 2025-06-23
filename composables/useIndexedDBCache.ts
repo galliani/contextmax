@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface CachedFileEmbedding {
   path: string
   hash: string
@@ -72,7 +74,7 @@ export const useIndexedDBCache = () => {
       const request = indexedDB.open(DB_NAME, DB_VERSION)
       
       request.onerror = () => {
-        console.error('Failed to open IndexedDB:', request.error)
+        logger.error('Failed to open IndexedDB:', request.error)
         resolve(false)
       }
       
@@ -134,8 +136,6 @@ export const useIndexedDBCache = () => {
     const projectDescriptor = `project:${projectDir}|files:${files.length}|${fileHashes.sort().join('|')}`
     const finalHash = await calculateHash(projectDescriptor)
     
-    console.log(`📍 Project: "${projectDir}" (${files.length} files) → Hash: ${finalHash.substring(0, 8)}...`)
-    
     return finalHash
   }
 
@@ -158,7 +158,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to get cached embedding for ${filePath}:`, request.error)
+        logger.warn(`Failed to get cached embedding for ${filePath}:`, request.error)
         resolve(null)
       }
     })
@@ -186,7 +186,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to store embedding for ${filePath}:`, request.error)
+        logger.warn(`Failed to store embedding for ${filePath}:`, request.error)
         resolve(false)
       }
     })
@@ -207,7 +207,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to get cached embeddings for project ${projectHash}:`, request.error)
+        logger.warn(`Failed to get cached embeddings for project ${projectHash}:`, request.error)
         resolve(null)
       }
     })
@@ -237,7 +237,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to store project embeddings:`, request.error)
+        logger.warn(`Failed to store project embeddings:`, request.error)
         resolve(false)
       }
     })
@@ -263,7 +263,7 @@ export const useIndexedDBCache = () => {
         }
       }
     } catch (error) {
-      console.warn('Failed to clean old embeddings cache:', error)
+      logger.warn('Failed to clean old embeddings cache:', error)
     }
 
     // Clean project embeddings
@@ -280,7 +280,7 @@ export const useIndexedDBCache = () => {
         }
       }
     } catch (error) {
-      console.warn('Failed to clean old project embeddings cache:', error)
+      logger.warn('Failed to clean old project embeddings cache:', error)
     }
 
     // Clean search results
@@ -297,7 +297,7 @@ export const useIndexedDBCache = () => {
         }
       }
     } catch (error) {
-      console.warn('Failed to clean old search results cache:', error)
+      logger.warn('Failed to clean old search results cache:', error)
     }
   }
 
@@ -316,7 +316,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to store search results:`, request.error)
+        logger.warn(`Failed to store search results:`, request.error)
         resolve(false)
       }
     })
@@ -340,7 +340,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to get search results for project ${projectName}:`, request.error)
+        logger.warn(`Failed to get search results for project ${projectName}:`, request.error)
         resolve([])
       }
     })
@@ -361,7 +361,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to get search results ${id}:`, request.error)
+        logger.warn(`Failed to get search results ${id}:`, request.error)
         resolve(null)
       }
     })
@@ -381,7 +381,7 @@ export const useIndexedDBCache = () => {
       }
       
       request.onerror = () => {
-        console.warn(`Failed to delete search results ${id}:`, request.error)
+        logger.warn(`Failed to delete search results ${id}:`, request.error)
         resolve(false)
       }
     })

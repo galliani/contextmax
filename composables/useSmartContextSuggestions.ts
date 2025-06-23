@@ -4,6 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
 import type { RegexParsedCodeInfo } from './useRegexCodeParser'
 import type { RelevantFunction } from './useIndexedDBCache'
 
@@ -101,15 +102,11 @@ export const useSmartContextSuggestions = () => {
     try {
       // Try to load cached embeddings first
       const loaded = await loadCachedEmbeddings(files)
-      if (loaded) {
-        console.log('🎯 Loaded cached embeddings successfully')
-      }
       
       // Build AST analysis for search (always needed for current session)
       const supportedFiles = files.filter(file => isLanguageSupported(file.path))
       const total = supportedFiles.length
       
-      console.log(`Building AST analysis for ${total} supported files...`)
       announceStatus(`Analyzing ${total} files for search...`)
 
       // Parse each file for search
@@ -122,7 +119,7 @@ export const useSmartContextSuggestions = () => {
             codeInfoCache.value.set(file.path, codeInfo)
           }
         } catch (error) {
-          console.warn(`Failed to parse ${file.path}:`, error)
+          logger.warn(`Failed to parse ${file.path}:`, error)
         }
         
         analysisProgress.value = ((i + 1) / total) * 100
@@ -132,10 +129,9 @@ export const useSmartContextSuggestions = () => {
       buildDependencyGraph(supportedFiles)
       
       announceStatus(`Analysis complete. Ready for search.`)
-      console.log('Project analysis complete')
       
     } catch (error) {
-      console.error('Project analysis failed:', error)
+      logger.error('Project analysis failed:', error)
       throw error
     } finally {
       isAnalyzing.value = false
@@ -308,16 +304,12 @@ export const useSmartContextSuggestions = () => {
     keyword: string, 
     files: Array<{ path: string; content: string }>
   ): Promise<LLMMatch[]> => {
-    console.log(`🔍 LLM Search Debug: keyword="${keyword}", engine=${typeof $llm?.engine}, status=${$llm?.status}`)
-    
     if (!$llm?.engine || $llm?.status !== 'ready') {
-      console.warn(`LLM not available for semantic search: engine=${typeof $llm?.engine}, status=${$llm?.status}`)
+      logger.warn(`LLM not available for semantic search: engine=${typeof $llm?.engine}, status=${$llm?.status}`)
       return []
     }
 
     try {
-      console.log(`🧠 Generating query embedding for: "${keyword}"`)
-      
       // Generate query embedding for the search keyword
       if (typeof $llm.engine === 'function') {
         const queryEmbedding = await $llm.engine(keyword, { 
@@ -325,18 +317,13 @@ export const useSmartContextSuggestions = () => {
           normalize: true 
         })
 
-        console.log(`✅ Query embedding generated: ${queryEmbedding.data.length} dimensions`)
-        console.log(`📊 Available file embeddings: ${fileEmbeddings.value.size}`)
-
         const llmMatches: LLMMatch[] = []
 
         // Calculate semantic similarity for each file
-        let processedFiles = 0;
         for (const file of files) {
           const fileEmbedding = fileEmbeddings.value.get(file.path)
           
           if (fileEmbedding) {
-            processedFiles++;
             let similarity = cosineSimilarity(queryEmbedding.data, fileEmbedding)
             
             // FILENAME SEMANTIC BOOST: If the filename itself is semantically related, boost the score
@@ -355,12 +342,6 @@ export const useSmartContextSuggestions = () => {
               similarity = (similarity * 0.7) + (fileNameSimilarity * 0.3)
             } catch {
               // If filename embedding fails, just use the content similarity
-              console.debug('Filename embedding failed, using content similarity only')
-            }
-            
-            // Log high similarity matches for debugging
-            if (similarity > 0.3) {
-              console.log(`🎯 High similarity match: ${file.path} (${similarity.toFixed(3)})`)
             }
             
             llmMatches.push({
@@ -371,19 +352,13 @@ export const useSmartContextSuggestions = () => {
           }
         }
 
-        console.log(`📈 LLM Search Results: processed ${processedFiles} files with embeddings, found ${llmMatches.length} matches`)
-        if (llmMatches.length > 0) {
-          const topScore = llmMatches[0]?.score || 0;
-          console.log(`🏆 Top similarity score: ${topScore.toFixed(3)}`)
-        }
-
         return llmMatches.sort((a, b) => b.score - a.score)
       } else {
-        console.warn('LLM engine is not available for semantic search')
+        logger.warn('LLM engine is not available for semantic search')
         return []
       }
     } catch (error) {
-      console.error('LLM search failed:', error)
+      logger.error('LLM search failed:', error)
       return []
     }
   }
@@ -440,31 +415,21 @@ export const useSmartContextSuggestions = () => {
     keyword: string,
     files: Array<{ path: string; content: string }>
   ): Promise<KeywordSearchSuggestion> => {
-    console.log(`🔍 Starting hybrid search for keyword: "${keyword}"`)
-    
     // Check if we need to generate embeddings on-demand
     const needsEmbeddings = fileEmbeddings.value.size === 0 && files.length > 0
     if (needsEmbeddings) {
-      console.log('📊 No embeddings found, generating on-demand for semantic search...')
       announceStatus('Generating semantic embeddings for first search...')
       await generateEmbeddingsOnDemand(files)
     }
     
     // Stage 1: Structure Search
-    console.log('🕵️ Detective By-the-Book (Structure) investigating...')
     const astMatches = performStructureSearch(keyword, files)
-    console.log(`Found ${astMatches.length} literal matches`)
 
     // Stage 2: LLM Search
-    console.log('🧠 Detective Insight (LLM) investigating...')
     const llmMatches = await performLLMSearch(keyword, files)
-    console.log(`Found ${llmMatches.length} semantic matches`)
 
     // Stage 3: Combine with synergy
-    console.log('⚡ Combining results with synergy boost...')
     const hybridMatches = combineSearchResults(astMatches, llmMatches)
-    const synergyCount = hybridMatches.filter(m => m.hasSynergy).length
-    console.log(`Final results: ${hybridMatches.length} files, ${synergyCount} with synergy boost`)
 
     return {
       id: `keyword-search-${keyword.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -487,15 +452,9 @@ export const useSmartContextSuggestions = () => {
     files: Array<{ path: string; content: string }>,
     entryPointFile?: { path: string; content: string }
   ): Promise<KeywordSearchSuggestion> => {
-    console.log(`🚀 Starting tri-model search for keyword: "${keyword}"`)
-    if (entryPointFile) {
-      console.log(`📍 Starting point: ${entryPointFile.path}`)
-    }
-    
     // Check if we need to generate embeddings on-demand
     const needsEmbeddings = fileEmbeddings.value.size === 0 && files.length > 0
     if (needsEmbeddings) {
-      console.log('📊 Generating embeddings for tri-model search...')
       announceStatus('Generating semantic embeddings...')
       await generateEmbeddingsOnDemand(files)
     }
@@ -503,28 +462,22 @@ export const useSmartContextSuggestions = () => {
     // Parse entry point if provided
     let entryPointInfo: RegexParsedCodeInfo | null = null
     if (entryPointFile) {
-      console.log('🔍 Parsing starting point for dependency analysis...')
       entryPointInfo = await parseCode(entryPointFile.content, entryPointFile.path)
     }
     
     // Stage 1: Structure/Syntax Search
-    console.log('🕵️ Stage 1: Structure Analysis...')
     const astMatches = performStructureSearch(keyword, files)
     
     // Stage 2: Semantic Embeddings Search
-    console.log('🧠 Stage 2: Semantic Analysis...')
     const llmMatches = await performLLMSearch(keyword, files)
     
     // Stage 3: Enhanced Relationship Analysis
-    console.log('📊 Stage 3: Enhanced Relationship Analysis...')
     const syntaxResults = await performEntryPointSyntaxAnalysis(files, entryPointInfo)
     
     // Stage 4: Flan-T5 Classification and Scoring
-    console.log('🤖 Stage 4: AI Classification and Scoring...')
     const flanResults = await performFlanT5Analysis(keyword, files, entryPointFile, syntaxResults)
     
     // Stage 5: Combine all scores with tri-model weighting
-    console.log('⚡ Stage 5: Combining tri-model results...')
     const triModelMatches = combineTriModelResults(
       astMatches, 
       llmMatches, 
@@ -532,8 +485,6 @@ export const useSmartContextSuggestions = () => {
       flanResults, 
       entryPointFile
     )
-    
-    console.log(`🎯 Final tri-model results: ${triModelMatches.length} files analyzed`)
     
     return {
       id: `tri-model-search-${keyword.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -567,12 +518,10 @@ export const useSmartContextSuggestions = () => {
     
     if (!entryPointInfo) {
       // No entry point specified - perform inter-file relationship analysis
-      console.log('📊 Performing inter-file relationship analysis (no entry point)')
       return await analyzeInterFileRelationships(files, fileInfos)
     }
     
     // Entry point specified - use enhanced analysis
-    console.log('📊 Performing entry-point-enhanced relationship analysis')
     
     // Get all imported modules from entry point
     const importedModules = new Set(entryPointInfo.imports.map(imp => imp.module))
@@ -728,10 +677,9 @@ export const useSmartContextSuggestions = () => {
       syntaxScores.set(file.path, Math.min(score, 1.0))
     }
     
-    // Log some statistics
+    // Statistics available for debugging if needed
     const avgScore = Array.from(syntaxScores.values()).reduce((a, b) => a + b, 0) / syntaxScores.size
     const filesWithScores = Array.from(syntaxScores.values()).filter(score => score > 0).length
-    console.log(`📈 Inter-file analysis: ${filesWithScores}/${files.length} files scored, avg: ${avgScore.toFixed(3)}`)
     
     return syntaxScores
   }
@@ -750,7 +698,7 @@ export const useSmartContextSuggestions = () => {
       const { $llm } = useNuxtApp()
       const textGenModel = await $llm?.getModel?.('textGeneration')
       if (!textGenModel) {
-        console.warn('Flan-T5 model not available, skipping AI analysis')
+        logger.warn('Flan-T5 model not available, skipping AI analysis')
         files.forEach(file => {
           flanResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
         })
@@ -878,7 +826,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
                 relevantFunctions.sort((a, b) => b.relevance - a.relevance)
                 relevantFunctions = relevantFunctions.slice(0, 5) // Keep top 5
               } catch (funcError) {
-                console.debug(`Function analysis failed for ${file.path}:`, funcError)
+                // Function analysis failed - continue without function details
               }
             }
             
@@ -890,7 +838,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
             })
             
           } catch (error) {
-            console.warn(`Flan-T5 analysis failed for ${file.path}:`, error)
+            logger.warn(`Flan-T5 analysis failed for ${file.path}:`, error)
             flanResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
           }
         }
@@ -902,7 +850,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
       }
       
     } catch (error) {
-      console.error('Flan-T5 analysis failed:', error)
+      logger.error('Flan-T5 analysis failed:', error)
       files.forEach(file => {
         flanResults.set(file.path, { score: 0, classification: 'error', workflowPosition: 'error' })
       })
@@ -1061,7 +1009,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
   // Generate embeddings on-demand for search
   const generateEmbeddingsOnDemand = async (files: Array<{ path: string; content: string }>): Promise<void> => {
     if (!$llm?.engine || $llm?.status !== 'ready') {
-      console.warn('LLM not available for embedding generation')
+      logger.warn('LLM not available for embedding generation')
       return
     }
 
@@ -1072,7 +1020,6 @@ Which functions are most relevant to "${keyword}"? List only function names, one
         await cleanOldCache()
       }
 
-      console.log(`🧠 Generating embeddings for ${files.length} files...`)
       let embeddingsCacheHits = 0
       let embeddingsGenerated = 0
       
@@ -1116,7 +1063,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
             }
           }
         } catch (error) {
-          console.warn(`Failed to generate embedding for ${file.path}:`, error)
+          logger.warn(`Failed to generate embedding for ${file.path}:`, error)
         }
       }
       
@@ -1131,17 +1078,15 @@ Which functions are most relevant to "${keyword}"? List only function names, one
           }
           
           await storeCachedProjectEmbeddings(projectHash, fileEmbeddingsRecord)
-          console.log(`💾 Stored project-level embeddings cache for ${Object.keys(fileEmbeddingsRecord).length} files`)
         } catch (error) {
-          console.warn('Failed to store project-level embeddings cache:', error)
+          logger.warn('Failed to store project-level embeddings cache:', error)
         }
       }
       
-      console.log(`📊 Embeddings: ${embeddingsCacheHits} cached, ${embeddingsGenerated} newly generated`)
       announceStatus(`Generated semantic embeddings for ${fileEmbeddings.value.size} files`)
       
     } catch (error) {
-      console.error('On-demand embedding generation failed:', error)
+      logger.error('On-demand embedding generation failed:', error)
       announceStatus('Failed to generate embeddings for semantic search')
     }
   }
@@ -1188,7 +1133,6 @@ Which functions are most relevant to "${keyword}"? List only function names, one
 
   // Clear all analysis state (for project switches)
   const clearAnalysisState = () => {
-    console.log('🧹 Clearing analysis state for project switch...')
     codeInfoCache.value.clear()
     dependencyGraph.value.clear()
     fileEmbeddings.value.clear()
@@ -1207,26 +1151,19 @@ Which functions are most relevant to "${keyword}"? List only function names, one
       const cachedEmbeddings = await getCachedProjectEmbeddings(projectHash)
       
       if (cachedEmbeddings) {
-        console.log(`🎯 Loading cached embeddings for project ${projectHash.substring(0, 8)}...`)
-        
         // Restore embeddings for semantic search
         fileEmbeddings.value.clear()
         for (const [filePath, embedding] of Object.entries(cachedEmbeddings.fileEmbeddings)) {
           fileEmbeddings.value.set(filePath, embedding)
         }
         
-        console.log(`🔄 Restored ${fileEmbeddings.value.size} file embeddings from cache`)
-        
         hasLoadedFromCache.value = true
-        console.log(`✅ Loaded cached embeddings for this project`)
         return true
-      } else {
-        console.log(`📭 No cached embeddings found for project ${projectHash.substring(0, 8)}`)
       }
       
       return false
     } catch (error) {
-      console.warn('Failed to load cached embeddings:', error)
+      logger.warn('Failed to load cached embeddings:', error)
       return false
     }
   }
@@ -1240,57 +1177,49 @@ Which functions are most relevant to "${keyword}"? List only function names, one
 
   // Debug function to check current state
   const debugCurrentState = () => {
-    console.log('🔍 Current Analysis State:')
-    console.log(`  - File embeddings: ${fileEmbeddings.value.size}`)
-    console.log(`  - Has loaded from cache: ${hasLoadedFromCache.value}`)
-    console.log(`  - LLM status: ${$llm?.status}`)
-    console.log(`  - LLM engine: ${typeof $llm?.engine}`)
+    logger.log('🔍 Current Analysis State:')
+    logger.log(`  - File embeddings: ${fileEmbeddings.value.size}`)
+    logger.log(`  - Has loaded from cache: ${hasLoadedFromCache.value}`)
+    logger.log(`  - LLM status: ${$llm?.status}`)
+    logger.log(`  - LLM engine: ${typeof $llm?.engine}`)
     
     if (fileEmbeddings.value.size > 0) {
       const firstFile = Array.from(fileEmbeddings.value.keys())[0]
       const firstEmbedding = fileEmbeddings.value.get(firstFile)
-      console.log(`  - Sample embedding: ${firstFile} (${firstEmbedding?.length} dims)`)
+      logger.log(`  - Sample embedding: ${firstFile} (${firstEmbedding?.length} dims)`)
     }
   }
 
   // Clear IndexedDB cache completely
   const clearIndexedDBCache = async () => {
     try {
-      console.log('🗑️ Clearing IndexedDB cache...')
       const dbInitialized = await initDB()
       if (dbInitialized) {
         // Clear all cached data
         await cleanOldCache(0) // Force clean all by setting maxAge to 0
-        console.log('✅ IndexedDB cache cleared')
       }
     } catch (error) {
-      console.error('Failed to clear IndexedDB cache:', error)
+      logger.error('Failed to clear IndexedDB cache:', error)
     }
   }
 
   // Force re-embedding with current project files
   const forceReembedding = async () => {
     try {
-      console.log('🔄 Forcing complete cache clear and re-embedding...')
-      
       // Clear both in-memory and IndexedDB cache
       clearCache()
       await clearIndexedDBCache()
-      
-      console.log('✅ All caches cleared. Next search will regenerate embeddings.')
     } catch (error) {
-      console.error('Failed to force re-embedding:', error)
+      logger.error('Failed to force re-embedding:', error)
     }
   }
 
   const forceReembeddingWithFiles = async (files: Array<{ path: string; content: string }>) => {
     try {
-      console.log(`🔄 Starting fresh embedding generation for ${files.length} files...`)
       clearCache()
       await generateEmbeddingsOnDemand(files)
-      console.log('✅ Re-embedding complete!')
     } catch (error) {
-      console.error('Failed to re-embed:', error)
+      logger.error('Failed to re-embed:', error)
     }
   }
 

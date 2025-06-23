@@ -342,7 +342,6 @@ function handleClick() {
 
 function toggleDirectory() {
   if (props.item.type === 'directory') {
-    console.log('🔵 Toggling directory:', props.item.path, 'from', isExpanded.value, 'to', !isExpanded.value)
     isExpanded.value = !isExpanded.value
   }
 }
@@ -350,22 +349,15 @@ function toggleDirectory() {
 function toggleFileInActiveContextSet() {
   if (props.item.type !== 'file') return
   
-  console.log('🔴 toggleFileInActiveContextSet called for:', props.item.path)
-  console.log('🔴 Stack trace:', new Error().stack)
-  console.log('🔴 isFileInActiveContextSet:', isFileInActiveContextSet.value)
-  
   if (isFileInActiveContextSet.value) {
     // Remove from active context set
     const fileId = findFileIdByPath(props.item.path)
     if (fileId) {
-      const success = removeFileFromActiveContextSet(fileId)
-      console.log('🔴 removeFileFromActiveContextSet result:', success)
+      removeFileFromActiveContextSet(fileId)
     }
   } else {
     // Add to active context set
-    console.log('🔴 Adding file to active context set:', props.item)
-    const success = addFileToActiveContextSet(props.item)
-    console.log('🔴 addFileToActiveContextSet result:', success)
+    addFileToActiveContextSet(props.item)
   }
 }
 
@@ -453,43 +445,35 @@ function getIconName(item: FileTreeItem): string {
 }
 
 function handleNameClick(event: MouseEvent) {
-  console.log('File name clicked:', props.item.path, 'event:', event)
   event.preventDefault()
   event.stopPropagation()
   event.stopImmediatePropagation()
   
   if (props.item.type === 'file') {
-    console.log('Calling viewFile for:', props.item.path)
     viewFile()
   } else {
-    console.log('Calling toggleDirectory for:', props.item.path)
     toggleDirectory()
   }
 }
 
 function handleIconClick(event: MouseEvent) {
-  console.log('Icon clicked:', props.item.path, 'event:', event)
   event.preventDefault()
   event.stopPropagation()
   event.stopImmediatePropagation()
   
   if (props.item.type === 'file') {
-    console.log('Calling viewFile for:', props.item.path)
     viewFile()
   } else {
-    console.log('Calling toggleDirectory for:', props.item.path)
     toggleDirectory()
   }
 }
 
 function handleChevronClick(event: MouseEvent) {
-  console.log('Chevron clicked:', props.item.path, 'event:', event)
   event.preventDefault()
   event.stopPropagation()
   event.stopImmediatePropagation()
   
   if (props.item.type === 'directory') {
-    console.log('Calling toggleDirectory for:', props.item.path)
     toggleDirectory()
   }
 }
