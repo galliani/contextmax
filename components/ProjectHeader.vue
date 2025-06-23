@@ -260,8 +260,6 @@ const emit = defineEmits<{
   (e: 'clear-project'): void
 }>()
 
-// Analytics helpers
-const { trackDownload } = useAnalyticsHelpers()
 
 // Use the project store
 const {
@@ -478,8 +476,6 @@ const handleDownloadJSON = async () => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     
-    // Track the download
-    trackDownload('context_sets')
     
     // Show success modal
     showExportSuccessModal.value = true

@@ -14,16 +14,6 @@ export default defineNuxtConfig({
   },  
   css: ['~/assets/css/tailwind.css'],
   
-  // Runtime configuration for environment variables
-  runtimeConfig: {
-    // Public keys that will be exposed to the client
-    public: {
-      umamiUrl: process.env.NUXT_PUBLIC_UMAMI_URL,
-      umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID,
-      posthogPublicKey: process.env.NUXT_PUBLIC_POSTHOG_KEY,
-      posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST,
-    }
-  },
   
   // Enhanced Font Configuration
   fonts: {

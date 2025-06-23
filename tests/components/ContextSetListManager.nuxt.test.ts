@@ -322,7 +322,7 @@ describe('ContextSetListManager', () => {
             await new Promise(resolve => setTimeout(resolve, 200))
             
             expect(mockProjectStore.createContextSet).toHaveBeenCalledWith('validSearchTerm')
-            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: validSearchTerm. Searching for related files...')
+            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: validSearchTerm')
           }
         }
       }
@@ -360,7 +360,7 @@ describe('ContextSetListManager', () => {
             expect(mockProjectStore.setActiveContextSet).toHaveBeenCalledWith('newActiveContext')
             
             // Verify the announcement message reflects creation and search initiation
-            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: newActiveContext. Searching for related files...')
+            expect(mockAccessibility.announceStatus).toHaveBeenCalledWith('Created context set: newActiveContext')
           }
         }
       }

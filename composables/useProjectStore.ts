@@ -64,11 +64,6 @@ export const useProjectStore = () => {
     const previousView = globalState.currentView
     globalState.currentView = view
     
-    // Track navigation if view actually changed
-    if (previousView !== view && import.meta.client) {
-      const { trackNavigation } = useAnalyticsHelpers()
-      trackNavigation(previousView, view)
-    }
   }
 
   const goToLanding = () => {
