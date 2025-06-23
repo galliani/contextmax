@@ -103,7 +103,6 @@
 </template>
 
 <script setup lang="ts">
-import AIToolsPanel from '~/components/AIToolsPanel.vue'
 import { LLMService } from '~/plugins/llm.client'
 
 interface Props {
