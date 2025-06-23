@@ -692,8 +692,8 @@ const handleWorkflowPointSave = async (workflowPoint: WorkflowPoint) => {
   }
 }
 
-const handleWorkflowPointRemove = async (fileId: string) => {
-  console.log('[FilesList] handleWorkflowPointRemove called with fileId:', fileId)
+const handleWorkflowPointRemove = async (fileId: string, pointType: 'start' | 'end') => {
+  console.log('[FilesList] handleWorkflowPointRemove called with fileId:', fileId, 'pointType:', pointType)
   
   if (!activeContextSet.value) {
     console.error('[FilesList] No active context set')
@@ -703,14 +703,21 @@ const handleWorkflowPointRemove = async (fileId: string) => {
   console.log('[FilesList] Current workflows before removal:', activeContextSet.value.workflows)
   
   const fileName = filesManifest.value[fileId]?.path.split('/').pop() || 'Unknown file'
-  console.log('[FilesList] Removing workflow point for file:', fileName)
+  console.log('[FilesList] Removing workflow point for file:', fileName, 'type:', pointType)
   
   try {
-    // Remove workflows that involve this file
     const originalWorkflows = activeContextSet.value.workflows || []
-    const workflows = originalWorkflows.filter(w => 
-      w.start.fileRef !== fileId && w.end.fileRef !== fileId
-    )
+    let workflows = [...originalWorkflows]
+    
+    if (pointType === 'start') {
+      // Remove only workflows where this file is the start point
+      workflows = workflows.filter(w => w.start.fileRef !== fileId)
+      console.log('[FilesList] Removed start point workflows for file:', fileId)
+    } else if (pointType === 'end') {
+      // Remove only workflows where this file is the end point
+      workflows = workflows.filter(w => w.end.fileRef !== fileId)
+      console.log('[FilesList] Removed end point workflows for file:', fileId)
+    }
     
     console.log('[FilesList] Original workflows count:', originalWorkflows.length)
     console.log('[FilesList] Filtered workflows count:', workflows.length)
@@ -727,7 +734,7 @@ const handleWorkflowPointRemove = async (fileId: string) => {
       cancelWorkflowConfig()
     }
     
-    announceStatus(`Removed workflow points for ${fileName}`)
+    announceStatus(`Removed workflow ${pointType} point for ${fileName}`)
     console.log('[FilesList] Workflow point removal completed successfully')
   } catch (error) {
     console.error('[FilesList] Error during workflow point removal:', error)
