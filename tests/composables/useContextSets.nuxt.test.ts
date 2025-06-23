@@ -71,7 +71,8 @@ describe('useContextSets', () => {
       expect(contextSets.contextSets.value['test-set']).toEqual({
         description: 'Test description',
         files: [],
-        workflows: []
+        workflows: [],
+        uses: []
       })
     })
 
@@ -295,39 +296,41 @@ describe('useContextSets', () => {
     })
 
     it('should generate complete context sets JSON', () => {
-      const json = contextSets.generateContextSetsJSON()
+      const json = contextSets.generateContextSetsJSON('test-project')
       
       expect(json.schemaVersion).toBe('1.0')
-      expect(json.contextSets['test-set']).toBeDefined()
-      expect(Object.keys(json.filesManifest)).toHaveLength(1)
-      expect(Object.keys(json.fileContextsIndex)).toHaveLength(1)
+      expect(json.projectName).toBe('test-project')
+      expect(json.sets['test-set']).toBeDefined()
+      expect(Object.keys(json.filesIndex)).toHaveLength(1)
     })
 
-    it('should generate file contexts index', () => {
-      const index = contextSets.generateFileContextsIndex()
+    it('should generate files index', () => {
+      const index = contextSets.generateFilesIndex()
       
       const fileId = Object.keys(contextSets.filesManifest.value)[0]
-      expect(index[fileId]).toEqual([{ setName: 'test-set' }])
+      expect(index[fileId]).toEqual({
+        path: contextSets.filesManifest.value[fileId].path,
+        contexts: ['test-set']
+      })
     })
 
     it('should load context sets data', () => {
       const data: ContextSetsData = {
         schemaVersion: '1.0',
-        filesManifest: {
+        projectName: 'test-project',
+        filesIndex: {
           'file_abc123': {
             path: '/src/loaded.js',
-            comment: 'Loaded file'
+            contexts: ['loaded-set']
           }
         },
-        contextSets: {
+        sets: {
           'loaded-set': {
             description: 'Loaded set',
             files: ['file_abc123'],
-            workflows: []
+            workflows: [],
+            uses: []
           }
-        },
-        fileContextsIndex: {
-          'file_abc123': [{ setName: 'loaded-set' }]
         }
       }
       
@@ -371,7 +374,8 @@ describe('useContextSets', () => {
         name: 'test-set',
         description: 'Test description',
         files: [],
-        workflows: []
+        workflows: [],
+        uses: []
       })
     })
 
