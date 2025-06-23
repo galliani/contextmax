@@ -203,7 +203,7 @@ const nameInput = ref<HTMLInputElement>()
 const descriptionInput = ref<HTMLTextAreaElement>()
 
 // Use the project store
-const { activeContextSet, updateActiveContextSet, filesManifest, fileTree, generateContextSetsJSONWithPrefix } = useProjectStore()
+const { activeContextSet, updateActiveContextSet, filesManifest, fileTree, contextSets, generateContextSetsJSONWithPrefix } = useProjectStore()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
@@ -370,7 +370,8 @@ const handleExportToClipboard = async () => {
       prefixedContextSetName,
       prefixedContextSet,
       filesManifest.value,
-      fileTree.value
+      fileTree.value,
+      contextSets.value
     )
 
     if (result.success) {
@@ -407,7 +408,8 @@ const updateEstimatedTokens = async () => {
         activeContextSetName.value,
         activeContextSet.value,
         filesManifest.value,
-        fileTree.value
+        fileTree.value,
+        contextSets.value
       )
       if (estimatedTokens?.value !== undefined) {
         estimatedTokens.value = tokens || 0
