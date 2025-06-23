@@ -246,7 +246,7 @@ interface Props {
 interface Emits {
   (e: 'cancel'): void
   (e: 'save', workflowPoint: WorkflowPoint): void
-  (e: 'remove', fileId: string): void
+  (e: 'remove', fileId: string, pointType: 'start' | 'end'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -378,7 +378,8 @@ const save = () => {
 }
 
 const remove = () => {
-  emit('remove', props.fileId)
+  console.log('[WorkflowPointEditor] Emitting remove event with fileId:', props.fileId, 'and pointType:', props.workflowPointType)
+  emit('remove', props.fileId, props.workflowPointType)
 }
 
 const updateMethodOptions = () => {

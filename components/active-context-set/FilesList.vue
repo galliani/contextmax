@@ -693,20 +693,27 @@ const handleWorkflowPointSave = async (workflowPoint: WorkflowPoint) => {
   }
 }
 
-const handleWorkflowPointRemove = async (fileId: string) => {
+const handleWorkflowPointRemove = async (fileId: string, pointType: 'start' | 'end') => {
   if (!activeContextSet.value) {
     logger.error('[FilesList] No active context set')
     return
   }
-  
+
   const fileName = filesManifest.value[fileId]?.path.split('/').pop() || 'Unknown file'
-  
+
   try {
-    // Remove workflows that involve this file
     const originalWorkflows = activeContextSet.value.workflows || []
-    const workflows = originalWorkflows.filter(w => 
-      w.start.fileRef !== fileId && w.end.fileRef !== fileId
-    )
+    let workflows = [...originalWorkflows]
+    
+    if (pointType === 'start') {
+      // Remove only workflows where this file is the start point
+      workflows = workflows.filter(w => w.start.fileRef !== fileId)
+      console.log('[FilesList] Removed start point workflows for file:', fileId)
+    } else if (pointType === 'end') {
+      // Remove only workflows where this file is the end point
+      workflows = workflows.filter(w => w.end.fileRef !== fileId)
+      console.log('[FilesList] Removed end point workflows for file:', fileId)
+    }
     
     // Update the context set (this will auto-save to OPFS)
     updateActiveContextSet({ workflows })
@@ -715,8 +722,9 @@ const handleWorkflowPointRemove = async (fileId: string) => {
     if (expandedWorkflowFileId.value === fileId) {
       cancelWorkflowConfig()
     }
-    
-    announceStatus(`Removed workflow points for ${fileName}`)
+
+    announceStatus(`Removed workflow ${pointType} point for ${fileName}`)
+
   } catch (error) {
     logger.error('[FilesList] Error during workflow point removal:', error)
     const message = error instanceof Error ? error.message : 'Failed to remove workflow point'
