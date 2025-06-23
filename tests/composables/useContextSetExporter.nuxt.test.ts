@@ -70,7 +70,9 @@ vi.mock('js-yaml', () => ({
       lines.push('includedContexts:')
       obj.includedContexts.forEach((context: any) => {
         lines.push(`  - name: ${context.name}`)
-        lines.push(`    description: ${context.description}`)
+        if (context.description) {
+          lines.push(`    description: ${context.description}`)
+        }
       })
     }
     
@@ -662,6 +664,103 @@ describe('useContextSetExporter', () => {
       expect(exportedText).toContain('# 📁 MAIN CONTEXT: NoDeps')
       expect(exportedText).not.toContain('# 📁 CHILD CONTEXT:')
       expect(exportedText).not.toContain('includedContexts:')
+    })
+
+    it('should include child context files in snippet copy (ActiveContextComposer scenario)', async () => {
+      // Simulate the prefixed scenario from ActiveContextComposer
+      const prefixedMainContext: ContextSet = {
+        description: 'Main context description',
+        files: ['file_1'],
+        workflows: [],
+        uses: ['context:ChildA'] // Prefixed child names
+      }
+
+      const prefixedAllContexts = {
+        'context:MainContext': prefixedMainContext,
+        'context:ChildA': {
+          description: 'Child A description',
+          files: ['file_2'],
+          workflows: [],
+          uses: []
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'context:MainContext',
+        prefixedMainContext,
+        mockFilesManifest,
+        mockFileTree,
+        prefixedAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include main context files
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: context:MainContext')
+      expect(exportedText).toContain('## FILE: src/test.ts') // file_1
+      
+      // Should include child context files
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: context:ChildA')
+      expect(exportedText).toContain('## FILE: src/childA.ts') // file_2
+      
+      // Should have proper frontmatter
+      expect(exportedText).toContain('uses:')
+      expect(exportedText).toContain('- context:ChildA')
+      expect(exportedText).toContain('includedContexts:')
+      expect(exportedText).toContain('name: context:ChildA')
+      expect(exportedText).toContain('description: Child A description')
+    })
+
+    it('should not include description field for contexts without description in frontmatter', async () => {
+      // Test the frontmatter generation specifically
+      const mainContext: ContextSet = {
+        description: 'Main context',
+        files: ['file_1'],
+        workflows: [],
+        uses: ['ChildWithDesc', 'ChildWithoutDesc']
+      }
+
+      const allContextsWithMixed = {
+        'MainContext': mainContext,
+        'ChildWithDesc': {
+          description: 'Has description',
+          files: ['file_2'],
+          workflows: [],
+          uses: []
+        },
+        'ChildWithoutDesc': {
+          description: '', // Empty description
+          files: ['file_2'], // Reuse existing file
+          workflows: [],
+          uses: []
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mainContext,
+        mockFilesManifest,
+        mockFileTree,
+        allContextsWithMixed
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should not contain "No description available"
+      expect(exportedText).not.toContain('No description available')
+      
+      // Should contain the context with description
+      expect(exportedText).toContain('name: ChildWithDesc')
+      expect(exportedText).toContain('description: Has description')
+      
+      // Should contain the context without description (but no description field)
+      expect(exportedText).toContain('name: ChildWithoutDesc')
+      // Should NOT have a description field for empty description
+      expect(exportedText).not.toMatch(/name: ChildWithoutDesc\s*description:/s)
     })
   })
 }) 

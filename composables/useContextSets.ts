@@ -222,6 +222,7 @@ export const useContextSets = () => {
     name?: string, 
     description?: string, 
     workflows?: Workflow[],
+    uses?: string[],
     systemBehavior?: { processing?: { mode?: 'synchronous' | 'asynchronous' | 'streaming' | 'batch' } } | null
   }) => {
     if (!activeContextSetName.value) {
@@ -247,6 +248,9 @@ export const useContextSets = () => {
       if (updates.workflows !== undefined) {
         contextSets.value[updates.name].workflows = [...updates.workflows]
       }
+      if (updates.uses !== undefined) {
+        contextSets.value[updates.name].uses = [...updates.uses]
+      }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {
           delete contextSets.value[updates.name].systemBehavior
@@ -270,6 +274,9 @@ export const useContextSets = () => {
       }
       if (updates.workflows !== undefined) {
         currentSet.workflows = [...updates.workflows]
+      }
+      if (updates.uses !== undefined) {
+        currentSet.uses = [...updates.uses]
       }
       if (updates.systemBehavior !== undefined) {
         if (updates.systemBehavior === null) {

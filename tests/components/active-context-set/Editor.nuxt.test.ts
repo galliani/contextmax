@@ -75,6 +75,13 @@ vi.mock('~/components/active-context-set/FilesList.vue', () => ({
   }
 }))
 
+vi.mock('~/components/active-context-set/ChildContextsList.vue', () => ({
+  default: {
+    name: 'ChildContextsList',
+    template: '<div>Mocked ChildContextsList</div>'
+  }
+}))
+
 vi.mock('~/components/active-context-set/WorkflowEditor.vue', () => ({
   default: {
     name: 'WorkflowEditor',
@@ -97,7 +104,8 @@ describe('Editor', () => {
     workflows: [
       { description: 'Step 1', fileRefs: ['file1'] },
       { description: 'Step 2', fileRefs: ['file2'] }
-    ]
+    ],
+    uses: []
   }
 
   describe('Basic Component Rendering', () => {

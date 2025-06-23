@@ -250,10 +250,11 @@ export const useContextSetExporter = () => {
     if (childContexts.length > 0) {
       frontmatterObject.includedContexts = childContexts.map(childName => {
         const childContext = allContexts![childName]
-        return {
-          name: childName,
-          description: childContext?.description || 'No description available'
+        const metadata: { name: string; description?: string } = { name: childName }
+        if (childContext?.description && childContext.description.trim()) {
+          metadata.description = childContext.description
         }
+        return metadata
       })
     }
 

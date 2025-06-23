@@ -366,12 +366,24 @@ const handleExportToClipboard = async () => {
       ) || []
     }
     
+    // Create prefixed versions of ALL context sets for dependency resolution
+    const prefixedAllContexts: Record<string, ContextSet> = {}
+    Object.entries(contextSets.value).forEach(([name, contextSet]) => {
+      const prefixedName = name.startsWith('context:') ? name : `context:${name}`
+      prefixedAllContexts[prefixedName] = {
+        ...contextSet,
+        uses: contextSet.uses?.map(usedName => 
+          usedName.startsWith('context:') ? usedName : `context:${usedName}`
+        ) || []
+      }
+    })
+    
     const result = await exportContextSetToClipboard(
       prefixedContextSetName,
       prefixedContextSet,
       filesManifest.value,
       fileTree.value,
-      contextSets.value
+      prefixedAllContexts
     )
 
     if (result.success) {
