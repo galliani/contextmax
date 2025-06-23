@@ -203,7 +203,7 @@ interface Props {
 interface Emits {
   (e: 'cancel'): void
   (e: 'save', workflowPoint: WorkflowPoint): void
-  (e: 'remove', fileId: string): void
+  (e: 'remove', fileId: string, pointType: 'start' | 'end'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -338,9 +338,9 @@ const save = () => {
 }
 
 const remove = () => {
-  console.log('[WorkflowPointEditor] Remove button clicked for fileId:', props.fileId)
-  console.log('[WorkflowPointEditor] Emitting remove event with fileId:', props.fileId)
-  emit('remove', props.fileId)
+  console.log('[WorkflowPointEditor] Remove button clicked for fileId:', props.fileId, 'pointType:', props.workflowPointType)
+  console.log('[WorkflowPointEditor] Emitting remove event with fileId:', props.fileId, 'and pointType:', props.workflowPointType)
+  emit('remove', props.fileId, props.workflowPointType)
   console.log('[WorkflowPointEditor] Remove event emitted successfully')
 }
 
