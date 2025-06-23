@@ -6,7 +6,7 @@
 <template>
   <!-- Workflow Point Configuration Form (Accordion) -->
   <div v-if="isExpanded" class="mt-4 p-4 bg-muted/20 rounded-lg border border-primary/20">
-    <h5 class="text-sm font-medium text-foreground mb-4 flex items-center">
+    <h5 class="text-sm font-medium text-foreground mb-2 flex items-center">
       <Icon 
         :name="workflowPointType === 'start' ? 'lucide:play' : 'lucide:square'" 
         class="w-4 h-4 mr-2"
@@ -14,6 +14,48 @@
       />
       {{ workflowPointType === 'start' ? 'Start Point' : 'End Point' }} Configuration
     </h5>
+    
+    <!-- Workflow Point Description -->
+    <div class="mb-4 p-3 bg-background/50 rounded border border-border/50">
+      <p class="text-sm text-muted-foreground leading-relaxed mb-2">
+        <template v-if="workflowPointType === 'start'">
+          <strong>Start Point:</strong> Mark this file as the entry point for your entire context set's workflow. This is where the process begins across all files in this context set - like a button click, API call, or command that triggers the whole feature.
+        </template>
+        <template v-else>
+          <strong>End Point:</strong> Mark this file as where your context set's workflow completes. This is the final step across all files that produces the result - like saving data, sending a response, or displaying the final output.
+        </template>
+      </p>
+      
+      <!-- Collapsible Guide -->
+      <button
+        @click="showExplanation = !showExplanation"
+        class="flex items-center justify-between w-full text-left hover:text-primary transition-colors"
+      >
+        <h4 class="text-sm font-medium text-foreground">Why specify workflow steps?</h4>
+        <Icon 
+          :name="showExplanation ? 'lucide:chevron-down' : 'lucide:chevron-right'" 
+          class="w-4 h-4 text-muted-foreground transition-transform"
+        />
+      </button>
+      
+      <!-- Collapsible Content -->
+      <div v-show="showExplanation" class="space-y-2 mt-2">
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          The workflow describes the step-by-step data flow through your entire context set (all files included). When you ask "add salary extraction to job clipping", 
+          AI assistants can see exactly which step handles data processing and needs modification across all the files.
+        </p>
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          This helps AI assistants <strong>understand the big picture</strong> of how all files in your context set work together, 
+          <strong>make smarter changes</strong> by knowing which files to modify, <strong>avoid breaking changes</strong> 
+          by understanding dependencies between files, and <strong>debug issues faster</strong> by following the data flow across your entire codebase.
+        </p>
+        <div class="bg-background/50 rounded p-3 mt-3">
+          <p class="text-xs text-muted-foreground">
+            <strong>Example workflow across your context set:</strong> User clicks button (frontend file) → API receives request (backend file) → Background job starts (worker file) → AI processes data (service file) → User gets notified (notification file)
+          </p>
+        </div>
+      </div>
+    </div>
 
     <div class="space-y-4">
       <!-- Workflow Point Configuration -->
@@ -218,6 +260,9 @@ const { activeContextSet, saveWorkingCopyToOPFS, selectedFolder } = useProjectSt
 
 // Modal state
 const isFunctionModalOpen = ref(false)
+
+// Guide state
+const showExplanation = ref(false)
 
 // Form data for the workflow point
 const workflowPointData = ref<WorkflowPoint>({
