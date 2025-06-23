@@ -82,6 +82,8 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
+
 const { 
   currentFileContent, 
   currentFileName, 
@@ -135,7 +137,7 @@ async function copyContent() {
     success('Copied', 'Content copied to clipboard.')
   }
   catch (err) {
-    console.error('Failed to copy:', err)
+    logger.error('Failed to copy:', err)
     error('Copy Failed', 'Could not copy content to clipboard.')
   }
 }

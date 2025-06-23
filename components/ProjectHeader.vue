@@ -238,6 +238,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import {
   Dialog,
   DialogContent,
@@ -304,7 +305,6 @@ const { state: autoSaveState, forceSave, undo, redo } = useAutoSave(
     enableUndo: true,
     onSave: async (data) => {
       // Auto-save to localStorage (silent background operation)
-      console.log('Auto-saving context sets:', data)
     },
     onRestore: (_data) => {
       // Handle restored data
@@ -338,7 +338,7 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
           const content = await file.text()
           files.push({ path: item.path, content })
         } catch (error) {
-          console.warn(`Failed to read file ${item.path}:`, error)
+          logger.warn(`Failed to read file ${item.path}:`, error)
         }
       } else if (item.type === 'directory' && item.children) {
         await traverse(item.children)
@@ -347,7 +347,6 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
   }
   
   await traverse(fileTree)
-  console.log(`📁 Prepared ${files.length} supported files for embedding generation`)
   return files
 }
 
@@ -406,7 +405,6 @@ const handleRefreshFiles = async () => {
   
   try {
     // Clear analysis cache before reloading files to ensure fresh analysis
-    console.log('🧹 Clearing analysis cache before project reload...')
     clearCache()
     await clearIndexedDBCache()
     
@@ -421,7 +419,6 @@ const handleRefreshFiles = async () => {
       
       // Auto-generate embeddings for refreshed projects
       try {
-        console.log('🚀 Auto-generating embeddings for refreshed project...')
         
         // Convert file tree to simple format for embedding generation
         const treeValue = fileTree?.value || []
@@ -429,12 +426,10 @@ const handleRefreshFiles = async () => {
         
         if (filesToAnalyze.length > 0) {
           await generateEmbeddingsOnDemand(filesToAnalyze)
-          console.log('✅ Automatic embedding generation completed after refresh')
         } else {
-          console.log('📭 No supported files found for embedding generation after refresh')
         }
       } catch (error) {
-        console.warn('⚠️ Error during automatic embedding generation after refresh:', error)
+        logger.warn('⚠️ Error during automatic embedding generation after refresh:', error)
       }
     } else {
       warning(

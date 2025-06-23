@@ -4,6 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
 import type { ContextSetsData } from './useContextSets'
 
 // OPFS support detection and utilities
@@ -17,17 +18,16 @@ class OPFSProjectManager {
   
   async initialize() {
     if (!isOPFSSupported()) {
-      console.warn('OPFS not supported in this browser')
+      logger.warn('OPFS not supported in this browser')
       return false
     }
     
     try {
       const opfsRoot = await navigator.storage.getDirectory()
       this.projectsDir = await opfsRoot.getDirectoryHandle('contextmax-projects', { create: true })
-      console.log('OPFS initialized successfully')
       return true
     } catch (error) {
-      console.error('Failed to initialize OPFS:', error)
+      logger.error('Failed to initialize OPFS:', error)
       return false
     }
   }
@@ -68,10 +68,9 @@ class OPFSProjectManager {
       await metadataWritable.write(JSON.stringify(metadata, null, 2))
       await metadataWritable.close()
       
-      console.log(`✅ Context sets saved to OPFS working copy: ${projectName}`)
       return true
     } catch (error) {
-      console.error(`❌ Failed to save context sets to OPFS for ${projectName}:`, error)
+      logger.error(`❌ Failed to save context sets to OPFS for ${projectName}:`, error)
       return false
     }
   }
@@ -94,11 +93,10 @@ class OPFSProjectManager {
       const content = await file.text()
       const contextSetsData: ContextSetsData = JSON.parse(content)
       
-      console.log(`✅ Context sets loaded from OPFS working copy: ${projectName}`)
       return contextSetsData
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      console.log(`ℹ️ No working copy found in OPFS for ${projectName}:`, errorMessage)
+      logger.warn(`ℹ️ No working copy found in OPFS for ${projectName}:`, errorMessage)
       return null
     }
   }
@@ -143,10 +141,9 @@ class OPFSProjectManager {
         // Directory might not be empty, that's okay
       }
       
-      console.log(`✅ Context sets deleted from OPFS working copy: ${projectName}`)
       return true
     } catch (error) {
-      console.error(`❌ Failed to delete context sets from OPFS for ${projectName}:`, error)
+      logger.error(`❌ Failed to delete context sets from OPFS for ${projectName}:`, error)
       return false
     }
   }
@@ -196,10 +193,9 @@ class OPFSProjectManager {
         onProgress?.(progress)
       })
       
-      console.log(`Project "${projectName}" copied to OPFS successfully`)
       return projectName
     } catch (error) {
-      console.error('Failed to copy project to OPFS:', error)
+      logger.error('Failed to copy project to OPFS:', error)
       return null
     }
   }
@@ -253,7 +249,7 @@ class OPFSProjectManager {
           onFileComplete?.()
         }
       } catch (error) {
-        console.warn(`Failed to copy ${name}:`, error)
+        logger.warn(`Failed to copy ${name}:`, error)
         // Continue with other files
       }
     }
@@ -268,7 +264,7 @@ class OPFSProjectManager {
     try {
       return await this.projectsDir.getDirectoryHandle(projectName)
     } catch (error) {
-      console.warn(`Project "${projectName}" not found in OPFS:`, error)
+      logger.warn(`Project "${projectName}" not found in OPFS:`, error)
       return null
     }
   }
@@ -278,10 +274,9 @@ class OPFSProjectManager {
     
     try {
       await this.projectsDir.removeEntry(projectName, { recursive: true })
-      console.log(`Project "${projectName}" deleted from OPFS`)
       return true
     } catch (error) {
-      console.error(`Failed to delete project "${projectName}" from OPFS:`, error)
+      logger.error(`Failed to delete project "${projectName}" from OPFS:`, error)
       return false
     }
   }
@@ -298,7 +293,7 @@ class OPFSProjectManager {
         projects.push(name)
       }
     } catch (error) {
-      console.error('Failed to list OPFS projects:', error)
+      logger.error('Failed to list OPFS projects:', error)
     }
     
     return projects
@@ -334,10 +329,9 @@ class OPFSProjectManager {
       await metaWritable.write(JSON.stringify(metadata, null, 2))
       await metaWritable.close()
       
-      console.log(`✅ Model cached to OPFS: ${modelName}`)
       return true
     } catch (error) {
-      console.error(`❌ Failed to cache model ${modelName}:`, error)
+      logger.error(`❌ Failed to cache model ${modelName}:`, error)
       return false
     }
   }
@@ -356,10 +350,8 @@ class OPFSProjectManager {
       const fileHandle = await cacheDir.getFileHandle(`${safeModelName}.bin`)
       const file = await fileHandle.getFile()
       
-      console.log(`✅ Model loaded from OPFS cache: ${modelName}`)
       return await file.arrayBuffer()
     } catch (error) {
-      console.log(`ℹ️ No cached model found for ${modelName}`)
       return null
     }
   }

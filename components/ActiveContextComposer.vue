@@ -189,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import Editor from './active-context-set/Editor.vue'
 import TabbedFileBrowser from './TabbedFileBrowser.vue'
 
@@ -433,7 +434,7 @@ const updateEstimatedTokens = async () => {
       }
     }
   } catch (err) {
-    console.warn('Failed to calculate estimated tokens:', err)
+    logger.warn('Failed to calculate estimated tokens:', err)
     if (estimatedTokens?.value !== undefined) {
       estimatedTokens.value = 0
     }

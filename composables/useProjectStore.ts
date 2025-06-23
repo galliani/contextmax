@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 // Re-export types from sub-composables for backward compatibility
 export type { 
   FileTreeItem,
@@ -61,7 +63,6 @@ export const useProjectStore = () => {
   const setCurrentView = (view: AppView) => {
     const previousView = globalState.currentView
     globalState.currentView = view
-    console.log('Current view set to:', view)
     
     // Track navigation if view actually changed
     if (previousView !== view && import.meta.client) {
@@ -94,10 +95,6 @@ export const useProjectStore = () => {
     globalState.fileTree = tree
     globalState.hasActiveHandles = tree.length > 0 && tree.some(item => !!item.handle) // Check if we have actual handles
     saveToLocalStorage() // Auto-save when file tree changes
-    console.log('File tree updated', {
-      nodeCount: fileSystem.countFileTreeNodes(tree.map(item => fileSystem.removeHandles(item))),
-      hasHandles: globalState.hasActiveHandles
-    })
   }
 
   const clearProject = () => {
@@ -166,13 +163,10 @@ export const useProjectStore = () => {
   const tryLoadFromOPFS = async (projectPath: string): Promise<boolean> => {
     // Guard against duplicate restoration attempts
     if (globalState.opfsRestorationAttempted) {
-      console.log(`🟡 OPFS restoration already attempted for: ${projectPath}`)
-      
       // Check if we actually have handles - if not, we need to rebuild
       const hasHandlesInTree = globalState.fileTree.length > 0 && fileSystem.checkFileTreeHasHandles(globalState.fileTree)
       
       if (!hasHandlesInTree) {
-        console.log(`🟡 No handles found in file tree, forcing rebuild from OPFS...`)
         // Reset the flag and try again
         globalState.opfsRestorationAttempted = false
       } else {
@@ -188,7 +182,6 @@ export const useProjectStore = () => {
         globalState.selectedFolder = opfsHandle
         globalState.hasActiveHandles = true
         globalState.hasSuccessfulOPFSCopy = true // Mark as successfully loaded from OPFS
-        console.log(`🟡 Successfully loaded project from OPFS: ${projectPath}`)
         
         // Rebuild file tree with actual handles from OPFS
         const files = await fileSystem.rebuildFileTreeFromOPFS(opfsHandle)
@@ -208,11 +201,10 @@ export const useProjectStore = () => {
         
         return true
       } else {
-        console.log(`🟡 Project not found in OPFS: ${projectPath}`)
         return false
       }
     } catch (error) {
-      console.warn(`Failed to load project from OPFS: ${projectPath}`, error)
+      logger.warn(`Failed to load project from OPFS: ${projectPath}`, error)
       return false
     }
   }
@@ -230,7 +222,6 @@ export const useProjectStore = () => {
       })
       
       if (opfsPath) {
-        console.log(`Project copied to OPFS: ${opfsPath}`)
         globalState.hasSuccessfulOPFSCopy = true // Mark as successfully copied
         
         // Note: Adding to saved projects list is now handled by useProjectManager
@@ -243,7 +234,7 @@ export const useProjectStore = () => {
       projectLoading.stopOPFSCopy(loadingId)
       return false
     } catch (error) {
-      console.error('Failed to copy project to OPFS:', error)
+      logger.error('Failed to copy project to OPFS:', error)
       return false
     }
   }
@@ -255,18 +246,16 @@ export const useProjectStore = () => {
     // Always start with a clean slate when loading a new project
     contextSets.clearAll()
     
-    console.log(`🔄 Loading context sets for project: ${projectName}`)
     
     // Priority 1: Check for working copy in OPFS (source of truth once user has made changes)
     try {
       const workingCopy = await opfsManager.loadContextSets(projectName)
       if (workingCopy) {
         contextSets.loadContextSetsData(workingCopy)
-        console.log(`✅ Loaded working copy from OPFS: ${projectName}`)
         return true
       }
     } catch (error) {
-      console.warn(`⚠️ Failed to load working copy from OPFS for ${projectName}:`, error)
+      logger.warn(`⚠️ Failed to load working copy from OPFS for ${projectName}:`, error)
     }
     
     // Priority 2: Load stable version from project folder and create working copy
@@ -277,15 +266,13 @@ export const useProjectStore = () => {
         
         // Immediately create working copy from stable version
         await opfsManager.saveContextSets(projectName, stableVersion)
-        console.log(`✅ Loaded stable version and created working copy: ${projectName}`)
         return true
       }
     } catch (error) {
-      console.warn(`⚠️ Failed to load stable version for ${projectName}:`, error)
+      logger.warn(`⚠️ Failed to load stable version for ${projectName}:`, error)
     }
     
     // Priority 3: Start fresh (no context sets found)
-    console.log(`✅ Starting fresh for project: ${projectName}`)
     return false
   }
 
@@ -296,7 +283,7 @@ export const useProjectStore = () => {
       const result = await opfsManager.saveContextSets(projectName, contextSetsData)
       return result
     } catch (error) {
-      console.error(`Failed to save working copy to OPFS for ${projectName}:`, error)
+      logger.error(`Failed to save working copy to OPFS for ${projectName}:`, error)
       return false
     }
   }

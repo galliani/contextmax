@@ -381,6 +381,7 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
 import type { FileTreeItem } from '~/composables/useProjectStore'
 import type { CachedSearchResults } from '~/composables/useIndexedDBCache'
 import { Input } from '@/components/ui/input'
@@ -460,7 +461,7 @@ const loadSearchHistory = async () => {
     const history = await getSearchResultsByProject(selectedFolder.value.name)
     searchHistory.value = history
   } catch (error) {
-    console.warn('Failed to load search history:', error)
+    logger.warn('Failed to load search history:', error)
   }
 }
 
@@ -591,7 +592,7 @@ const viewFile = async (filePath: string) => {
   
   if (!fileItem) {
     announceError(`Could not find file in project tree: ${fileName}`)
-    console.error('File not found in tree:', filePath)
+    logger.error('File not found in tree:', filePath)
     return
   }
   
@@ -601,7 +602,7 @@ const viewFile = async (filePath: string) => {
     announceStatus(`Opened file viewer for: ${fileName}`)
   } catch (error) {
     announceError(`Failed to load file content: ${fileName}`)
-    console.error('Error loading file content:', error)
+    logger.error('Error loading file content:', error)
   }
 }
 
@@ -628,13 +629,6 @@ const addFileToContext = async (result: any) => {
         comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
       })) || []
     
-    console.log('Adding file to context with functions:', {
-      file: result.file,
-      totalFunctions: result.relevantFunctions?.length || 0,
-      allRelevanceScores: result.relevantFunctions?.map((f: any) => ({ name: f.name, relevance: f.relevance })) || [],
-      highRelevanceFunctions: functionRefs.length,
-      functionNames: functionRefs.map(f => f.name)
-    })
     
     const success = addFileToActiveContextSet(fileItem, {
       classification: result.classification,
@@ -683,7 +677,7 @@ const addTopResults = async () => {
           })
           if (success) addedCount++
         } catch (error) {
-          console.warn(`Failed to add ${result.file}:`, error)
+          logger.warn(`Failed to add ${result.file}:`, error)
         }
       }
     }
@@ -721,7 +715,7 @@ const addAllResults = async () => {
           })
           if (success) addedCount++
         } catch (error) {
-          console.warn(`Failed to add ${result.file}:`, error)
+          logger.warn(`Failed to add ${result.file}:`, error)
         }
       }
     }
@@ -735,14 +729,12 @@ const addAllResults = async () => {
 // Load search results from history
 const loadSearchResults = async (searchId: string) => {
   try {
-    console.log('Loading search results for ID:', searchId)
     
     if (!getSearchResultsById || typeof getSearchResultsById !== 'function') {
       throw new Error('getSearchResultsById is not available')
     }
     
     const cachedSearch = await getSearchResultsById(searchId)
-    console.log('Retrieved cached search:', cachedSearch)
     
     if (cachedSearch) {
       // Restore search results to the global store
@@ -758,7 +750,7 @@ const loadSearchResults = async (searchId: string) => {
       announceError('Search results not found')
     }
   } catch (error) {
-    console.error('Failed to load search results:', error)
+    logger.error('Failed to load search results:', error)
     announceError('Failed to load search results')
   }
 }
@@ -775,7 +767,7 @@ const deleteSearch = async (searchId: string) => {
       announceError('Failed to delete search from history')
     }
   } catch (error) {
-    console.warn('Failed to delete search:', error)
+    logger.warn('Failed to delete search:', error)
     announceError('Failed to delete search from history')
   }
 }
@@ -848,7 +840,7 @@ const handleSearch = async () => {
           })
         }
       } catch (error) {
-        console.warn(`Failed to load content for search: ${file.path}:`, error)
+        logger.warn(`Failed to load content for search: ${file.path}:`, error)
       }
     }
     
@@ -968,7 +960,7 @@ const handleSearch = async () => {
     searchQuery.value = ''
     
   } catch (error) {
-    console.error('Search failed:', error)
+    logger.error('Search failed:', error)
     searchStage.value = 'Search failed - please try again'
     searchProgress.value = 0
     announceError('Search failed. Please try again.')

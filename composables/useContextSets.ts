@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface FileManifestEntry {
   path: string
   comment: string
@@ -107,7 +109,6 @@ export const useContextSets = () => {
       comment: ''
     }
     
-    console.log('Auto-created new file manifest entry:', { id: newId, path: filePath })
     return newId
   }
 
@@ -115,7 +116,7 @@ export const useContextSets = () => {
   const createContextSet = (name: string, description: string = ''): boolean => {
     if (contextSets.value[name]) {
       // Don't throw error, just return false for duplicates
-      console.warn(`Context set "${name}" already exists`)
+      logger.warn(`Context set "${name}" already exists`)
       return false
     }
     
@@ -126,19 +127,17 @@ export const useContextSets = () => {
       uses: []
     }
     
-    console.log(`Created new context set: ${name}`)
     return true
   }
 
   // Set active context set
   const setActiveContextSet = (name: string | null) => {
     if (name && !contextSets.value[name]) {
-      console.warn(`Context set "${name}" does not exist`)
+      logger.warn(`Context set "${name}" does not exist`)
       return false
     }
     
     activeContextSetName.value = name
-    console.log('Set active context set:', name)
     return true
   }
 
@@ -162,7 +161,7 @@ export const useContextSets = () => {
     })
     
     if (alreadyIncluded) {
-      console.warn('File already included in active context set:', filePath)
+      logger.warn('File already included in active context set:', filePath)
       return false
     }
     
@@ -175,15 +174,9 @@ export const useContextSets = () => {
         ...(options.functionRefs && { functionRefs: options.functionRefs })
       }
       activeSet.files.push(fileRef)
-      console.log('Added file with metadata to active context set:', { 
-        file: filePath, 
-        setName: activeContextSetName.value,
-        classification: options.classification 
-      })
     } else {
       // Add file as simple string reference (whole file)
       activeSet.files.push(fileId)
-      console.log('Added file to active context set:', { file: filePath, setName: activeContextSetName.value })
     }
     
     return true
@@ -203,12 +196,10 @@ export const useContextSets = () => {
     
     if (index !== -1) {
       activeSet.files.splice(index, 1)
-      console.log('Removed file from active context set:', { fileId, setName: activeContextSetName.value })
       
       // Clean up orphaned files after removal
       const orphanedCount = cleanupOrphanedFiles()
       if (orphanedCount > 0) {
-        console.log(`Cleaned up ${orphanedCount} orphaned files after removal`)
       }
       
       return true
@@ -266,7 +257,6 @@ export const useContextSets = () => {
       // Update active reference
       activeContextSetName.value = updates.name
       
-      console.log('Renamed context set:', { from: currentName, to: updates.name })
     } else {
       // Just update fields
       if (updates.description !== undefined) {
@@ -322,7 +312,6 @@ export const useContextSets = () => {
       }
       filesManifest.value = newManifest
       
-      console.log('Cleaned up orphaned files from manifest:', orphanedFiles)
     }
     
     return orphanedFiles.length
@@ -340,7 +329,6 @@ export const useContextSets = () => {
       typeof fileEntry === 'string' ? fileEntry : fileEntry.fileRef
     )
     
-    console.log('Deleting context set:', name, 'with referenced files:', referencedFiles)
     
     // Remove the context set
     const { [name]: removed, ...rest } = contextSets.value
@@ -354,7 +342,6 @@ export const useContextSets = () => {
     // Clean up orphaned files from manifest
     const orphanedCount = cleanupOrphanedFiles()
     
-    console.log('Deleted context set:', name, `- cleaned up ${orphanedCount} orphaned files`)
     return true
   }
 
@@ -484,15 +471,9 @@ export const useContextSets = () => {
     
     filesManifest.value = newFilesManifest
     
-    console.log('Loaded context sets data:', { 
-      filesCount: Object.keys(filesManifest.value).length,
-      contextSetsCount: Object.keys(contextSets.value).length
-    })
-    
     // Clean up any orphaned files (though there shouldn't be any now)
     const orphanedCount = cleanupOrphanedFiles()
     if (orphanedCount > 0) {
-      console.log(`Cleaned up ${orphanedCount} orphaned files after loading data`)
     }
     
     // Try to restore last selected context set from localStorage, fallback to first available
@@ -506,21 +487,15 @@ export const useContextSets = () => {
           const lastSelected = localStorage.getItem('contextmax-last-context-set')
           if (lastSelected && setNames.includes(lastSelected)) {
             selectedSet = lastSelected
-            console.log(`Restored last selected context set from localStorage: ${lastSelected}`)
           }
         } catch (error) {
-          console.warn('Failed to read last context set from localStorage:', error)
+          logger.warn('Failed to read last context set from localStorage:', error)
         }
       }
       
       activeContextSetName.value = selectedSet
     }
     
-    console.log('Final loaded state:', { 
-      filesCount: Object.keys(filesManifest.value).length,
-      contextSetsCount: setNames.length,
-      activeSet: activeContextSetName.value
-    })
   }
 
   // Clear all context sets and files
