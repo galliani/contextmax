@@ -426,7 +426,6 @@ const handleRefreshFiles = async () => {
         
         if (filesToAnalyze.length > 0) {
           await generateEmbeddingsOnDemand(filesToAnalyze)
-        } else {
         }
       } catch (error) {
         logger.warn('⚠️ Error during automatic embedding generation after refresh:', error)

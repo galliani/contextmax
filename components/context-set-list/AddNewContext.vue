@@ -125,6 +125,7 @@
             Cancel
           </Button>
           <Button 
+            id="submit-new-context"
             type="submit" 
             :disabled="!isFormValid || isSearching"
             :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isSearching }"
@@ -170,6 +171,9 @@ const {
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
+
+// Use the filtered file system utilities
+const { buildFilteredFileTree } = useFileSystem()
 
 // Import smart suggestions composable for search
 const { performTriModelSearch } = useSmartContextSuggestions()
@@ -318,8 +322,8 @@ const handleCreateContextSet = async () => {
     isSearching.value = true
     
     try {
-      // Get all files from the file tree
-      const allFiles = getAllFilesFromTree(fileTree.value || [])
+      // Get all files from the file tree (already filtered by buildFilteredFileTree)
+      const allFiles = flattenFileTree(fileTree.value || [])
       const filesToSearch: Array<{ path: string; content: string }> = []
       
       // Load file contents for search
@@ -507,16 +511,15 @@ interface FileTreeItem {
   children?: FileTreeItem[]
 }
 
-const getAllFilesFromTree = (tree: FileTreeItem[]): FileTreeItem[] => {
+// Simple flatten function for the already-filtered file tree
+const flattenFileTree = (tree: FileTreeItem[]): FileTreeItem[] => {
   const files: FileTreeItem[] = []
   
   const traverse = (items: FileTreeItem[]) => {
-    if (!Array.isArray(items)) return
-    
     for (const item of items) {
-      if (item?.type === 'file') {
+      if (item.type === 'file') {
         files.push(item)
-      } else if (item?.children && Array.isArray(item.children)) {
+      } else if (item.children) {
         traverse(item.children)
       }
     }
