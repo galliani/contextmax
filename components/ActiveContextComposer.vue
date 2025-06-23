@@ -204,7 +204,7 @@ const nameInput = ref<HTMLInputElement>()
 const descriptionInput = ref<HTMLTextAreaElement>()
 
 // Use the project store
-const { activeContextSet, updateActiveContextSet, filesManifest, fileTree } = useProjectStore()
+const { activeContextSet, updateActiveContextSet, filesManifest, fileTree, contextSets, generateContextSetsJSONWithPrefix } = useProjectStore()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
@@ -354,17 +354,43 @@ const handleExportToClipboard = async () => {
   }
 
   try {
+    // Create a prefixed version of the context set for export
+    const prefixedContextSetName = activeContextSetName.value.startsWith('context:') 
+      ? activeContextSetName.value 
+      : `context:${activeContextSetName.value}`
+    
+    // Create a version of the context set with prefixed names in the 'uses' array
+    const prefixedContextSet = {
+      ...activeContextSet.value,
+      uses: activeContextSet.value.uses?.map(usedName => 
+        usedName.startsWith('context:') ? usedName : `context:${usedName}`
+      ) || []
+    }
+    
+    // Create prefixed versions of ALL context sets for dependency resolution
+    const prefixedAllContexts: Record<string, ContextSet> = {}
+    Object.entries(contextSets.value).forEach(([name, contextSet]) => {
+      const prefixedName = name.startsWith('context:') ? name : `context:${name}`
+      prefixedAllContexts[prefixedName] = {
+        ...contextSet,
+        uses: contextSet.uses?.map(usedName => 
+          usedName.startsWith('context:') ? usedName : `context:${usedName}`
+        ) || []
+      }
+    })
+    
     const result = await exportContextSetToClipboard(
-      activeContextSetName.value,
-      activeContextSet.value,
+      prefixedContextSetName,
+      prefixedContextSet,
       filesManifest.value,
-      fileTree.value
+      fileTree.value,
+      prefixedAllContexts
     )
 
     if (result.success) {
       success(
         'Snippet Copied',
-        `Context set "${activeContextSetName.value}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
+        `Context set "${prefixedContextSetName}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
       )
       announceStatus(`Context set exported to clipboard with ${result.tokenCount} tokens`)
     } else {
@@ -395,7 +421,8 @@ const updateEstimatedTokens = async () => {
         activeContextSetName.value,
         activeContextSet.value,
         filesManifest.value,
-        fileTree.value
+        fileTree.value,
+        contextSets.value
       )
       if (estimatedTokens?.value !== undefined) {
         estimatedTokens.value = tokens || 0

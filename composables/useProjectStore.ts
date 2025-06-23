@@ -10,6 +10,7 @@ import { logger } from '~/utils/logger'
 export type { 
   FileTreeItem,
   FileManifestEntry,
+  FileIndexEntry,
   FunctionRef,
   FileRef,
   Workflow,
@@ -278,7 +279,7 @@ export const useProjectStore = () => {
   // Save working copy to OPFS
   const saveWorkingCopyToOPFS = async (projectName: string): Promise<boolean> => {
     try {
-      const contextSetsData = contextSets.generateContextSetsJSON()
+      const contextSetsData = contextSets.generateContextSetsJSON(projectName)
       const result = await opfsManager.saveContextSets(projectName, contextSetsData)
       return result
     } catch (error) {
@@ -367,12 +368,26 @@ export const useProjectStore = () => {
 
   // Export operations
   const exportToProjectFolder = async (): Promise<{ success: boolean, error?: string, warning?: string }> => {
-    const contextSetsData = contextSets.generateContextSetsJSON()
+    const projectName = globalState.selectedFolder?.name
+    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
     return await persistence.exportToProjectFolder(globalState.selectedFolder, contextSetsData)
   }
 
   const previewContextSetsJSON = () => {
-    const contextSetsData = contextSets.generateContextSetsJSON()
+    const projectName = globalState.selectedFolder?.name
+    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
+    const result = persistence.previewContextSetsJSON(contextSetsData)
+    
+    if (result) {
+      globalState.currentFileContent = result.content
+      globalState.currentFileName = result.fileName
+      globalState.isFileContentModalOpen = true
+    }
+  }
+
+  const previewContextSetsJSONWithPrefix = () => {
+    const projectName = globalState.selectedFolder?.name
+    const contextSetsData = contextSets.generateContextSetsJSONWithPrefix(projectName)
     const result = persistence.previewContextSetsJSON(contextSetsData)
     
     if (result) {
@@ -452,7 +467,14 @@ export const useProjectStore = () => {
     closeFileContentModal,
 
     // Actions - JSON generation
-    generateContextSetsJSON: contextSets.generateContextSetsJSON,
+    generateContextSetsJSON: () => {
+      const projectName = globalState.selectedFolder?.name
+      return contextSets.generateContextSetsJSON(projectName)
+    },
+    generateContextSetsJSONWithPrefix: () => {
+      const projectName = globalState.selectedFolder?.name
+      return contextSets.generateContextSetsJSONWithPrefix(projectName)
+    },
     loadContextSetsData: contextSets.loadContextSetsData,
 
     // Actions - Persistence
@@ -467,7 +489,8 @@ export const useProjectStore = () => {
     getOrCreateFileId: contextSets.getOrCreateFileId,
     findFileIdByPath: contextSets.findFileIdByPath,
     generateFileId: contextSets.generateFileId,
-    generateFileContextsIndex: contextSets.generateFileContextsIndex,
+    generateFilesIndex: contextSets.generateFilesIndex,
+    generateFileContextsIndex: contextSets.generateFileContextsIndex, // Alias for backward compatibility
     cleanupOrphanedFiles: contextSets.cleanupOrphanedFiles,
     isFileReferencedByAnyContextSet: contextSets.isFileReferencedByAnyContextSet,
 
@@ -486,6 +509,7 @@ export const useProjectStore = () => {
     hasStableVersionInProject: () => persistence.hasStableVersionInProject(globalState.selectedFolder),
     getExportStatus,
     previewContextSetsJSON,
+    previewContextSetsJSONWithPrefix,
 
 
     // File system operations

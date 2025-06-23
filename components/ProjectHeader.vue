@@ -43,7 +43,7 @@
           size="default"
           class="px-4 py-2.5 font-medium hover:bg-muted/50 transition-all duration-200"
           title="Preview context-sets.json output"
-          @click="previewContextSetsJSON"
+          @click="handlePreviewContextSetsJSON"
         >
           <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
           Preview JSON
@@ -268,11 +268,12 @@ const {
   selectedFolder,
   contextSets,
   generateContextSetsJSON,
+  generateContextSetsJSONWithPrefix,
   exportToProjectFolder,
   getExportStatus,
   hasStableVersionInProject,
   fileTree,
-  previewContextSetsJSON
+  previewContextSetsJSONWithPrefix
 } = useProjectStore()
 
 // Smart Context Suggestions (for cache clearing and embedding generation)
@@ -464,7 +465,7 @@ const handleExportMenuChoice = async (action: 'download' | 'export') => {
 // Download JSON functionality (existing)
 const handleDownloadJSON = async () => {
   try {
-    const contextSetsData = generateContextSetsJSON()
+    const contextSetsData = generateContextSetsJSONWithPrefix()
     const jsonString = JSON.stringify(contextSetsData, null, 2)
     
     // Create and download the file
@@ -630,6 +631,11 @@ function handleRedo() {
   } else {
     warning('Nothing to Redo', 'No actions available to redo')
   }
+}
+
+// Preview JSON with context: prefix
+const handlePreviewContextSetsJSON = () => {
+  previewContextSetsJSONWithPrefix()
 }
 
 // Watch for auto-load announcements with enhanced feedback

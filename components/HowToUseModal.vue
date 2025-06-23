@@ -128,37 +128,41 @@ const isOpen = computed({
 const copySuccess = ref(false)
 
 // IDE Rule Content
-const ideRuleContent = `# Context Sets Tool Selection
+const ideRuleContent = `## Context Sets Tool Selection
 
-When a user prompt references a named context (e.g., 'using @setName'), locate the \`context-sets.json\` file in the project root, parse its \`contextSets\` object to find the definition for the specified \`setName\`, resolved all listed files and workflow, and use that as the primary context for your answer.
+When a user references \`@context:Name\`, resolve it via \`context-sets.json\` → \`sets["context:Name"]\`.
 
-## Schema Processing:
-1. **File Resolution**: For each item in \`files\` array:
-   - If string (e.g., \`"1"\`): Resolve via \`fileIndex["1"]\` to get path and comment
-   - If object (e.g., \`{"fileRef": "3", "lineRanges": [...]}\`): Resolve via \`fileIndex["3"]\` and apply additional properties
-2. **Workflow Processing**: Use \`workflow\` array to understand data flow sequence when making changes
-3. **Line Range Updates**: When modifying code, update \`lineRanges\` in context sets and maintain \`fileIndex\` consistency
+### Processing Order
 
-## Tool Selection Rules:
-- **Files with \`lineRanges\`**: Use \`grep_search\` for precise targeting (avoids 200-line minimum)
-- **Files without \`lineRanges\`**: Use \`read_file\` for complete context
-- **Override**: Respect explicit \`preferredTool\` when specified in file objects
-- **Workflow Analysis**: When understanding data flow, read workflow files in sequence order
+1. **Check workflows first**
 
-## Performance Optimizations:
-- Process \`workflow\` files first when making changes to understand impact
-- Use \`fileIndex\` comments to understand file purpose before reading
-- Batch similar file operations to reduce tool calls
+- If workflows exist: Start from \`workflow.start.function\` and trace to \`end\`
+- If workflows empty: Read all files in the context, prioritizing those with \`functionRefs\`
 
-## Memory-Based Context Tracking:
-When a named context set is referenced and code changes are made:
-1. **Load context set into memory** at the start of the session
-2. **Track line range changes in memory** during code modifications (do NOT update the JSON file immediately)
-3. **Use the updated memory version** for subsequent requests in the same session
-4. **Update context-sets.json file only when explicitly requested** (e.g., "update the context sets file now") or when preparing for commit/PR
-5. **Maintain accuracy** by ensuring memory-tracked changes reflect actual line number shifts from code edits
+2. **File Resolution**
 
-This approach optimizes performance by avoiding frequent file writes while maintaining context accuracy throughout the session.`
+- String → filesIndex[fileId].path → read entire file
+- Object → filesIndex[fileId].path → locate specific functionRefs
+
+3. **Impact Analysis**
+- Direct: Check context's \`uses\` array
+- Indirect: Check \`filesIndex[fileId].contexts\` for shared files
+- When modifying file_X in ContextA, also consider ContextB if both use file_X
+
+### Quick Example
+
+User: "Fix the download button in @context:PhotoGallery"
+→ Load PhotoGallery context
+→ See it uses ["DownloadPhoto"]
+→ Find download button via workflow start point or grep functions
+→ Check if changes affect DownloadPhoto via shared files
+
+### Key Rules
+
+- Track changes in memory during session
+- Update context-sets.json only when explicitly requested  
+- Use functionRefs for surgical precision when available
+- No warnings for files outside contexts`
 
 // Copy to clipboard functionality
 const copyToClipboard = async (text: string) => {

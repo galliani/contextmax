@@ -59,6 +59,23 @@ vi.mock('js-yaml', () => ({
       })
     }
     
+    if (obj.uses && obj.uses.length > 0) {
+      lines.push('uses:')
+      obj.uses.forEach((use: string) => {
+        lines.push(`  - ${use}`)
+      })
+    }
+
+    if (obj.includedContexts && obj.includedContexts.length > 0) {
+      lines.push('includedContexts:')
+      obj.includedContexts.forEach((context: any) => {
+        lines.push(`  - name: ${context.name}`)
+        if (context.description) {
+          lines.push(`    description: ${context.description}`)
+        }
+      })
+    }
+    
     if (obj.systemBehavior && Object.keys(obj.systemBehavior).length > 0) {
       lines.push('systemBehavior:')
       if (obj.systemBehavior.processing) {
@@ -102,6 +119,7 @@ describe('useContextSetExporter', () => {
           }
         }
       ],
+      uses: [],
       systemBehavior: {
         processing: {
           mode: 'synchronous'
@@ -186,7 +204,8 @@ describe('useContextSetExporter', () => {
       const minimalContextSet: ContextSet = {
         description: '',
         files: ['file_1'],
-        workflows: []
+        workflows: [],
+        uses: []
       }
 
       const result = await exporter.exportContextSetToClipboard(
@@ -214,6 +233,7 @@ describe('useContextSetExporter', () => {
         description: 'Test context set',
         files: ['file_1'],
         workflows: [],
+        uses: [],
         systemBehavior: {
           processing: {}
         }
@@ -376,6 +396,371 @@ describe('useContextSetExporter', () => {
         // Clear mock for next iteration
         vi.clearAllMocks()
       }
+    })
+  })
+
+  describe('hierarchical context export', () => {
+    let mockAllContexts: Record<string, ContextSet>
+    
+    beforeEach(() => {
+      // Setup hierarchical test data
+      mockAllContexts = {
+        'MainContext': {
+          description: 'Main context description',
+          files: ['file_1'],
+          workflows: [],
+          uses: ['ChildA', 'ChildB']
+        },
+        'ChildA': {
+          description: 'Child A description',
+          files: ['file_2'],
+          workflows: [],
+          uses: ['GrandchildX']
+        },
+        'ChildB': {
+          description: 'Child B description',
+          files: ['file_3'],
+          workflows: [],
+          uses: []
+        },
+        'GrandchildX': {
+          description: 'Grandchild X description',
+          files: ['file_4'],
+          workflows: [],
+          uses: []
+        },
+        'CircularA': {
+          description: 'Circular A',
+          files: ['file_5'],
+          workflows: [],
+          uses: ['CircularB']
+        },
+        'CircularB': {
+          description: 'Circular B',
+          files: ['file_6'],
+          workflows: [],
+          uses: ['CircularA']
+        }
+      }
+
+      // Extended file manifest for hierarchical tests
+      mockFilesManifest = {
+        ...mockFilesManifest,
+        file_2: { path: 'src/childA.ts', comment: 'Child A file' },
+        file_3: { path: 'src/childB.ts', comment: 'Child B file' },
+        file_4: { path: 'src/grandchild.ts', comment: 'Grandchild file' },
+        file_5: { path: 'src/circularA.ts', comment: 'Circular A file' },
+        file_6: { path: 'src/circularB.ts', comment: 'Circular B file' }
+      }
+
+      // Extended file tree
+      mockFileTree = [
+        ...mockFileTree,
+        { path: 'src/childA.ts', type: 'file', handle: mockFileHandle as any },
+        { path: 'src/childB.ts', type: 'file', handle: mockFileHandle as any },
+        { path: 'src/grandchild.ts', type: 'file', handle: mockFileHandle as any },
+        { path: 'src/circularA.ts', type: 'file', handle: mockFileHandle as any },
+        { path: 'src/circularB.ts', type: 'file', handle: mockFileHandle as any }
+      ]
+    })
+
+    it('should export hierarchical context with child dependencies', async () => {
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mockAllContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Check frontmatter includes dependency metadata
+      expect(exportedText).toContain('contextSetName: MainContext')
+      expect(exportedText).toContain('uses:')
+      expect(exportedText).toContain('- ChildA')
+      expect(exportedText).toContain('- ChildB')
+      expect(exportedText).toContain('includedContexts:')
+      expect(exportedText).toContain('- name: GrandchildX')
+      expect(exportedText).toContain('description: Grandchild X description')
+      expect(exportedText).toContain('- name: ChildA')
+      expect(exportedText).toContain('description: Child A description')
+      expect(exportedText).toContain('- name: ChildB')
+      expect(exportedText).toContain('description: Child B description')
+      
+      // Check hierarchical structure markers
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: MainContext')
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: GrandchildX')
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildA')
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildB')
+      
+      // Check enhanced system prompt for hierarchical contexts
+      expect(exportedText).toContain('This export includes the main context and its dependent child contexts in a hierarchical structure')
+      expect(exportedText).toContain('Main context appears first, followed by child contexts')
+      expect(exportedText).toContain('You can remove child context sections if not needed')
+    })
+
+    it('should resolve dependencies recursively', async () => {
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mockAllContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include GrandchildX even though it's not direct dependency
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: GrandchildX')
+      expect(exportedText).toContain('## FILE: src/grandchild.ts')
+      
+      // Check dependency order (grandchildren before children)
+      const grandchildIndex = exportedText.indexOf('# 📁 CHILD CONTEXT: GrandchildX')
+      const childAIndex = exportedText.indexOf('# 📁 CHILD CONTEXT: ChildA')
+      expect(grandchildIndex).toBeLessThan(childAIndex)
+    })
+
+    it('should handle circular dependencies without infinite loops', async () => {
+      const result = await exporter.exportContextSetToClipboard(
+        'CircularA',
+        mockAllContexts['CircularA'],
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include both contexts exactly once
+      const circularAMatches = (exportedText.match(/# 📁 CHILD CONTEXT: CircularB/g) || []).length
+      expect(circularAMatches).toBe(1)
+      
+      // Should not cause infinite recursion (test completes successfully)
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: CircularA')
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: CircularB')
+    })
+
+    it('should work without allContexts parameter (backward compatibility)', async () => {
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mockAllContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree
+        // No allContexts parameter
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should export only the main context without children
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: MainContext')
+      expect(exportedText).not.toContain('# 📁 CHILD CONTEXT:')
+      expect(exportedText).not.toContain('includedContexts:')
+      
+      // Should use non-hierarchical system prompt
+      expect(exportedText).toContain('The context is structured with YAML frontmatter')
+      expect(exportedText).not.toContain('This export includes the main context and its dependent child contexts')
+    })
+
+    it('should handle missing child contexts gracefully', async () => {
+      const incompleteContexts = {
+        'MainContext': mockAllContexts['MainContext'],
+        'ChildA': mockAllContexts['ChildA']
+        // Missing ChildB and GrandchildX
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        incompleteContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree,
+        incompleteContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include ChildA but skip missing contexts
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildA')
+      expect(exportedText).not.toContain('# 📁 CHILD CONTEXT: ChildB')
+      expect(exportedText).not.toContain('# 📁 CHILD CONTEXT: GrandchildX')
+    })
+
+    it('should include context metadata in child sections', async () => {
+      const complexChildContext: ContextSet = {
+        description: 'Complex child with workflows',
+        files: ['file_2'],
+        workflows: [{
+          start: { fileRef: 'file_2', startLine: 1, endLine: 5 },
+          end: { fileRef: 'file_2', startLine: 10, endLine: 15 }
+        }],
+        uses: ['GrandchildX']
+      }
+
+      mockAllContexts['ChildA'] = complexChildContext
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mockAllContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should show metadata for child contexts
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildA')
+      expect(exportedText).toContain('**Description:** Complex child with workflows')
+      expect(exportedText).toContain('**Workflows:** 1 defined')
+      expect(exportedText).toContain('**Uses:** GrandchildX')
+    })
+
+    it('should calculate token count including all hierarchical content', async () => {
+      const tokenCount = await exporter.calculateTokenCount(
+        'MainContext',
+        mockAllContexts['MainContext'],
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      // Token count should be higher than single context due to hierarchical content
+      expect(tokenCount).toBe(100) // Mocked value, but function should complete successfully
+    })
+
+    it('should handle empty uses array correctly', async () => {
+      const contextWithoutDependencies: ContextSet = {
+        description: 'No dependencies',
+        files: ['file_1'],
+        workflows: [],
+        uses: []
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'NoDeps',
+        contextWithoutDependencies,
+        mockFilesManifest,
+        mockFileTree,
+        mockAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should export as single context
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: NoDeps')
+      expect(exportedText).not.toContain('# 📁 CHILD CONTEXT:')
+      expect(exportedText).not.toContain('includedContexts:')
+    })
+
+    it('should include child context files in snippet copy (ActiveContextComposer scenario)', async () => {
+      // Simulate the prefixed scenario from ActiveContextComposer
+      const prefixedMainContext: ContextSet = {
+        description: 'Main context description',
+        files: ['file_1'],
+        workflows: [],
+        uses: ['context:ChildA'] // Prefixed child names
+      }
+
+      const prefixedAllContexts = {
+        'context:MainContext': prefixedMainContext,
+        'context:ChildA': {
+          description: 'Child A description',
+          files: ['file_2'],
+          workflows: [],
+          uses: []
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'context:MainContext',
+        prefixedMainContext,
+        mockFilesManifest,
+        mockFileTree,
+        prefixedAllContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include main context files
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: context:MainContext')
+      expect(exportedText).toContain('## FILE: src/test.ts') // file_1
+      
+      // Should include child context files
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: context:ChildA')
+      expect(exportedText).toContain('## FILE: src/childA.ts') // file_2
+      
+      // Should have proper frontmatter
+      expect(exportedText).toContain('uses:')
+      expect(exportedText).toContain('- context:ChildA')
+      expect(exportedText).toContain('includedContexts:')
+      expect(exportedText).toContain('name: context:ChildA')
+      expect(exportedText).toContain('description: Child A description')
+    })
+
+    it('should not include description field for contexts without description in frontmatter', async () => {
+      // Test the frontmatter generation specifically
+      const mainContext: ContextSet = {
+        description: 'Main context',
+        files: ['file_1'],
+        workflows: [],
+        uses: ['ChildWithDesc', 'ChildWithoutDesc']
+      }
+
+      const allContextsWithMixed = {
+        'MainContext': mainContext,
+        'ChildWithDesc': {
+          description: 'Has description',
+          files: ['file_2'],
+          workflows: [],
+          uses: []
+        },
+        'ChildWithoutDesc': {
+          description: '', // Empty description
+          files: ['file_2'], // Reuse existing file
+          workflows: [],
+          uses: []
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        mainContext,
+        mockFilesManifest,
+        mockFileTree,
+        allContextsWithMixed
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should not contain "No description available"
+      expect(exportedText).not.toContain('No description available')
+      
+      // Should contain the context with description
+      expect(exportedText).toContain('name: ChildWithDesc')
+      expect(exportedText).toContain('description: Has description')
+      
+      // Should contain the context without description (but no description field)
+      expect(exportedText).toContain('name: ChildWithoutDesc')
+      // Should NOT have a description field for empty description
+      expect(exportedText).not.toMatch(/name: ChildWithoutDesc\s*description:/s)
     })
   })
 }) 

@@ -112,7 +112,7 @@ export const usePersistence = () => {
       return { success: false, error: 'No project folder selected' }
     }
 
-    if (Object.keys(contextSetsData.contextSets || {}).length === 0) {
+    if (Object.keys(contextSetsData.sets || contextSetsData.contextSets || {}).length === 0) {
       return { success: false, error: 'No context sets to export' }
     }
 
@@ -260,7 +260,7 @@ export const usePersistence = () => {
 
   // Preview context sets JSON
   const previewContextSetsJSON = (contextSetsData: any): { content: string; fileName: string } | null => {
-    if (Object.keys(contextSetsData.contextSets || {}).length === 0) {
+    if (Object.keys(contextSetsData.sets || contextSetsData.contextSets || {}).length === 0) {
       if (import.meta.client) {
         const { warning } = useNotifications()
         warning('No Content', 'There are no context sets to preview.')

@@ -106,7 +106,8 @@ describe('useProjectStore', () => {
       expect(store.contextSets.value[setName]).toEqual({
         description,
         files: [],
-        workflows: []
+        workflows: [],
+        uses: []
       })
     })
 
@@ -184,8 +185,8 @@ describe('useProjectStore', () => {
       // Generate context sets JSON with empty state
       const emptyContextSetsData = store.generateContextSetsJSON()
       expect(emptyContextSetsData.schemaVersion).toBe('1.0')
-      expect(Object.keys(emptyContextSetsData.contextSets)).toHaveLength(0)
-      expect(Object.keys(emptyContextSetsData.filesManifest)).toHaveLength(0)
+      expect(Object.keys(emptyContextSetsData.sets)).toHaveLength(0)
+      expect(Object.keys(emptyContextSetsData.filesIndex)).toHaveLength(0)
       
       // This verifies that the empty state can be properly serialized and saved
       expect(JSON.stringify(emptyContextSetsData)).toBeTruthy()
@@ -308,12 +309,11 @@ describe('useProjectStore', () => {
       const json = store.generateContextSetsJSON()
       
       expect(json.schemaVersion).toBe('1.0')
-      expect(json.contextSets['test-export']).toBeDefined()
-      expect(json.filesManifest).toBeDefined()
-      expect(json.fileContextsIndex).toBeDefined()
+      expect(json.sets['test-export']).toBeDefined()
+      expect(json.filesIndex).toBeDefined()
     })
 
-    it('should generate file contexts index', () => {
+    it('should generate files index', () => {
       store.createContextSet('index-test', 'Index test')
       const file = {
         name: 'index-test.vue',
@@ -323,13 +323,13 @@ describe('useProjectStore', () => {
       store.setActiveContextSet('index-test')
       store.addFileToActiveContextSet(file)
       
-      const index = store.generateFileContextsIndex()
+      const index = store.generateFilesIndex()
       const fileId = store.findFileIdByPath(file.path)!
       
       expect(index[fileId]).toBeDefined()
-      expect(index[fileId]).toContainEqual({
-        setName: 'index-test',
-        lineRanges: undefined
+      expect(index[fileId]).toEqual({
+        path: file.path,
+        contexts: ['index-test']
       })
     })
   })
@@ -791,8 +791,8 @@ describe('useProjectStore', () => {
       const writtenContent = mockWritable.write.mock.calls[0][0]
       const parsedContent = JSON.parse(writtenContent)
       expect(parsedContent.schemaVersion).toBe('1.0')
-      expect(parsedContent.contextSets['export-test']).toBeDefined()
-      expect(Object.keys(parsedContent.filesManifest)).toHaveLength(1)
+      expect(parsedContent.sets['export-test']).toBeDefined()
+      expect(Object.keys(parsedContent.filesIndex)).toHaveLength(1)
     })
     
     it('should handle export permission errors gracefully', async () => {
@@ -1151,7 +1151,7 @@ describe('useProjectStore', () => {
       // Verify exported content contains working copy data
       const exportedContent = mockWritable.write.mock.calls[0][0]
       const parsedContent = JSON.parse(exportedContent)
-      expect(parsedContent.contextSets['export-working-copy']).toBeDefined()
+      expect(parsedContent.sets['export-working-copy']).toBeDefined()
     })
 
     it('should handle project switching without data loss', async () => {
@@ -1488,8 +1488,8 @@ describe('useProjectStore', () => {
 
       const content = JSON.parse(store.currentFileContent.value)
       expect(content.schemaVersion).toBe('1.0')
-      expect(content.contextSets['preview-set']).toBeDefined()
-      expect(content.contextSets['preview-set'].description).toBe('A test set for preview')
+      expect(content.sets['preview-set']).toBeDefined()
+      expect(content.sets['preview-set'].description).toBe('A test set for preview')
     })
 
     it('should handle errors during JSON generation', () => {
