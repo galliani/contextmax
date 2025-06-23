@@ -6,3 +6,39 @@
 # About server
 
 DO NOT run command to run or restart the server, always assume that server is running at port 3000.
+
+# Context Sets Tool Selection
+
+When a user references `@context:Name`, resolve it via `context-sets.json` → `sets["context:Name"]`.
+
+## Processing Order
+
+1. **Check workflows first**
+
+- If workflows exist: Start from `workflow.start.function` and trace to `end`
+- If workflows empty: Read all files in the context, prioritizing those with `functionRefs`
+
+2. **File Resolution**
+
+- String → filesIndex[fileId].path → read entire file
+- Object → filesIndex[fileId].path → locate specific functionRefs
+
+3. **Impact Analysis**
+- Direct: Check context's `uses` array
+- Indirect: Check `filesIndex[fileId].contexts` for shared files
+- When modifying file_X in ContextA, also consider ContextB if both use file_X
+
+## Quick Example
+
+User: "Fix the download button in @context:PhotoGallery"
+→ Load PhotoGallery context
+→ See it uses ["DownloadPhoto"]
+→ Find download button via workflow start point or grep functions
+→ Check if changes affect DownloadPhoto via shared files
+
+## Key Rules
+
+- Track changes in memory during session
+- Update context-sets.json only when explicitly requested  
+- Use functionRefs for surgical precision when available
+- No warnings for files outside contexts
