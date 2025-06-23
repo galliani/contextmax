@@ -88,6 +88,17 @@
                 <FilesList />
               </div>
 
+              <!-- Child Contexts Tab -->
+              <div
+                v-show="activeTab === 'childContexts'"
+                id="tab-panel-childContexts"
+                class="h-full overflow-y-auto p-6"
+                role="tabpanel"
+                aria-labelledby="tab-childContexts"
+              >
+                <ChildContextsList />
+              </div>
+
             </div>
           </div>
         </div>
@@ -99,10 +110,12 @@
 <script setup lang="ts">
 import type { WorkflowStep } from '~/composables/useProjectStore'
 import FilesList from './FilesList.vue'
+import ChildContextsList from './ChildContextsList.vue'
 
 const {
   activeContextSet,
-  updateActiveContextSet
+  updateActiveContextSet,
+  contextSetNames
 } = useProjectStore()
 
 const { announceStatus, announceError } = useAccessibility()
@@ -118,6 +131,12 @@ const tabs = computed(() => [
     label: 'Files',
     icon: 'lucide:file-text',
     count: activeContextSet.value?.files.length || 0
+  },
+  {
+    id: 'childContexts',
+    label: 'Child Contexts',
+    icon: 'lucide:link',
+    count: activeContextSet.value?.uses?.length || 0
   },
 ])
 
