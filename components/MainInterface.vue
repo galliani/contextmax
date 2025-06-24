@@ -99,6 +99,18 @@
 
     <!-- File Content Modal -->
     <FileContentModal />
+    
+    <!-- Footer -->
+    <footer class="mt-16 py-8 border-t border-border/20 bg-card/30 backdrop-blur-sm">
+      <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center text-base text-muted-foreground">
+          contextMax 2025, created by 
+          <a href="https://github.com/galihmuhammad" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">Galih</a> 
+          of 
+          <a href="https://51newyork.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">51NewYork</a>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 
