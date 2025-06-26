@@ -474,15 +474,15 @@ export const useSmartContextSuggestions = () => {
     // Stage 3: Enhanced Relationship Analysis
     const syntaxResults = await performEntryPointSyntaxAnalysis(files, entryPointInfo)
     
-    // Stage 4: Flan-T5 Classification and Scoring
-    const flanResults = await performFlanT5Analysis(keyword, files, entryPointFile, syntaxResults)
+    // Stage 4: Embedding-based Classification and Scoring
+    const classificationResults = await performEmbeddingBasedClassification(keyword, files, entryPointFile, syntaxResults)
     
     // Stage 5: Combine all scores with tri-model weighting
     const triModelMatches = combineTriModelResults(
       astMatches, 
       llmMatches, 
       syntaxResults, 
-      flanResults, 
+      classificationResults, 
       entryPointFile
     )
     
@@ -490,7 +490,7 @@ export const useSmartContextSuggestions = () => {
       id: `tri-model-search-${keyword.replace(/[^a-zA-Z0-9]/g, '_')}`,
       type: 'keywordSearch',
       title: `AI-Powered Search Results for "${keyword}"`,
-      description: `Found ${triModelMatches.length} relevant files using tri-model analysis (Syntax + Semantic + AI Classification)`,
+      description: `Found ${triModelMatches.length} relevant files using tri-model analysis (Syntax + Semantic + Embedding Classification)`,
       confidence: Math.min(triModelMatches.length * 0.1, 1.0),
       data: {
         keyword,
@@ -684,69 +684,117 @@ export const useSmartContextSuggestions = () => {
     return syntaxScores
   }
 
-  // Flan-T5 analysis for classification and workflow understanding
-  const performFlanT5Analysis = async (
+  // Embedding-based classification to replace Flan-T5 functionality
+  const performEmbeddingBasedClassification = async (
     keyword: string,
     files: Array<{ path: string; content: string }>,
     entryPointFile?: { path: string; content: string },
     syntaxResults?: Map<string, number>
   ): Promise<Map<string, { score: number; classification: string; workflowPosition: string; relevantFunctions?: Array<{ name: string; relevance: number; reason?: string }> }>> => {
-    const flanResults = new Map<string, { score: number; classification: string; workflowPosition: string; relevantFunctions?: Array<{ name: string; relevance: number; reason?: string }> }>()
+    const classificationResults = new Map<string, { score: number; classification: string; workflowPosition: string; relevantFunctions?: Array<{ name: string; relevance: number; reason?: string }> }>()
     
     try {
-      // Get the text generation model
-      const { $llm } = useNuxtApp()
-      const textGenModel = await $llm?.getModel?.('textGeneration')
-      if (!textGenModel) {
-        logger.warn('Flan-T5 model not available, skipping AI analysis')
+      // Check if embeddings model is available
+      if (!$llm?.engine || $llm?.status !== 'ready') {
+        logger.warn('Embeddings model not available for classification')
         files.forEach(file => {
-          flanResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
+          classificationResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
         })
-        return flanResults
+        return classificationResults
       }
       
-      // Process files in batches to avoid overwhelming the model
-      const batchSize = 5
-      for (let i = 0; i < files.length; i += batchSize) {
-        const batch = files.slice(i, i + batchSize)
-        
-        for (const file of batch) {
-          try {
-            // Get basic file info
-            const fileInfo = codeInfoCache.value.get(file.path)
-            const fileName = file.path.split('/').pop() || ''
-            const functions = fileInfo?.functions.map(f => f.name).slice(0, 5).join(', ') || 'none'
-            const imports = fileInfo?.imports.map(i => i.module).slice(0, 3).join(', ') || 'none'
-            
-            let classification: string
-            
-            // If this is the actual selected entry point file, mark it as such
-            if (entryPointFile && file.path === entryPointFile.path) {
-              classification = 'entry-point'
-            } else {
-              // For other files, use AI classification but exclude 'entry-point' as an option
-              const classificationPrompt = `Entry point file: ${entryPointFile?.path || 'none'} handles "${keyword}"
-Current file: ${fileName} at ${file.path}
-Functions: ${functions}
-Imports: ${imports}
-Classify this file's role as: core-logic, helper, config, or unrelated`
+      // Pre-computed embeddings for classification categories
+      // These represent typical patterns for each file type
+      const classificationEmbeddings = new Map<string, number[]>()
+      
+      // Generate embeddings for classification categories
+      const classifications = {
+        'entry-point': 'main entry application startup initialization bootstrap router controller endpoint',
+        'core-logic': 'business logic core functionality algorithm processing computation service',
+        'helper': 'utility helper utils common shared tools lib library',
+        'config': 'configuration settings options environment variables constants',
+        'unrelated': 'test spec documentation readme example demo'
+      }
+      
+      // Generate embeddings for each classification
+      for (const [classification, keywords] of Object.entries(classifications)) {
+        if (typeof $llm.engine === 'function') {
+          const embedding = await $llm.engine(keywords, { pooling: 'mean', normalize: true })
+          classificationEmbeddings.set(classification, embedding.data)
+        }
+      }
+      
+      // Workflow position embeddings
+      const workflowEmbeddings = new Map<string, number[]>()
+      const workflowPositions = {
+        'upstream': 'input source beginning start initial data entry request',
+        'downstream': 'output result final end response return completion',
+        'parallel': 'concurrent async parallel independent side branch',
+        'unrelated': 'separate independent disconnected isolated unconnected'
+      }
+      
+      // Generate embeddings for workflow positions
+      for (const [position, keywords] of Object.entries(workflowPositions)) {
+        if (typeof $llm.engine === 'function') {
+          const embedding = await $llm.engine(keywords, { pooling: 'mean', normalize: true })
+          workflowEmbeddings.set(position, embedding.data)
+        }
+      }
+      
+      // Process all files
+      for (const file of files) {
+        try {
+          // Get basic file info
+          const fileInfo = codeInfoCache.value.get(file.path)
+          const fileName = file.path.split('/').pop() || ''
+          const fileExtension = fileName.split('.').pop() || ''
+          const filePath = file.path.toLowerCase()
+          
+          // Create a content representation for embedding
+          const functions = fileInfo?.functions.map(f => f.name).join(' ') || ''
+          const imports = fileInfo?.imports.map(i => i.module).join(' ') || ''
+          const exports = fileInfo?.exports.map(e => e.name).join(' ') || ''
+          
+          // Generate embedding for the file context
+          const fileContext = `${fileName} ${filePath} ${functions} ${imports} ${exports} ${file.content.substring(0, 500)}`
+          let fileEmbedding: number[] = []
+          
+          if (typeof $llm.engine === 'function') {
+            const embeddingResult = await $llm.engine(fileContext, { pooling: 'mean', normalize: true })
+            fileEmbedding = embeddingResult.data
+          }
+          
+          // Classify the file by finding the most similar classification
+          let classification = 'unknown'
+          let maxClassificationSimilarity = -1
+          
+          // Special case: entry point file
+          if (entryPointFile && file.path === entryPointFile.path) {
+            classification = 'entry-point'
+          } else {
+            for (const [category, categoryEmbedding] of classificationEmbeddings) {
+              // Skip entry-point classification for non-entry files
+              if (category === 'entry-point') continue
               
-              const classificationResult = await textGenModel(classificationPrompt)
-              classification = extractClassification(classificationResult)
-              
-              // Ensure no other file gets classified as entry-point
-              if (classification === 'entry-point') {
-                classification = 'core-logic'
+              const similarity = cosineSimilarity(fileEmbedding, categoryEmbedding)
+              if (similarity > maxClassificationSimilarity) {
+                maxClassificationSimilarity = similarity
+                classification = category
               }
             }
-            
-            // Workflow position prompt
-            const workflowPrompt = `Entry: ${entryPointFile?.path || 'none'} handles ${keyword}
-File: ${fileName} with functions: ${functions}
-Position in workflow: upstream, downstream, parallel, or unrelated`
-            
-            const workflowResult = await textGenModel(workflowPrompt)
-            const workflowPosition = extractWorkflowPosition(workflowResult)
+          }
+          
+          // Determine workflow position
+          let workflowPosition = 'unknown'
+          let maxWorkflowSimilarity = -1
+          
+          for (const [position, positionEmbedding] of workflowEmbeddings) {
+            const similarity = cosineSimilarity(fileEmbedding, positionEmbedding)
+            if (similarity > maxWorkflowSimilarity) {
+              maxWorkflowSimilarity = similarity
+              workflowPosition = position
+            }
+          }
             
             // Calculate relevance score based on classification and syntax
             let relevanceScore = 0
@@ -779,58 +827,65 @@ Position in workflow: upstream, downstream, parallel, or unrelated`
             // Combine with syntax score
             const finalScore = Math.min((relevanceScore * 0.7) + (syntaxScore * 0.3), 1.0)
             
-            // Analyze relevant functions if we have function information
+            // Analyze relevant functions using embeddings
             let relevantFunctions: Array<{ name: string; relevance: number; reason?: string }> = []
             
             if (fileInfo?.functions && fileInfo.functions.length > 0 && classification !== 'unrelated') {
               try {
-                // Ask LLM to identify which functions are most relevant
-                const functionList = fileInfo.functions.slice(0, 40).map(f => f.name).join(', ')
-                const functionAnalysisPrompt = `Searching for: "${keyword}"
-File: ${fileName} (${classification})
-Functions in file: ${functionList}
-Which functions are most relevant to "${keyword}"? List only function names, one per line.`
-                
-                const functionResult = await textGenModel(functionAnalysisPrompt)
-                const relevantFunctionNames = extractRelevantFunctions(functionResult, fileInfo.functions.map(f => f.name))
+                // Generate embedding for the search keyword
+                let keywordEmbedding: number[] = []
+                if (typeof $llm.engine === 'function') {
+                  const embeddingResult = await $llm.engine(keyword, { pooling: 'mean', normalize: true })
+                  keywordEmbedding = embeddingResult.data
+                }
                 
                 // Score each function's relevance
-                for (const funcName of relevantFunctionNames) {
-                  const funcInfo = fileInfo.functions.find(f => f.name === funcName)
-                  if (funcInfo) {
-                    // Calculate function-specific relevance
-                    let funcRelevance = 0.5 // Base relevance
-                    
-                    // Boost if function name contains keyword
-                    if (funcName.toLowerCase().includes(keyword.toLowerCase())) {
-                      funcRelevance += 0.3
-                    }
-                    
-                    // Boost based on file classification
-                    if (classification === 'entry-point' || classification === 'core-logic') {
-                      funcRelevance += 0.2
-                    }
-                    
+                for (const funcInfo of fileInfo.functions.slice(0, 40)) {
+                  const funcName = funcInfo.name
+                  
+                  // Generate embedding for function context
+                  const funcContext = `function ${funcName} ${funcInfo.name.replace(/([A-Z])/g, ' $1').toLowerCase()}`
+                  let funcEmbedding: number[] = []
+                  
+                  if (typeof $llm.engine === 'function') {
+                    const embeddingResult = await $llm.engine(funcContext, { pooling: 'mean', normalize: true })
+                    funcEmbedding = embeddingResult.data
+                  }
+                  
+                  // Calculate semantic similarity
+                  const semanticSimilarity = cosineSimilarity(keywordEmbedding, funcEmbedding)
+                  
+                  // Calculate function-specific relevance
+                  let funcRelevance = semanticSimilarity * 0.7 // Base on semantic similarity
+                  
+                  // Boost if function name contains keyword
+                  if (funcName.toLowerCase().includes(keyword.toLowerCase())) {
+                    funcRelevance += 0.3
+                  }
+                  
+                  // Only include functions with reasonable relevance
+                  if (funcRelevance > 0.3) {
                     relevantFunctions.push({
                       name: funcName,
                       startLine: funcInfo.startLine,
                       endLine: funcInfo.endLine,
                       relevance: Math.min(funcRelevance, 1.0),
-                      reason: `Related to ${keyword}`,
-                      type: 'function' // Default type, could be enhanced later
+                      reason: `Semantically related to ${keyword}`,
+                      type: 'function'
                     })
                   }
                 }
                 
-                // Sort by relevance
+                // Sort by relevance and keep top 5
                 relevantFunctions.sort((a, b) => b.relevance - a.relevance)
-                relevantFunctions = relevantFunctions.slice(0, 5) // Keep top 5
+                relevantFunctions = relevantFunctions.slice(0, 5)
               } catch (funcError) {
                 // Function analysis failed - continue without function details
+                logger.warn('Function analysis failed:', funcError)
               }
             }
             
-            flanResults.set(file.path, {
+            classificationResults.set(file.path, {
               score: finalScore,
               classification,
               workflowPosition,
@@ -838,86 +893,28 @@ Which functions are most relevant to "${keyword}"? List only function names, one
             })
             
           } catch (error) {
-            logger.warn(`Flan-T5 analysis failed for ${file.path}:`, error)
-            flanResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
+            logger.warn(`Embedding-based classification failed for ${file.path}:`, error)
+            classificationResults.set(file.path, { score: 0, classification: 'unknown', workflowPosition: 'unknown' })
           }
         }
-        
-        // Small delay between batches to avoid overwhelming the model
-        if (i + batchSize < files.length) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      }
       
     } catch (error) {
-      logger.error('Flan-T5 analysis failed:', error)
+      logger.error('Embedding-based classification failed:', error)
       files.forEach(file => {
-        flanResults.set(file.path, { score: 0, classification: 'error', workflowPosition: 'error' })
+        classificationResults.set(file.path, { score: 0, classification: 'error', workflowPosition: 'error' })
       })
     }
     
-    return flanResults
+    return classificationResults
   }
 
-  // Helper functions for parsing Flan-T5 responses
-  const extractClassification = (response: any): string => {
-    const text = typeof response === 'string' ? response : response?.[0]?.generated_text || ''
-    const classifications = ['entry-point', 'core-logic', 'helper', 'config', 'unrelated']
-    
-    for (const classification of classifications) {
-      if (text.toLowerCase().includes(classification)) {
-        return classification
-      }
-    }
-    return 'unknown'
-  }
-
-  const extractWorkflowPosition = (response: any): string => {
-    const text = typeof response === 'string' ? response : response?.[0]?.generated_text || ''
-    const positions = ['upstream', 'downstream', 'parallel', 'unrelated']
-    
-    for (const position of positions) {
-      if (text.toLowerCase().includes(position)) {
-        return position
-      }
-    }
-    return 'unknown'
-  }
-
-  const extractRelevantFunctions = (response: any, availableFunctions: string[]): string[] => {
-    const text = typeof response === 'string' ? response : response?.[0]?.generated_text || ''
-    const relevantFunctions: string[] = []
-    
-    // Split response by lines and look for function names
-    const lines = text.split(/[\n,;]/).map(line => line.trim())
-    
-    for (const line of lines) {
-      // Check each available function to see if it appears in the response
-      for (const funcName of availableFunctions) {
-        if (line.includes(funcName) && !relevantFunctions.includes(funcName)) {
-          relevantFunctions.push(funcName)
-        }
-      }
-    }
-    
-    // If no functions found through exact matching, try fuzzy matching
-    if (relevantFunctions.length === 0) {
-      for (const funcName of availableFunctions) {
-        if (text.toLowerCase().includes(funcName.toLowerCase())) {
-          relevantFunctions.push(funcName)
-        }
-      }
-    }
-    
-    return relevantFunctions
-  }
 
   // Combine tri-model results with intelligent weighting
   const combineTriModelResults = (
     astMatches: ASTMatch[],
     llmMatches: LLMMatch[],
     syntaxResults: Map<string, number>,
-    flanResults: Map<string, { score: number; classification: string; workflowPosition: string; relevantFunctions?: Array<{ name: string; relevance: number; reason?: string }> }>,
+    classificationResults: Map<string, { score: number; classification: string; workflowPosition: string; relevantFunctions?: Array<{ name: string; relevance: number; reason?: string }> }>,
     entryPointFile?: { path: string; content: string }
   ): Array<{
     file: string
@@ -940,7 +937,7 @@ Which functions are most relevant to "${keyword}"? List only function names, one
       ...astMatches.map(m => m.file),
       ...llmMatches.map(m => m.file),
       ...Array.from(syntaxResults.keys()),
-      ...Array.from(flanResults.keys())
+      ...Array.from(classificationResults.keys())
     ])
     
     // Find max scores for normalization
@@ -951,24 +948,24 @@ Which functions are most relevant to "${keyword}"? List only function names, one
       const astMatch = astMatches.find(m => m.file === filePath)
       const llmMatch = llmMatches.find(m => m.file === filePath)
       const syntaxScore = syntaxResults.get(filePath) || 0
-      const flanResult = flanResults.get(filePath) || { score: 0, classification: 'unknown', workflowPosition: 'unknown' }
+      const classificationResult = classificationResults.get(filePath) || { score: 0, classification: 'unknown', workflowPosition: 'unknown' }
       
       // Normalize scores
       const normalizedAstScore = astMatch ? astMatch.score / maxAstScore : 0
       const normalizedLlmScore = llmMatch ? llmMatch.score / maxLlmScore : 0
       const normalizedSyntaxScore = syntaxScore
-      const normalizedFlanScore = flanResult.score
+      const normalizedClassificationScore = classificationResult.score
       
       // Enhanced synergy detection
       const hasBasicSynergy = !!(astMatch && llmMatch)
-      const hasFullSynergy = !!(astMatch && llmMatch && syntaxScore > 0.3 && flanResult.score > 0.5)
+      const hasFullSynergy = !!(astMatch && llmMatch && syntaxScore > 0.3 && classificationResult.score > 0.5)
       
       // Tri-model weighted scoring
       let finalScore = (
         normalizedAstScore * 0.25 +      // Structure matches
         normalizedLlmScore * 0.35 +      // Semantic similarity
         normalizedSyntaxScore * 0.15 +   // Entry point relationships
-        normalizedFlanScore * 0.25       // AI classification and workflow
+        normalizedClassificationScore * 0.25       // Embedding-based classification and workflow
       )
       
       // Apply synergy multipliers
@@ -992,13 +989,13 @@ Which functions are most relevant to "${keyword}"? List only function names, one
         scorePercentage,
         astScore: normalizedAstScore,
         llmScore: normalizedLlmScore,
-        flanScore: normalizedFlanScore,
+        flanScore: normalizedClassificationScore,
         syntaxScore: normalizedSyntaxScore,
         hasSynergy: hasBasicSynergy,
         matches: astMatch?.matches || [],
-        classification: flanResult.classification,
-        workflowPosition: flanResult.workflowPosition,
-        relevantFunctions: flanResult.relevantFunctions
+        classification: classificationResult.classification,
+        workflowPosition: classificationResult.workflowPosition,
+        relevantFunctions: classificationResult.relevantFunctions
       })
     }
     

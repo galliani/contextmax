@@ -173,16 +173,6 @@ const DEFAULT_MODELS: Record<string, ModelConfig> = {
       device: 'webgpu',
       dtype: 'fp16'
     }
-  },
-  // Example second model - you can add your own model here
-  textGeneration: {
-    name: 'textGeneration',
-    modelId: 'Xenova/flan-t5-small',
-    task: 'text2text-generation',
-    options: {
-      device: 'wasm',
-      dtype: 'fp32'
-    }
   }
 };
 

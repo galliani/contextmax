@@ -121,47 +121,36 @@ The core output of ContextMax is a single, version-controllable JSON file:
 - **Testing**: Vitest with coverage and badge generation
 - **Package Manager**: npm
 
-## 🤖 Local AI Models
+## 🤖 Local AI Model
 
-ContextMax includes two powerful LLM models that run entirely in your browser:
+ContextMax includes a powerful LLM model that runs entirely in your browser:
 
-### 1. Embeddings Model: `jinaai/jina-embeddings-v2-base-code` (~300MB)
-- **Purpose**: Semantic search and code understanding
-- **Use Case**: Powers the smart search functionality to find relevant files and code sections based on meaning rather than just keywords
+### Embeddings Model: `jinaai/jina-embeddings-v2-base-code` (~300MB)
+- **Purpose**: Semantic search, code understanding, and intelligent file classification
+- **Use Case**: Powers the smart search functionality to find relevant files and code sections based on meaning rather than just keywords. Also classifies files into categories (entry-point, core-logic, helper, config) using embedding similarity.
 - **Technology**: Feature extraction using WebGPU acceleration
-- **Benefits**: Helps you discover related code patterns and dependencies you might miss with traditional text search
+- **Benefits**: Helps you discover related code patterns and dependencies you might miss with traditional text search, while providing intelligent file categorization without needing a separate classification model
 
-### 2. Text Generation Model: `Xenova/flan-t5-small` (~180MB)
-- **Purpose**: Natural language generation and text processing
-- **Use Case**: Can be used for generating code comments, documentation, or assisting with text-based AI tasks
-- **Technology**: Text-to-text generation using WASM backend for stability
-- **Benefits**: Provides local text generation capabilities without sending data to external services
+#### Using the Model
 
-#### Using the Models
-
-Both models are automatically downloaded and cached on first use. You can access them programmatically:
+The model is automatically downloaded and cached on first use. You can access it programmatically:
 
 ```typescript
-// Access the embeddings model (for semantic search)
+// Access the embeddings model (for semantic search and classification)
 const { getModel } = useLLMLoader()
 const embeddingsModel = await getModel('embeddings')
 const embeddings = await embeddingsModel('your code snippet')
 
-// Access the text generation model
-const textGenModel = await getModel('textGeneration')
-const result = await textGenModel('Explain this code:')
-
 // Check model status
 const { getModelState } = useLLMLoader()
 const embeddingsReady = getModelState('embeddings').value.status === 'ready'
-const textGenReady = getModelState('textGeneration').value.status === 'ready'
 
-// Initialize all models at once
-const { initializeAllModels } = useLLMLoader()
-await initializeAllModels()
+// Initialize the model
+const { initializeModel } = useLLMLoader()
+await initializeModel('embeddings')
 ```
 
-**Privacy**: Both models run completely offline in your browser. No code or data is ever sent to external servers.
+**Privacy**: The model runs completely offline in your browser. No code or data is ever sent to external servers.
 
 
 ## 💻 Development
