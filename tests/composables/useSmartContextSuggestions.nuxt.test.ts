@@ -212,7 +212,7 @@ export const useUserStore = defineStore('user', () => {
 
     it('should provide all required methods', () => {
       expect(typeof smartSuggestions.loadCachedAnalysis).toBe('function')
-      expect(typeof smartSuggestions.performHybridKeywordSearch).toBe('function')
+      expect(typeof smartSuggestions.performTriModelSearch).toBe('function')
       expect(typeof smartSuggestions.clearAnalysisState).toBe('function')
       expect(typeof smartSuggestions.clearCache).toBe('function')
     })
@@ -275,24 +275,25 @@ export const useUserStore = defineStore('user', () => {
     })
   })
 
-
-  describe('performHybridKeywordSearch', () => {
-    it('should perform keyword search and return hybrid results', async () => {
+  describe('performTriModelSearch', () => {
+    it('should perform tri-model search and return enhanced results', async () => {
       const files = createMockFiles()
       const keyword = 'user'
 
-      const result = await smartSuggestions.performHybridKeywordSearch(keyword, files)
+      const result = await smartSuggestions.performTriModelSearch(keyword, files)
 
       expect(result.type).toBe('keywordSearch')
       expect(result.data.keyword).toBe(keyword)
       expect(result.data.files).toBeInstanceOf(Array)
+      expect(result.title).toContain('AI-Powered Search Results')
+      expect(result.description).toContain('tri-model analysis')
     })
 
-    it('should combine AST and LLM search results', async () => {
+    it('should combine AST, LLM, syntax, and classification results', async () => {
       const files = createMockFiles()
       const keyword = 'button'
 
-      const result = await smartSuggestions.performHybridKeywordSearch(keyword, files)
+      const result = await smartSuggestions.performTriModelSearch(keyword, files)
       
       expect(result.data.files.length).toBeGreaterThanOrEqual(0)
       
@@ -300,10 +301,38 @@ export const useUserStore = defineStore('user', () => {
         const fileResult = result.data.files[0]
         expect(fileResult).toHaveProperty('file')
         expect(fileResult).toHaveProperty('finalScore')
+        expect(fileResult).toHaveProperty('scorePercentage')
         expect(fileResult).toHaveProperty('astScore')
         expect(fileResult).toHaveProperty('llmScore')
+        expect(fileResult).toHaveProperty('flanScore')
+        expect(fileResult).toHaveProperty('syntaxScore')
         expect(fileResult).toHaveProperty('hasSynergy')
         expect(fileResult).toHaveProperty('matches')
+        // New tri-model properties
+        expect(fileResult).toHaveProperty('classification')
+        expect(fileResult).toHaveProperty('workflowPosition')
+      }
+    })
+
+    it('should support entry point analysis', async () => {
+      const files = createMockFiles()
+      const keyword = 'test'
+      const entryPointFile = {
+        path: 'src/main.ts',
+        content: 'import { createApp } from "vue"\nexport function bootstrap() {}'
+      }
+      
+      const result = await smartSuggestions.performTriModelSearch(keyword, files, entryPointFile)
+      
+      expect(result.type).toBe('keywordSearch')
+      expect(result.data.keyword).toBe(keyword)
+      
+      // Entry point file should be classified as 'entry-point'
+      if (result.data.files.length > 0) {
+        const entryFile = result.data.files.find(f => f.file === entryPointFile.path)
+        if (entryFile) {
+          expect(entryFile.classification).toBe('entry-point')
+        }
       }
     })
 
@@ -315,11 +344,47 @@ export const useUserStore = defineStore('user', () => {
         mockNuxtApp.$llm.engine.mockRejectedValue(new Error('LLM API error'))
       }
 
-      const result = await smartSuggestions.performHybridKeywordSearch(keyword, files)
+      const result = await smartSuggestions.performTriModelSearch(keyword, files)
       
       // Should still return a result even if LLM search fails
       expect(result.type).toBe('keywordSearch')
       expect(result.data.keyword).toBe(keyword)
+    })
+
+    it('should classify files into appropriate categories', async () => {
+      const files = [
+        {
+          path: 'src/config/database.ts',
+          content: 'export const DB_CONFIG = { host: "localhost" }'
+        },
+        {
+          path: 'src/utils/helpers.ts',
+          content: 'export function formatDate() {} export function validateEmail() {}'
+        },
+        {
+          path: 'src/services/userService.ts',
+          content: 'export class UserService { async getUser() {} async createUser() {} }'
+        }
+      ]
+      const keyword = 'user'
+
+      const result = await smartSuggestions.performTriModelSearch(keyword, files)
+      
+      if (result.data.files.length > 0) {
+        const configFile = result.data.files.find(f => f.file.includes('config'))
+        const helperFile = result.data.files.find(f => f.file.includes('helpers'))
+        const serviceFile = result.data.files.find(f => f.file.includes('userService'))
+        
+        if (configFile) {
+          expect(['config', 'helper', 'core-logic', 'unknown']).toContain(configFile.classification)
+        }
+        if (helperFile) {
+          expect(['helper', 'core-logic', 'unknown']).toContain(helperFile.classification)
+        }
+        if (serviceFile) {
+          expect(['core-logic', 'helper', 'unknown']).toContain(serviceFile.classification)
+        }
+      }
     })
   })
 
@@ -370,7 +435,7 @@ import { UserService } from '../utils/helpers'`
     it('should cache embeddings for reuse', async () => {
       const files = createMockFiles()
       
-      await smartSuggestions.performHybridKeywordSearch('test', files)
+      await smartSuggestions.performTriModelSearch('test', files)
       
       // Should attempt to get cached embeddings (may or may not be called depending on implementation)
       // The test verifies the search completes successfully
@@ -383,7 +448,7 @@ import { UserService } from '../utils/helpers'`
       
       mockIndexedDBCache.getCachedEmbedding.mockResolvedValue(cachedEmbedding)
       
-      const result = await smartSuggestions.performHybridKeywordSearch('test', files)
+      const result = await smartSuggestions.performTriModelSearch('test', files)
       
       // Should complete search successfully with cached embeddings available
       expect(result.type).toBe('keywordSearch')
@@ -419,7 +484,7 @@ import { UserService } from '../utils/helpers'`
         mockNuxtApp.$llm.engine.mockRejectedValue(new Error('API limit exceeded'))
       }
       
-      const result = await smartSuggestions.performHybridKeywordSearch('test', files)
+      const result = await smartSuggestions.performTriModelSearch('test', files)
       
       // Should still return a result with AST-only search
       expect(result.type).toBe('keywordSearch')
@@ -433,7 +498,7 @@ import { UserService } from '../utils/helpers'`
         throw new Error('Parsing failed')
       })
       
-      const result = await smartSuggestions.performHybridKeywordSearch('test', files)
+      const result = await smartSuggestions.performTriModelSearch('test', files)
       
       // Should still complete without crashing
       expect(result.type).toBe('keywordSearch')

@@ -410,39 +410,6 @@ export const useSmartContextSuggestions = () => {
     return Array.from(fileMap.values()).sort((a, b) => b.finalScore - a.finalScore)
   }
 
-  // Main hybrid search function
-  const performHybridKeywordSearch = async (
-    keyword: string,
-    files: Array<{ path: string; content: string }>
-  ): Promise<KeywordSearchSuggestion> => {
-    // Check if we need to generate embeddings on-demand
-    const needsEmbeddings = fileEmbeddings.value.size === 0 && files.length > 0
-    if (needsEmbeddings) {
-      announceStatus('Generating semantic embeddings for first search...')
-      await generateEmbeddingsOnDemand(files)
-    }
-    
-    // Stage 1: Structure Search
-    const astMatches = performStructureSearch(keyword, files)
-
-    // Stage 2: LLM Search
-    const llmMatches = await performLLMSearch(keyword, files)
-
-    // Stage 3: Combine with synergy
-    const hybridMatches = combineSearchResults(astMatches, llmMatches)
-
-    return {
-      id: `keyword-search-${keyword.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      type: 'keywordSearch',
-      title: `Hybrid Search Results for "${keyword}"`,
-      description: `Found ${hybridMatches.length} relevant files using AST + LLM analysis`,
-      confidence: Math.min(hybridMatches.length * 0.1, 1.0),
-      data: {
-        keyword,
-        files: hybridMatches.slice(0, 20) // Top 20 results
-      }
-    }
-  }
 
   // ===== TRI-MODEL SEARCH WITH ENTRY POINT ANALYSIS =====
 
@@ -462,7 +429,12 @@ export const useSmartContextSuggestions = () => {
     // Parse entry point if provided
     let entryPointInfo: RegexParsedCodeInfo | null = null
     if (entryPointFile) {
-      entryPointInfo = await parseCode(entryPointFile.content, entryPointFile.path)
+      try {
+        entryPointInfo = await parseCode(entryPointFile.content, entryPointFile.path)
+      } catch (error) {
+        logger.warn(`Failed to parse entry point file ${entryPointFile.path}:`, error)
+        // Continue without entry point analysis
+      }
     }
     
     // Stage 1: Structure/Syntax Search
@@ -509,10 +481,15 @@ export const useSmartContextSuggestions = () => {
     // Parse all files first to get their structure
     const fileInfos = new Map<string, RegexParsedCodeInfo>()
     for (const file of files) {
-      const fileInfo = codeInfoCache.value.get(file.path) || await parseCode(file.content, file.path)
-      if (fileInfo) {
-        codeInfoCache.value.set(file.path, fileInfo)
-        fileInfos.set(file.path, fileInfo)
+      try {
+        const fileInfo = codeInfoCache.value.get(file.path) || await parseCode(file.content, file.path)
+        if (fileInfo) {
+          codeInfoCache.value.set(file.path, fileInfo)
+          fileInfos.set(file.path, fileInfo)
+        }
+      } catch (error) {
+        logger.warn(`Failed to parse ${file.path} for syntax analysis:`, error)
+        // Continue without this file's parsing info
       }
     }
     
@@ -1240,7 +1217,6 @@ export const useSmartContextSuggestions = () => {
     
     // Methods
     loadCachedAnalysis,
-    performHybridKeywordSearch,
     performTriModelSearch,
     generateEmbeddingsOnDemand,
     loadCachedEmbeddings,
