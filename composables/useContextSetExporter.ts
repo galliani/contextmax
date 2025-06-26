@@ -290,7 +290,7 @@ Use this complete context to answer the user's request accurately and provide im
     
     // Main context section
     contentSections.push(`# 📁 MAIN CONTEXT: ${setName}`)
-    if (contextSet.description) {
+    if (contextSet.description && contextSet.description.trim()) {
       contentSections.push(`**Description:** ${contextSet.description}`)
     }
     if (contextSet.workflows && contextSet.workflows.length > 0) {
@@ -307,7 +307,7 @@ Use this complete context to answer the user's request accurately and provide im
       if (!childContext) continue
       
       contentSections.push(`# 📁 CHILD CONTEXT: ${childName}`)
-      if (childContext.description) {
+      if (childContext.description && childContext.description.trim()) {
         contentSections.push(`**Description:** ${childContext.description}`)
       }
       if (childContext.workflows && childContext.workflows.length > 0) {

@@ -658,30 +658,68 @@ const handleWorkflowPointSave = async (workflowPoint: WorkflowPoint) => {
       }
     } else {
       // Handle end point
-      // Find an incomplete workflow (one without an end point) or create new one
-      let targetWorkflow = workflows.find(w => !w.end.fileRef || w.end.fileRef === '')
+      const existingIndex = workflows.findIndex(w => w.end.fileRef === fileId)
       
-      if (targetWorkflow) {
-        // Complete existing incomplete workflow
-        targetWorkflow.end = { ...workflowPoint }
+      if (existingIndex >= 0) {
+        // Update existing workflow's end point
+        workflows[existingIndex].end = { ...workflowPoint }
       } else {
-        // Create new workflow with this end point and placeholder start
-        const newWorkflow: Workflow = {
-          start: {
-            fileRef: '', // Will be filled when start point is set
-            function: '',
-            protocol: 'function',
-            method: 'call',
-            identifier: ''
-          },
-          end: { ...workflowPoint }
+        // Find an incomplete workflow (one without an end point) to complete it
+        let targetWorkflow = workflows.find(w => !w.end.fileRef || w.end.fileRef === '')
+        
+        if (targetWorkflow) {
+          // Complete existing incomplete workflow
+          targetWorkflow.end = { ...workflowPoint }
+        } else {
+          // Only create a new incomplete workflow if there are no existing incomplete ones
+          const newWorkflow: Workflow = {
+            start: {
+              fileRef: '', // Will be filled when start point is set
+              function: '',
+              protocol: 'function',
+              method: 'call',
+              identifier: ''
+            },
+            end: { ...workflowPoint }
+          }
+          workflows.push(newWorkflow)
         }
-        workflows.push(newWorkflow)
       }
     }
     
+    // Clean up duplicate incomplete workflows - if we have multiple incomplete workflows, 
+    // merge them into one complete workflow when possible
+    const completeWorkflows = workflows.filter(w => 
+      w.start.fileRef && w.start.fileRef.trim() !== '' && 
+      w.end.fileRef && w.end.fileRef.trim() !== ''
+    )
+    
+    const incompleteWorkflows = workflows.filter(w => 
+      (!w.start.fileRef || w.start.fileRef.trim() === '') || 
+      (!w.end.fileRef || w.end.fileRef.trim() === '')
+    )
+    
+    // Try to merge incomplete workflows
+    const mergedWorkflows = [...completeWorkflows]
+    const unpairedStarts = incompleteWorkflows.filter(w => w.start.fileRef && w.start.fileRef.trim() !== '' && (!w.end.fileRef || w.end.fileRef.trim() === ''))
+    const unpairedEnds = incompleteWorkflows.filter(w => w.end.fileRef && w.end.fileRef.trim() !== '' && (!w.start.fileRef || w.start.fileRef.trim() === ''))
+    
+    // Merge unpaired starts with unpaired ends
+    for (let i = 0; i < Math.min(unpairedStarts.length, unpairedEnds.length); i++) {
+      mergedWorkflows.push({
+        start: unpairedStarts[i].start,
+        end: unpairedEnds[i].end
+      })
+    }
+    
+    // Keep remaining unpaired workflows (allow incomplete workflows for future completion)
+    const remainingStarts = unpairedStarts.slice(Math.min(unpairedStarts.length, unpairedEnds.length))
+    const remainingEnds = unpairedEnds.slice(Math.min(unpairedStarts.length, unpairedEnds.length))
+    
+    mergedWorkflows.push(...remainingStarts, ...remainingEnds)
+    
     // Update the context set (this will auto-save to OPFS)
-    updateActiveContextSet({ workflows })
+    updateActiveContextSet({ workflows: mergedWorkflows })
     
     // Close form
     cancelWorkflowConfig()

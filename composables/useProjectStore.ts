@@ -64,11 +64,6 @@ export const useProjectStore = () => {
     const previousView = globalState.currentView
     globalState.currentView = view
     
-    // Track navigation if view actually changed
-    if (previousView !== view && import.meta.client) {
-      const { trackNavigation } = useAnalyticsHelpers()
-      trackNavigation(previousView, view)
-    }
   }
 
   const goToLanding = () => {
@@ -366,16 +361,10 @@ export const useProjectStore = () => {
     return result
   }
 
-  // Export operations
-  const exportToProjectFolder = async (): Promise<{ success: boolean, error?: string, warning?: string }> => {
-    const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
-    return await persistence.exportToProjectFolder(globalState.selectedFolder, contextSetsData)
-  }
 
   const previewContextSetsJSON = () => {
     const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSON(projectName)
+    const contextSetsData = contextSets.generateContextSetsJSON(projectName, true) // Include timestamp
     const result = persistence.previewContextSetsJSON(contextSetsData)
     
     if (result) {
@@ -387,7 +376,7 @@ export const useProjectStore = () => {
 
   const previewContextSetsJSONWithPrefix = () => {
     const projectName = globalState.selectedFolder?.name
-    const contextSetsData = contextSets.generateContextSetsJSONWithPrefix(projectName)
+    const contextSetsData = contextSets.generateContextSetsJSONWithPrefix(projectName, true) // Include timestamp
     const result = persistence.previewContextSetsJSON(contextSetsData)
     
     if (result) {
@@ -505,7 +494,6 @@ export const useProjectStore = () => {
 
     // Export functions
     saveWorkingCopyToOPFS,
-    exportToProjectFolder,
     hasStableVersionInProject: () => persistence.hasStableVersionInProject(globalState.selectedFolder),
     getExportStatus,
     previewContextSetsJSON,

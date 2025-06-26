@@ -443,6 +443,11 @@ onMounted(async () => {
   // Listen for search history refresh events
   if (typeof window !== 'undefined') {
     window.addEventListener('refreshSearchHistory', loadSearchHistory)
+    
+    // Listen for search requests from context creation
+    window.addEventListener('startAssistedSearch', handleIncomingSearch)
+    window.addEventListener('assistedSearchCompleted', handleSearchCompleted)
+    window.addEventListener('assistedSearchFailed', handleSearchFailed)
   }
 })
 
@@ -450,6 +455,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('refreshSearchHistory', loadSearchHistory)
+    window.removeEventListener('startAssistedSearch', handleIncomingSearch)
+    window.removeEventListener('assistedSearchCompleted', handleSearchCompleted)
+    window.removeEventListener('assistedSearchFailed', handleSearchFailed)
   }
 })
 
@@ -797,6 +805,52 @@ const getAllFilesFromTree = (tree: FileTreeItem[]): FileTreeItem[] => {
   
   traverse(tree)
   return files
+}
+
+// Handle incoming search from context creation
+const handleIncomingSearch = (event: CustomEvent) => {
+  const { keyword, contextSetName, startingPointFile } = event.detail
+  
+  // Show loading state immediately
+  isSearching.value = true
+  searchQuery.value = keyword
+  searchStage.value = 'Initializing search from context creation...'
+  searchProgress.value = 0
+  
+  // Announce the search is starting
+  announceStatus(`Starting AI search for context set "${contextSetName}"...`)
+}
+
+// Handle search completion
+const handleSearchCompleted = (event: CustomEvent) => {
+  const { keyword, contextSetName, resultCount } = event.detail
+  
+  // Reset search state
+  isSearching.value = false
+  searchStage.value = ''
+  searchProgress.value = 0
+  
+  // Clear search input
+  searchQuery.value = ''
+  
+  // Announce completion
+  announceStatus(`Search completed for "${contextSetName}": ${resultCount} files found`)
+}
+
+// Handle search failure
+const handleSearchFailed = (event: CustomEvent) => {
+  const { keyword, contextSetName, error } = event.detail
+  
+  // Reset search state
+  isSearching.value = false
+  searchStage.value = ''
+  searchProgress.value = 0
+  
+  // Clear search input
+  searchQuery.value = ''
+  
+  // Announce failure
+  announceError(`Search failed for "${contextSetName}": ${error}`)
 }
 
 // Handle search form submission

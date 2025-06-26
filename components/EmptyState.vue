@@ -137,7 +137,7 @@
         <div class="pt-2">
           <p class="text-sm text-muted-foreground">
             New to contextMax? 
-            <a href="https://contextmax.ai" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-medium">
+            <a href="https://contextmax.dev" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-medium">
               Learn more
             </a>
           </p>

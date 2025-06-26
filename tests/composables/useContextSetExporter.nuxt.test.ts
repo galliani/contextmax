@@ -763,4 +763,284 @@ describe('useContextSetExporter', () => {
       expect(exportedText).not.toMatch(/name: ChildWithoutDesc\s*description:/s)
     })
   })
+
+  describe('Blank Property Filtering in Export', () => {
+    const mockFileTree: FileTreeItem[] = [
+      {
+        path: '/src/test.js',
+        type: 'file',
+        handle: {
+          getFile: vi.fn().mockResolvedValue({
+            text: vi.fn().mockResolvedValue('console.log("test");')
+          })
+        } as any
+      }
+    ]
+
+    const mockFilesManifest = {
+      'file_123': { path: '/src/test.js' }
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should not include description in YAML frontmatter when empty', async () => {
+      const contextSetWithoutDesc: ContextSet = {
+        files: ['file_123'],
+        workflows: [],
+        uses: []
+        // No description property
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'TestContext',
+        contextSetWithoutDesc,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // YAML frontmatter should not contain description
+      expect(exportedText).toMatch(/^---\s*\ncontextSetName: TestContext\s*\n---/)
+      expect(exportedText).not.toContain('description:')
+    })
+
+    it('should include description in YAML frontmatter when meaningful', async () => {
+      const contextSetWithDesc: ContextSet = {
+        description: 'This is a meaningful description',
+        files: ['file_123'],
+        workflows: [],
+        uses: []
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'TestContext',
+        contextSetWithDesc,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // YAML frontmatter should contain description
+      expect(exportedText).toContain('contextSetName: TestContext')
+      expect(exportedText).toContain('description: This is a meaningful description')
+    })
+
+    it('should not include description in markdown sections when empty', async () => {
+      const contextSetWithoutDesc: ContextSet = {
+        files: ['file_123'],
+        workflows: [],
+        uses: []
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'TestContext',
+        contextSetWithoutDesc,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Main context section should not have description line
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: TestContext')
+      expect(exportedText).not.toMatch(/# 📁 MAIN CONTEXT: TestContext\s*\*\*Description:\*\*/s)
+    })
+
+    it('should include description in markdown sections when meaningful', async () => {
+      const contextSetWithDesc: ContextSet = {
+        description: 'Main context description',
+        files: ['file_123'],
+        workflows: [],
+        uses: []
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'TestContext',
+        contextSetWithDesc,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Main context section should have description line
+      expect(exportedText).toContain('# 📁 MAIN CONTEXT: TestContext')
+      expect(exportedText).toContain('**Description:** Main context description')
+    })
+
+    it('should handle child contexts with mixed empty and meaningful descriptions', async () => {
+      const allContexts = {
+        'MainContext': {
+          description: 'Main description',
+          files: ['file_123'],
+          workflows: [],
+          uses: ['ChildWithDesc', 'ChildWithoutDesc']
+        },
+        'ChildWithDesc': {
+          description: 'Child has description',
+          files: [],
+          workflows: [],
+          uses: []
+        },
+        'ChildWithoutDesc': {
+          files: [],
+          workflows: [],
+          uses: []
+          // No description
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        allContexts.MainContext,
+        mockFilesManifest,
+        mockFileTree,
+        allContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should include description for child that has one
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildWithDesc')
+      expect(exportedText).toContain('**Description:** Child has description')
+      
+      // Should not include description line for child that doesn't have one
+      expect(exportedText).toContain('# 📁 CHILD CONTEXT: ChildWithoutDesc')
+      expect(exportedText).not.toMatch(/# 📁 CHILD CONTEXT: ChildWithoutDesc\s*\*\*Description:\*\*/s)
+    })
+
+    it('should handle edge cases with whitespace-only descriptions', async () => {
+      const contextSetWithWhitespace: ContextSet = {
+        description: '   \n\t  ',  // Only whitespace
+        files: ['file_123'],
+        workflows: [],
+        uses: []
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'TestContext',
+        contextSetWithWhitespace,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Should not include description in YAML frontmatter
+      expect(exportedText).not.toContain('description:')
+      
+      // Should not include description in markdown sections
+      expect(exportedText).not.toMatch(/\*\*Description:\*\*/s)
+    })
+
+    it('should handle systemBehavior with meaningful vs empty content', async () => {
+      const contextSetWithMeaningfulBehavior: ContextSet = {
+        description: 'Test context',
+        files: ['file_123'],
+        workflows: [],
+        uses: [],
+        systemBehavior: {
+          processing: {
+            mode: 'asynchronous'
+          }
+        }
+      }
+
+      const contextSetWithEmptyBehavior: ContextSet = {
+        description: 'Test context',
+        files: ['file_123'],
+        workflows: [],
+        uses: [],
+        systemBehavior: {}  // Empty object
+      }
+
+      // Test meaningful systemBehavior
+      let result = await exporter.exportContextSetToClipboard(
+        'TestContextWithBehavior',
+        contextSetWithMeaningfulBehavior,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      let exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      expect(exportedText).toContain('systemBehavior:')
+      expect(exportedText).toContain('processing:')
+      expect(exportedText).toContain('mode: asynchronous')
+
+      vi.clearAllMocks()
+
+      // Test empty systemBehavior
+      result = await exporter.exportContextSetToClipboard(
+        'TestContextWithoutBehavior',
+        contextSetWithEmptyBehavior,
+        mockFilesManifest,
+        mockFileTree
+      )
+
+      expect(result.success).toBe(true)
+      exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      expect(exportedText).not.toContain('systemBehavior:')
+    })
+
+    it('should clean up includedContexts metadata with empty descriptions', async () => {
+      const allContexts = {
+        'MainContext': {
+          description: 'Main description',
+          files: ['file_123'],
+          workflows: [],
+          uses: ['ChildA', 'ChildB']
+        },
+        'ChildA': {
+          description: 'Child A description',
+          files: [],
+          workflows: [],
+          uses: []
+        },
+        'ChildB': {
+          files: [],
+          workflows: [],
+          uses: []
+          // No description
+        }
+      }
+
+      const result = await exporter.exportContextSetToClipboard(
+        'MainContext',
+        allContexts.MainContext,
+        mockFilesManifest,
+        mockFileTree,
+        allContexts
+      )
+
+      expect(result.success).toBe(true)
+      
+      const exportedText = (navigator.clipboard.writeText as any).mock.calls[0][0]
+      
+      // Check YAML frontmatter for includedContexts
+      expect(exportedText).toContain('includedContexts:')
+      
+      // ChildA should have description in metadata
+      expect(exportedText).toMatch(/name: ChildA\s+description: Child A description/s)
+      
+      // ChildB should only have name, no description field
+      expect(exportedText).toMatch(/name: ChildB(?!\s+description:)/s)
+    })
+  })
 }) 
