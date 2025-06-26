@@ -125,9 +125,30 @@ const {
   getSearchResultsByProject
 } = useIndexedDBCache()
 
+// Handle start assisted search event from context creation
+const handleStartAssistedSearch = (event: CustomEvent) => {
+  // Switch to assisted mode immediately
+  currentMode.value = 'assisted'
+  
+  // The AssistedCuration component will handle showing the loading state
+  // and the actual search will be performed by AddNewContext.vue asynchronously
+}
+
 // Initialize DB on component mount
 onMounted(async () => {
   await initDB()
+  
+  // Listen for assisted search requests from context creation
+  if (typeof window !== 'undefined') {
+    window.addEventListener('startAssistedSearch', handleStartAssistedSearch)
+  }
+})
+
+// Clean up event listeners on unmount
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('startAssistedSearch', handleStartAssistedSearch)
+  }
 })
 
 // Computed property for search results count

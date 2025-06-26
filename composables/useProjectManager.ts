@@ -27,7 +27,6 @@ export function useProjectManager() {
     isFileSystemSupported
   } = useProjectStore()
 
-  const { trackProjectSelection, trackProjectRestored } = useAnalyticsHelpers()
   const { success } = useNotifications()
   const { generateEmbeddingsOnDemand } = useSmartContextSuggestions()
   const { createProjectLoadingManager } = useLoadingStates()
@@ -248,8 +247,6 @@ export function useProjectManager() {
           `Your project "${directoryHandle.name}" has been reconnected with your saved work.`
         )
         
-        // Track project restoration
-        trackProjectRestored(directoryHandle.name)
       }
     } catch (error) {
       logger.error('Error loading project:', error)
@@ -309,8 +306,6 @@ export function useProjectManager() {
       // Start loading immediately to show loader without delay
       projectLoading.startFileLoading()
       
-      // Track successful project selection
-      trackProjectSelection()
       
       setSelectedFolder(directoryHandle)
       await loadProjectFiles(directoryHandle, false, false, true) // Always treat as fresh selection, skip starting loading since we already started it

@@ -1,0 +1,302 @@
+{
+  "schemaVersion": "1.0",
+  "projectName": "promptsong",
+  "filesIndex": {
+    "file_x3gj7bhl": {
+      "path": "composables/useProjectManager.ts",
+      "contexts": [
+        "context:embeddingsGeneration"
+      ]
+    },
+    "file_no82aoqp": {
+      "path": "composables/useSmartContextSuggestions.ts",
+      "contexts": [
+        "context:embeddingsGeneration",
+        "context:contextCreation"
+      ]
+    },
+    "file_3m5s5t45": {
+      "path": "composables/useFileSystem.ts",
+      "contexts": [
+        "context:embeddingsGeneration"
+      ]
+    },
+    "file_7mb9jt2h": {
+      "path": "composables/useIndexedDBCache.ts",
+      "contexts": [
+        "context:embeddingsGeneration"
+      ]
+    },
+    "file_2i1remf7": {
+      "path": "components/project-file-browser/AssistedCuration.vue",
+      "contexts": [
+        "context:assistedSearch"
+      ]
+    },
+    "file_lep2ceze": {
+      "path": "components/context-set-list/AddNewContext.vue",
+      "contexts": [
+        "context:contextCreation"
+      ]
+    },
+    "file_x0tc2zgi": {
+      "path": "components/ContextSetListManager.vue",
+      "contexts": [
+        "context:contextCreation"
+      ]
+    },
+    "file_598m88ax": {
+      "path": "components/project-file-browser/Search.vue",
+      "contexts": [
+        "context:contextCreation"
+      ]
+    },
+    "file_4hgpthao": {
+      "path": "components/ActiveContextComposer.vue",
+      "contexts": [
+        "context:contextCreation",
+        "context:contextSpecification"
+      ]
+    },
+    "file_ap5qx0nv": {
+      "path": "composables/useProjectStore.ts",
+      "contexts": [
+        "context:contextCreation",
+        "context:contextSpecification"
+      ]
+    },
+    "file_6z7monx8": {
+      "path": "components/ProjectHeader.vue",
+      "contexts": [
+        "context:exportResult"
+      ]
+    },
+    "file_ms3154fb": {
+      "path": "composables/useContextSetExporter.ts",
+      "contexts": [
+        "context:exportResult"
+      ]
+    },
+    "file_rysln0nr": {
+      "path": "composables/useContextSets.ts",
+      "contexts": [
+        "context:exportResult",
+        "context:contextSpecification"
+      ]
+    },
+    "file_1w1ev09n": {
+      "path": "components/active-context-set/FilesList.vue",
+      "contexts": [
+        "context:contextSpecification"
+      ]
+    },
+    "file_311pf9fb": {
+      "path": "components/active-context-set/ChildContextsList.vue",
+      "contexts": [
+        "context:contextSpecification"
+      ]
+    },
+    "file_g2duex8c": {
+      "path": "components/active-context-set/WorkflowPointEditor.vue",
+      "contexts": [
+        "context:contextSpecification"
+      ]
+    },
+    "file_tk1e8p8z": {
+      "path": "components/active-context-set/FunctionSelectorModal.vue",
+      "contexts": [
+        "context:contextSpecification"
+      ]
+    }
+  },
+  "sets": {
+    "context:embeddingsGeneration": {
+      "description": "",
+      "files": [
+        {
+          "fileRef": "file_x3gj7bhl",
+          "functionRefs": [
+            {
+              "name": "prepareFilesForEmbedding",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "fileRef": "file_no82aoqp",
+          "functionRefs": [
+            {
+              "name": "generateEmbeddingsOnDemand",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "fileRef": "file_3m5s5t45",
+          "functionRefs": [
+            {
+              "name": "buildFilteredFileTree",
+              "comment": ""
+            }
+          ],
+          "comment": ""
+        },
+        {
+          "fileRef": "file_7mb9jt2h",
+          "functionRefs": [
+            {
+              "name": "storeCachedEmbedding",
+              "comment": ""
+            }
+          ],
+          "comment": ""
+        }
+      ],
+      "workflows": [],
+      "uses": []
+    },
+    "context:assistedSearch": {
+      "description": "",
+      "files": [
+        {
+          "fileRef": "file_2i1remf7",
+          "classification": "entry-point"
+        }
+      ],
+      "workflows": [],
+      "uses": [
+        "context:embeddingsGeneration"
+      ]
+    },
+    "context:contextCreation": {
+      "description": "",
+      "files": [
+        {
+          "fileRef": "file_lep2ceze",
+          "functionRefs": [
+            {
+              "name": "<Button \n            type=\"submit\"",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "fileRef": "file_x0tc2zgi",
+          "classification": "core-logic",
+          "functionRefs": [
+            {
+              "name": "setActiveContextSet",
+              "comment": "Related to contextCreation"
+            },
+            {
+              "name": "announceStatus",
+              "comment": "Related to contextCreation"
+            }
+          ]
+        },
+        {
+          "fileRef": "file_no82aoqp",
+          "functionRefs": [
+            {
+              "name": "performTriModelSearch",
+              "comment": ""
+            }
+          ]
+        },
+        "file_598m88ax",
+        "file_4hgpthao",
+        {
+          "fileRef": "file_ap5qx0nv",
+          "functionRefs": [
+            {
+              "name": "createContextSet",
+              "comment": ""
+            },
+            {
+              "name": "setActiveContextSet",
+              "comment": ""
+            }
+          ],
+          "comment": ""
+        }
+      ],
+      "workflows": [
+        {
+          "start": {
+            "fileRef": "",
+            "function": "",
+            "protocol": "function",
+            "method": "call",
+            "identifier": ""
+          },
+          "end": {
+            "fileRef": "file_4hgpthao",
+            "function": ""
+          }
+        },
+        {
+          "start": {
+            "fileRef": "file_lep2ceze",
+            "function": "<Button \n            type=\"submit\"",
+            "protocol": "ui",
+            "method": "submit",
+            "identifier": "#submit-new-context"
+          },
+          "end": {
+            "fileRef": "",
+            "function": "",
+            "protocol": "function",
+            "method": "call",
+            "identifier": ""
+          }
+        }
+      ],
+      "uses": []
+    },
+    "context:exportResult": {
+      "description": "",
+      "files": [
+        {
+          "fileRef": "file_6z7monx8",
+          "classification": "entry-point"
+        },
+        {
+          "fileRef": "file_ms3154fb",
+          "classification": "config"
+        },
+        {
+          "fileRef": "file_rysln0nr",
+          "classification": "helper"
+        }
+      ],
+      "workflows": [],
+      "uses": []
+    },
+    "context:contextSpecification": {
+      "description": "",
+      "files": [
+        "file_4hgpthao",
+        {
+          "fileRef": "file_rysln0nr",
+          "classification": "unrelated"
+        },
+        {
+          "fileRef": "file_1w1ev09n",
+          "classification": "core-logic"
+        },
+        {
+          "fileRef": "file_311pf9fb",
+          "classification": "core-logic"
+        },
+        {
+          "fileRef": "file_g2duex8c",
+          "classification": "core-logic"
+        },
+        "file_tk1e8p8z",
+        "file_ap5qx0nv"
+      ],
+      "workflows": [],
+      "uses": []
+    }
+  }
+}

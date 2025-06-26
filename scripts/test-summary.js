@@ -110,7 +110,6 @@ function generateTestSummary() {
     'useKeyboardShortcuts.nuxt.test.ts - Keyboard shortcut handling',
     'useAutoSave.nuxt.test.ts - Auto-save functionality',
     'useLoadingStates.nuxt.test.ts - Loading state management',
-    'useAnalytics.nuxt.test.ts - Analytics and tracking'
   ]
 
   const componentFiles = [

@@ -74,8 +74,6 @@ const {
   hasSavedProjects
 } = useProjectManager()
 
-// Analytics helpers
-const { trackDataRestored } = useAnalyticsHelpers()
 
 // Advanced UX Systems
 const { success: _success } = useNotifications()
@@ -96,8 +94,6 @@ onMounted(async () => {
     // Check if we have saved data and should show workspace
     if (hasSavedData()) {
         
-      // Track data restoration
-      trackDataRestored(savedProjectName.value)
       
       // CRITICAL FIX: Properly await the entire restoration process
       try {

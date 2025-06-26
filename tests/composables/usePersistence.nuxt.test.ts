@@ -192,134 +192,20 @@ describe('usePersistence', () => {
     })
   })
 
-  describe('Export to Project Folder', () => {
-    it('should export to project folder successfully', async () => {
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(true)
-      expect(mockDirectoryHandle.getFileHandle).toHaveBeenCalledWith('context-sets.json', { create: true })
-      expect(mockWritable.write).toHaveBeenCalledWith(JSON.stringify(mockContextSetsData, null, 2))
-    })
-
-    it('should return error when no folder selected', async () => {
-      const result = await persistence.exportToProjectFolder(null, mockContextSetsData)
-      
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('No project folder selected')
-    })
-
-    it('should return error when no context sets to export', async () => {
-      const emptyData = { ...mockContextSetsData, contextSets: {} }
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        emptyData
-      )
-      
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('No context sets to export')
-    })
-
-    it('should fallback to download when File System Access API not supported', async () => {
-      // Mock showDirectoryPicker to be missing
-      const originalPicker = window.showDirectoryPicker
-      const hasProperty = 'showDirectoryPicker' in window
-      
-      // Actually delete the property to simulate API not being supported
-      if (hasProperty) {
-        delete (window as any).showDirectoryPicker
-      }
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(true)
-      expect(result.warning).toContain('browser API not supported')
-      expect(mockAnchorElement.click).toHaveBeenCalled()
-      
-      // Restore original property
-      if (hasProperty && originalPicker) {
-        Object.defineProperty(window, 'showDirectoryPicker', {
-          value: originalPicker,
-          writable: true,
-          configurable: true
-        })
-      }
-    })
-
-    it('should request write permission when not granted', async () => {
-      mockDirectoryHandle.queryPermission.mockResolvedValueOnce('prompt')
-      mockDirectoryHandle.requestPermission.mockResolvedValueOnce('granted')
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(true)
-      expect(mockDirectoryHandle.requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
-    })
-
-    it('should fallback to download when permission denied', async () => {
-      mockDirectoryHandle.queryPermission.mockResolvedValueOnce('denied')
-      mockDirectoryHandle.requestPermission.mockResolvedValueOnce('denied')
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(true)
-      expect(result.warning).toContain('write permission not granted')
-      expect(mockAnchorElement.click).toHaveBeenCalled()
-    })
-
-    it('should handle write errors with fallback', async () => {
-      const writeError = new DOMException('Not allowed', 'NotAllowedError')
-      mockWritable.write.mockRejectedValueOnce(writeError)
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(true)
-      expect(result.warning).toContain('permission denied')
-      expect(mockAnchorElement.click).toHaveBeenCalled()
-    })
-
-    it('should handle user cancellation', async () => {
-      const abortError = new DOMException('User cancelled', 'AbortError')
-      mockDirectoryHandle.getFileHandle.mockRejectedValueOnce(abortError)
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('cancelled by user')
-    })
-
-    it('should handle other export errors', async () => {
-      mockDirectoryHandle.getFileHandle.mockRejectedValueOnce(new Error('Unknown error'))
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Failed to export')
-    })
-  })
 
   describe('Stable Version Management', () => {
+    beforeEach(() => {
+      // Reset mocks before each test
+      mockDirectoryHandle.getFileHandle.mockReset()
+      mockFileHandle.getFile.mockReset()
+      
+      // Set default behavior
+      mockDirectoryHandle.getFileHandle.mockResolvedValue(mockFileHandle)
+      mockFileHandle.getFile.mockResolvedValue({
+        text: vi.fn().mockResolvedValue('{"schemaVersion":"1.0","filesManifest":{},"contextSets":{}}')
+      })
+    })
+
     it('should check if stable version exists in project', async () => {
       const result = await persistence.hasStableVersionInProject(mockDirectoryHandle as any)
       
@@ -349,6 +235,7 @@ describe('usePersistence', () => {
         filesManifest: {},
         contextSets: {}
       })
+      expect(mockDirectoryHandle.getFileHandle).toHaveBeenCalledWith('context-sets.json')
     })
 
     it('should return null when stable version not found', async () => {
@@ -514,22 +401,5 @@ describe('usePersistence', () => {
       expect(result).toBeNull()
     })
 
-    it('should handle download fallback errors', async () => {
-      // Mock document.createElement to fail
-      document.createElement = vi.fn().mockImplementation(() => {
-        throw new Error('DOM error')
-      })
-      
-      const writeError = new DOMException('Not allowed', 'NotAllowedError')
-      mockWritable.write.mockRejectedValueOnce(writeError)
-      
-      const result = await persistence.exportToProjectFolder(
-        mockDirectoryHandle as any,
-        mockContextSetsData
-      )
-      
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('download fallback failed')
-    })
   })
 })

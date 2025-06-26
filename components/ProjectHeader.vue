@@ -19,22 +19,17 @@
     </div>
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
-      <!-- Primary Actions Group - Save and Preview -->
+      <!-- Primary Actions Group - Download and Preview -->
       <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">
-        <!-- Save to Project Button - Primary Action -->
+        <!-- Download JSON Button - Primary Action -->
         <Button 
           variant="default"
           size="default" 
-          :class="[
-            'font-medium px-5 py-2.5 shadow-md hover:shadow-lg transition-all duration-200',
-            exportStatus.hasStableVersion 
-              ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
-              : 'bg-orange-600 hover:bg-orange-700 text-white animate-pulse'
-          ]"
-          @click="showExportOptions"
+          class="font-medium px-5 py-2.5 shadow-md hover:shadow-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground"
+          @click="handleDownloadJSON"
         >
-          <Icon name="lucide:save" class="w-4 h-4 mr-2" aria-hidden="true" />
-          {{ exportStatus.hasStableVersion ? 'Commit Changes' : 'Save to Project' }}
+          <Icon name="lucide:download" class="w-4 h-4 mr-2" aria-hidden="true" />
+          Download JSON
         </Button>
         
         <!-- Preview JSON Button - Secondary Action -->
@@ -123,20 +118,6 @@
           <span>{{ autoSaveStatus }}</span>
         </div>
         
-        <!-- Export Status Indicator -->
-        <div v-if="hasAnyContextSets && exportStatus.hasStableVersion" class="flex items-center gap-1">
-          <div class="w-px h-4 bg-border" aria-hidden="true" />
-          <div class="flex items-center gap-1">
-            <div
-              :class="[
-                'w-2 h-2 rounded-full',
-                'bg-green-500',
-              ]"
-              :aria-label="exportStatusText"
-            />
-            <span class="text-xs">{{ exportStatusText }}</span>
-          </div>
-        </div>
         
         <div class="w-px h-4 bg-border" aria-hidden="true" />
         
@@ -178,63 +159,6 @@
     :show-success-icon="true"
   />
 
-  <!-- Export Menu Modal -->
-  <Dialog v-model:open="showExportMenuModal">
-    <DialogContent class="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle class="flex items-center gap-3">
-          <Icon name="lucide:save" class="w-5 h-5" />
-          Save Context Sets
-        </DialogTitle>
-        <DialogDescription>
-          Your changes are auto-saved to workspace. Choose how to commit them to your project.
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div class="space-y-3 mt-6">
-        <!-- Download JSON Option -->
-        <Button
-          variant="outline"
-          size="default"
-          class="w-full justify-start p-4 h-auto"
-          @click="handleExportMenuChoice('download')"
-        >
-          <div class="flex items-center">
-            <Icon name="lucide:download" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
-            <div class="text-left">
-              <div class="font-medium">Download JSON</div>
-              <div class="text-sm text-muted-foreground">Download for sharing across projects or backup</div>
-            </div>
-          </div>
-        </Button>
-        
-        <!-- Export to Project Option -->
-        <Button
-          variant="outline"
-          size="default"
-          class="w-full justify-start p-4 h-auto"
-          :disabled="!exportStatus.canExport"
-          @click="handleExportMenuChoice('export')"
-        >
-          <div class="flex items-center">
-            <Icon name="lucide:folder-check" class="w-5 h-5 mr-3 text-primary" aria-hidden="true" />
-            <div class="text-left">
-              <div class="font-medium">Commit to Project</div>
-              <div class="text-sm text-muted-foreground">
-                Update the context-sets.json in your project folder
-              </div>
-            </div>
-          </div>
-        </Button>
-      </div>
-      
-      <DialogFooter class="mt-6">
-        <Button variant="ghost" @click="showExportMenuModal = false">
-          Cancel
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -260,8 +184,6 @@ const emit = defineEmits<{
   (e: 'clear-project'): void
 }>()
 
-// Analytics helpers
-const { trackDownload } = useAnalyticsHelpers()
 
 // Use the project store
 const {
@@ -269,7 +191,6 @@ const {
   contextSets,
   generateContextSetsJSON,
   generateContextSetsJSONWithPrefix,
-  exportToProjectFolder,
   getExportStatus,
   hasStableVersionInProject,
   fileTree,
@@ -318,8 +239,6 @@ const { announceStatus, announceError } = useAccessibility()
 
 // Modal state
 const showExportSuccessModal = ref(false)
-const showExportMenuModal = ref(false)
-const exportMenuAction = ref<'download' | 'export' | null>(null)
 
 // Project management state
 const isRefreshingFiles = ref(false)
@@ -350,24 +269,6 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
   return files
 }
 
-// Export status tracking
-const exportStatus = ref<{
-  hasWorkingCopy: boolean
-  hasStableVersion: boolean
-  workingCopyMetadata?: unknown
-  canExport: boolean
-}>({
-  hasWorkingCopy: false,
-  hasStableVersion: false,
-  canExport: false
-})
-
-// Update export status when context sets change
-watch(contextSets, async () => {
-  if (hasAnyContextSets.value) {
-    exportStatus.value = await getExportStatus()
-  }
-}, { immediate: true })
 
 // Auto-save status indicator
 const autoSaveStatus = computed(() => {
@@ -383,21 +284,7 @@ const autoSaveStatus = computed(() => {
   return 'All changes saved'
 })
 
-// Export status indicator
-const exportStatusText = computed(() => {
-  if (!hasAnyContextSets.value) { return '' }
 
-  if (exportStatus.value.hasStableVersion) {
-    return 'Committed'
-  }
-
-  return ''
-})
-
-// Show export options menu
-const showExportOptions = () => {
-  showExportMenuModal.value = true
-}
 
 // Handle file refresh
 const handleRefreshFiles = async () => {
@@ -426,7 +313,6 @@ const handleRefreshFiles = async () => {
         
         if (filesToAnalyze.length > 0) {
           await generateEmbeddingsOnDemand(filesToAnalyze)
-        } else {
         }
       } catch (error) {
         logger.warn('⚠️ Error during automatic embedding generation after refresh:', error)
@@ -450,22 +336,11 @@ const handleRefreshFiles = async () => {
   }
 }
 
-// Handle export menu selection
-const handleExportMenuChoice = async (action: 'download' | 'export') => {
-  showExportMenuModal.value = false
-  exportMenuAction.value = action
-  
-  if (action === 'download') {
-    await handleDownloadJSON()
-  } else if (action === 'export') {
-    await handleExportToProject()
-  }
-}
 
 // Download JSON functionality (existing)
 const handleDownloadJSON = async () => {
   try {
-    const contextSetsData = generateContextSetsJSONWithPrefix()
+    const contextSetsData = generateContextSetsJSONWithPrefix(undefined, true) // Include timestamp
     const jsonString = JSON.stringify(contextSetsData, null, 2)
     
     // Create and download the file
@@ -479,8 +354,6 @@ const handleDownloadJSON = async () => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     
-    // Track the download
-    trackDownload('context_sets')
     
     // Show success modal
     showExportSuccessModal.value = true
@@ -496,78 +369,6 @@ const handleDownloadJSON = async () => {
   }
 }
 
-// Export to project folder functionality (new)
-const handleExportToProject = async () => {
-  try {
-    // Check if stable version exists and warn user
-    const hasStable = await hasStableVersionInProject()
-    
-    if (hasStable) {
-      warning(
-        'Overwrite Existing File',
-        'A context-sets.json file already exists in your project. Exporting will overwrite it with your current working copy.',
-        {
-          persistent: true,
-          actions: [
-            {
-              label: 'Overwrite',
-              action: async () => await performExportToProject(),
-              style: 'primary'
-            },
-            {
-              label: 'Cancel',
-              action: () => {},
-              style: 'secondary'
-            }
-          ]
-        }
-      )
-    } else {
-      await performExportToProject()
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to export to project'
-    errorWithRetry(
-      'Export Failed',
-      message,
-      handleExportToProject
-    )
-    announceError(message)
-  }
-}
-
-// Perform the actual export to project
-const performExportToProject = async () => {
-  try {
-    const result = await exportToProjectFolder()
-    
-    if (result.success) {
-      success(
-        'Export Successful!',
-        'Your context sets have been saved to context-sets.json in your project folder. This stable version will be loaded when you next open this project.'
-      )
-      announceStatus('Context sets exported to project folder successfully')
-      
-      // Update export status
-      exportStatus.value = await getExportStatus()
-    } else {
-      errorWithRetry(
-        'Export Failed',
-        result.error || 'Unknown error occurred',
-        handleExportToProject
-      )
-      announceError(result.error || 'Failed to export to project')
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to export to project'
-    errorWithRetry(
-      'Export Failed',
-      message,
-      handleExportToProject
-    )
-    announceError(message)
-  }
-}
 
 async function handleClearProjectWithConfirmation() {
   if (autoSaveState.value.isDirty) {

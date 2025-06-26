@@ -9,21 +9,15 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: true },
+  ssr: false,
+  nitro: {
+    preset: 'cloudflare-pages'
+  },
   app: {
     pageTransition: { name: 'page', mode: 'out-in' }
   },  
   css: ['~/assets/css/tailwind.css'],
   
-  // Runtime configuration for environment variables
-  runtimeConfig: {
-    // Public keys that will be exposed to the client
-    public: {
-      umamiUrl: process.env.NUXT_PUBLIC_UMAMI_URL,
-      umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID,
-      posthogPublicKey: process.env.NUXT_PUBLIC_POSTHOG_KEY,
-      posthogHost: process.env.NUXT_PUBLIC_POSTHOG_HOST,
-    }
-  },
   
   // Enhanced Font Configuration
   fonts: {
@@ -55,11 +49,6 @@ export default defineNuxtConfig({
   },
 
   // Performance optimizations for fonts and WASM support
-  nitro: {
-    experimental: {
-      wasm: true
-    }
-  },
   
   // Vite configuration for web-tree-sitter and Hugging Face Transformers
   vite: {
@@ -77,6 +66,9 @@ export default defineNuxtConfig({
     define: {
       // Required for @huggingface/transformers
       global: 'globalThis',
+    },
+    worker: {
+      format: 'es'
     },
     build: {
       rollupOptions: {
