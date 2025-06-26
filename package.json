@@ -10,6 +10,7 @@
     "dev:fresh": "npm run clean && npm install && nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "deploy": "npm run generate && wrangler pages deploy dist",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

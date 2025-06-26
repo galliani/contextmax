@@ -1,0 +1,9 @@
+name = "contextmax-curator"
+compatibility_date = "2025-06-13"
+pages_build_output_dir = "dist"
+
+[env.production]
+name = "contextmax-curator"
+
+[env.preview]
+name = "contextmax-curator-preview"

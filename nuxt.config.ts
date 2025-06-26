@@ -9,6 +9,10 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: true },
+  ssr: false,
+  nitro: {
+    preset: 'cloudflare-pages'
+  },
   app: {
     pageTransition: { name: 'page', mode: 'out-in' }
   },  
@@ -45,11 +49,6 @@ export default defineNuxtConfig({
   },
 
   // Performance optimizations for fonts and WASM support
-  nitro: {
-    experimental: {
-      wasm: true
-    }
-  },
   
   // Vite configuration for web-tree-sitter and Hugging Face Transformers
   vite: {
@@ -67,6 +66,9 @@ export default defineNuxtConfig({
     define: {
       // Required for @huggingface/transformers
       global: 'globalThis',
+    },
+    worker: {
+      format: 'es'
     },
     build: {
       rollupOptions: {
