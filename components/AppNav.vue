@@ -10,7 +10,7 @@
       <!-- Logo/Brand and AI Status -->
       <div class="flex items-center gap-4">
         <a 
-          href="https://contextmax.ai" target="_blank" rel="noopener noreferrer"
+          href="https://contextmax.dev" target="_blank" rel="noopener noreferrer"
           class="text-2xl font-bold text-foreground tracking-wide hover:text-primary transition-colors duration-200"
         >
           contextMax <span class="text-xs text-muted-foreground font-normal">by 51NewYork</span>

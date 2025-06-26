@@ -4,7 +4,7 @@
 
 ContextMax is a **free, browser-based, privacy-first** tool that empowers developers to create, manage, and share highly-specific, reusable context sets for Large Language Models (LLMs). Guide your AI with pinpoint accuracy to get more relevant, consistent, and architecturally-aware assistance on your most complex projects.
 
-🚀 **[Try ContextMax Live](https://contextmax.com)** | 📖 **[Documentation](docs/)** | 💬 **[Discord Community](https://discord.gg/contextmax)**
+🚀 **[Try ContextMax Live](https://contextmax.dev)** | 📖 **[Documentation](docs/)** | 💬 **[Discord Community](https://discord.gg/contextmax)**
 
 
 ## The Problem: Is Your LLM Lost in Your Code?
