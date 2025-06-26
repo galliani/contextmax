@@ -56,7 +56,14 @@ export default defineNuxtConfig({
       tailwindcss(),
     ],
     optimizeDeps: {
-      exclude: ['web-tree-sitter', '@huggingface/transformers']
+      exclude: ['web-tree-sitter', '@huggingface/transformers'],
+      include: ['onnxruntime-common', 'onnxruntime-web']
+    },
+    resolve: {
+      alias: {
+        'onnxruntime-common': 'onnxruntime-common',
+        'onnxruntime-web': 'onnxruntime-web'
+      }
     },
     server: {
       fs: {
@@ -72,10 +79,13 @@ export default defineNuxtConfig({
     },
     build: {
       rollupOptions: {
-        external: (id) => {
-          // Externalize ONNX runtime for client-side
-          if (id.includes('onnxruntime-')) return true
-          return false
+        output: {
+          manualChunks: (id) => {
+            // Keep ONNX runtime in main chunk to avoid module resolution issues
+            if (id.includes('onnxruntime-')) return 'vendor'
+            if (id.includes('@huggingface/transformers')) return 'transformers'
+            if (id.includes('node_modules')) return 'vendor'
+          }
         }
       }
     }
