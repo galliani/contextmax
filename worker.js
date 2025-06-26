@@ -15,13 +15,10 @@ export default {
           method: request.method,
           headers: {
             'User-Agent': 'ContextMax/1.0',
-            'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
           },
         });
         
         // Create response with proper CORS headers
-        const contentType = hfResponse.headers.get('Content-Type') || 'application/octet-stream';
         const response = new Response(hfResponse.body, {
           status: hfResponse.status,
           statusText: hfResponse.statusText,
@@ -29,15 +26,10 @@ export default {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
             'Access-Control-Allow-Headers': '*',
-            'Content-Type': contentType,
+            'Content-Type': hfResponse.headers.get('Content-Type') || 'application/octet-stream',
             'Cache-Control': 'public, max-age=31536000',
           }
         });
-        
-        // Debug log for model files
-        if (hfPath.includes('config.json') || hfPath.includes('Xenova/flan-t5-small')) {
-          console.log(`Proxying HF request: ${hfUrl} with Content-Type: ${contentType}`);
-        }
         
         return response;
       }

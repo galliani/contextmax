@@ -10,13 +10,8 @@ if (typeof window !== 'undefined') {
   env.useBrowserCache = true;
   // Remove useCustomCache since we handle caching ourselves with OPFS
   
-  // Only use proxy in actual production (not local dev with /curator)
-  const isProduction = window.location.hostname !== 'localhost' && 
-                      window.location.hostname !== '127.0.0.1' && 
-                      !window.location.hostname.includes('.local');
-  
-  // Configure remote URL to use our proxy when deployed on /curator in production
-  if (window.location.pathname.startsWith('/curator') && isProduction) {
+  // Configure remote URL to use our proxy when deployed on /curator
+  if (window.location.pathname.startsWith('/curator')) {
     // Use our Cloudflare Worker proxy for Hugging Face models
     env.remoteURL = window.location.origin + '/curator/_hf/';
     env.remotePathTemplate = '{model}/resolve/{revision}/'
@@ -25,8 +20,8 @@ if (typeof window !== 'undefined') {
   // Set custom fetch function to handle CORS and add better error handling
   env.customFetch = async (url: string, options?: RequestInit) => {
     try {
-      // If it's a Hugging Face URL and we're on /curator in production, rewrite to use our proxy
-      if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator') && isProduction) {
+      // If it's a Hugging Face URL and we're on /curator, rewrite to use our proxy
+      if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator')) {
         const hfPath = url.replace('https://huggingface.co/', '');
         url = window.location.origin + '/curator/_hf/' + hfPath;
         logger.log(`Rewriting HF URL to proxy: ${url}`);
@@ -43,14 +38,6 @@ if (typeof window !== 'undefined') {
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status} for URL: ${url}`);
-      }
-      
-      // Check if we're getting HTML instead of expected content
-      const contentType = response.headers.get('content-type');
-      if (url.includes('.json') && contentType?.includes('text/html')) {
-        const text = await response.clone().text();
-        logger.error(`Expected JSON but got HTML for ${url}:`, text.substring(0, 200));
-        throw new Error(`Invalid response: Expected JSON but received HTML from ${url}`);
       }
       
       return response;
@@ -134,16 +121,11 @@ if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
   let downloadStats = { files: 0, totalSize: 0, cacheHits: 0 };
   
-  // Check if we're in production
-  const isProduction = window.location.hostname !== 'localhost' && 
-                      window.location.hostname !== '127.0.0.1' && 
-                      !window.location.hostname.includes('.local');
-  
   window.fetch = async (input, init) => {
     let url = input.toString();
     
-    // Rewrite Hugging Face URLs to use our proxy when on /curator in production
-    if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator') && isProduction) {
+    // Rewrite Hugging Face URLs to use our proxy when on /curator
+    if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator')) {
       const hfPath = url.replace('https://huggingface.co/', '');
       url = window.location.origin + '/curator/_hf/' + hfPath;
       input = url;
@@ -256,15 +238,14 @@ const DEFAULT_MODELS: Record<string, ModelConfig> = {
       dtype: 'fp16'
     }
   },
+  // Example second model - you can add your own model here
   textGeneration: {
     name: 'textGeneration',
     modelId: 'Xenova/flan-t5-small',
     task: 'text2text-generation',
     options: {
       device: 'wasm',
-      dtype: 'fp32',
-      // Force specific model type to avoid misidentification
-      model_type: 't5'
+      dtype: 'fp32'
     }
   }
 };
@@ -309,9 +290,6 @@ class LLMServiceImpl {
           });
         };
 
-        // Add debug logging for production
-        logger.log(`Initializing model ${modelKey}: ${modelConfig.modelId} with task: ${modelConfig.task}`);
-        
         const instance = await pipeline(modelConfig.task as any, modelConfig.modelId, { 
           progress_callback: enhancedProgressCallback,
           ...modelConfig.options
@@ -335,10 +313,6 @@ class LLMServiceImpl {
         if (error instanceof Error) {
           if (error.message.includes('Failed to fetch')) {
             errorMessage = 'Unable to download AI models. This may be due to network restrictions or CORS policy. The app will work without AI-powered suggestions.';
-          } else if (error.message.includes('Unsupported model type: bert')) {
-            // This error happens when Flan-T5's config is misidentified
-            errorMessage = `Model ${modelConfig.modelId} configuration error. The model might be incorrectly loaded in production.`;
-            logger.error('Model config might be corrupted or proxy is returning wrong content');
           } else {
             errorMessage = error.message;
           }
@@ -377,15 +351,6 @@ class LLMServiceImpl {
         await this.initializeAsync(modelKey, progress_callback);
       } catch (error) {
         logger.error(`Failed to initialize model ${modelKey}:`, error);
-        
-        // Special handling for Flan-T5 in production
-        if (modelKey === 'textGeneration' && error instanceof Error && 
-            error.message.includes('Unsupported model type: bert')) {
-          logger.warn('Flan-T5 model misidentified as BERT in production. This is a known issue.');
-          logger.warn('The app will continue without text generation features.');
-          // Don't re-throw the error for this specific case
-          continue;
-        }
       }
     }
   }
