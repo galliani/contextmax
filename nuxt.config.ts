@@ -7,23 +7,13 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  app: {
-    baseURL: '/curator',
-    buildAssetsDir: '/_nuxt/',
-    pageTransition: { name: 'page', mode: 'out-in' }    
-  },
-
-  ssr: false,
-
   compatibilityDate: '2025-05-15',
-  
   devtools: { enabled: true },
-
-  css: ['~/assets/css/tailwind.css'],
-
-  experimental: {
-    payloadExtraction: false // Since it's client-only
+  app: {
+    pageTransition: { name: 'page', mode: 'out-in' }
   },  
+  css: ['~/assets/css/tailwind.css'],
+  
   
   // Enhanced Font Configuration
   fonts: {
@@ -56,23 +46,18 @@ export default defineNuxtConfig({
 
   // Performance optimizations for fonts and WASM support
   nitro: {
-    preset: 'cloudflare',
-    prerender: {
-      autoSubfolderIndex: false
-    },
-    serveStatic: true,
     experimental: {
       wasm: true
     }
   },
   
-  // Vite configuration Hugging Face Transformers
+  // Vite configuration for web-tree-sitter and Hugging Face Transformers
   vite: {
     plugins: [
       tailwindcss(),
     ],
     optimizeDeps: {
-      exclude: ['@huggingface/transformers']
+      exclude: ['web-tree-sitter', '@huggingface/transformers']
     },
     server: {
       fs: {
@@ -86,7 +71,8 @@ export default defineNuxtConfig({
     build: {
       rollupOptions: {
         external: (id) => {
-          // Don't externalize for Cloudflare Workers
+          // Externalize ONNX runtime for client-side
+          if (id.includes('onnxruntime-')) return true
           return false
         }
       }
@@ -104,7 +90,6 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     'shadcn-nuxt'
   ],
-
   shadcn: {
     /**
      * Prefix for all the imported component

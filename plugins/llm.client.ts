@@ -4,50 +4,6 @@ import { logger } from '~/utils/logger';
 // Skip local model check for this browser-based example.
 env.allowLocalModels = false;
 
-// Configure for production deployment
-if (typeof window !== 'undefined') {
-  // Enable browser cache for better performance
-  env.useBrowserCache = true;
-  // Remove useCustomCache since we handle caching ourselves with OPFS
-  
-  // Configure remote URL to use our proxy when deployed on /curator
-  if (window.location.pathname.startsWith('/curator')) {
-    // Use our Cloudflare Worker proxy for Hugging Face models
-    env.remoteURL = window.location.origin + '/curator/_hf/';
-    env.remotePathTemplate = '{model}/resolve/{revision}/'
-  }
-  
-  // Set custom fetch function to handle CORS and add better error handling
-  env.customFetch = async (url: string, options?: RequestInit) => {
-    try {
-      // If it's a Hugging Face URL and we're on /curator, rewrite to use our proxy
-      if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator')) {
-        const hfPath = url.replace('https://huggingface.co/', '');
-        url = window.location.origin + '/curator/_hf/' + hfPath;
-        logger.log(`Rewriting HF URL to proxy: ${url}`);
-      }
-      
-      // Add cors mode and credentials
-      const fetchOptions: RequestInit = {
-        ...options,
-        mode: 'cors',
-        credentials: 'omit',
-      };
-      
-      const response = await fetch(url, fetchOptions);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status} for URL: ${url}`);
-      }
-      
-      return response;
-    } catch (error) {
-      logger.error(`Failed to fetch model file from ${url}:`, error);
-      throw error;
-    }
-  };
-}
-
 // Proper pipeline type for feature extraction
 type FeatureExtractionPipeline = Pipeline;
 type ProgressCallbackFunction = (data: { status: string; name: string; file?: string; progress?: number; loaded?: number; total?: number }) => void;
@@ -122,17 +78,11 @@ if (typeof window !== 'undefined') {
   let downloadStats = { files: 0, totalSize: 0, cacheHits: 0 };
   
   window.fetch = async (input, init) => {
-    let url = input.toString();
+    const url = input.toString();
     
-    // Rewrite Hugging Face URLs to use our proxy when on /curator
-    if (url.includes('huggingface.co') && window.location.pathname.startsWith('/curator')) {
-      const hfPath = url.replace('https://huggingface.co/', '');
-      url = window.location.origin + '/curator/_hf/' + hfPath;
-      input = url;
-    }
     
-    // Only intercept HuggingFace model files (both original and proxied URLs)
-    if ((url.includes('huggingface.co') || url.includes('/_hf/')) && (
+    // Only intercept HuggingFace model files
+    if (url.includes('huggingface.co') && (
       url.includes('.onnx') || 
       url.includes('.bin') || 
       url.includes('config.json') || 
@@ -164,14 +114,7 @@ if (typeof window !== 'undefined') {
           });
         } catch {
           // Not in cache, download and cache
-          // Use CORS-friendly fetch options
-          const fetchOptions = {
-            ...init,
-            mode: 'cors' as RequestMode,
-            credentials: 'omit' as RequestCredentials,
-          };
-          
-          const response = await originalFetch(input, fetchOptions);
+          const response = await originalFetch(input, init);
           
           if (response.ok) {
             const responseClone = response.clone();
@@ -193,27 +136,20 @@ if (typeof window !== 'undefined') {
                 logger.error('💥 Storage quota exceeded! Consider clearing cache or requesting more storage.');
               }
             }
-          } else {
-            logger.error(`❌ Failed to fetch ${fileName}: ${response.status} ${response.statusText}`);
           }
           
           return response;
         }
       } catch (error) {
         logger.error('❌ Cache interceptor error:', error);
-        // Try with CORS settings as fallback
-        const corsOptions = {
-          ...init,
-          mode: 'cors' as RequestMode,
-          credentials: 'omit' as RequestCredentials,
-        };
-        return originalFetch(input, corsOptions);
+        return originalFetch(input, init);
       }
     }
     
     // Non-model requests go through normally
     return originalFetch(input, init);
   };
+  
 }
 
 // Model configuration interface
@@ -307,18 +243,7 @@ class LLMServiceImpl {
       } catch (error) {
         logger.error(`❌ Failed to initialize ${modelConfig.name} Service:`, error);
         this.statuses.set(modelKey, 'error');
-        
-        // Provide more helpful error messages
-        let errorMessage = 'Unknown error';
-        if (error instanceof Error) {
-          if (error.message.includes('Failed to fetch')) {
-            errorMessage = 'Unable to download AI models. This may be due to network restrictions or CORS policy. The app will work without AI-powered suggestions.';
-          } else {
-            errorMessage = error.message;
-          }
-        }
-        
-        this.errors.set(modelKey, errorMessage);
+        this.errors.set(modelKey, error instanceof Error ? error.message : 'Unknown error');        
         throw error;
       }
     }
@@ -385,7 +310,7 @@ export const LLMService = LLMServiceImpl;
 export default defineNuxtPlugin((_nuxtApp) => {
   // Start LLM initialization asynchronously (don't block app startup)
   // Initialize embeddings first, then other models
-  LLMService.initializeAllModels()
+  LLMService.initializeAllModels();
   
   // Provide a direct embedding function that useSmartContextSuggestions expects (backward compatibility)
   const embeddingFunction = async (text: string, options?: { pooling?: string; normalize?: boolean }) => {

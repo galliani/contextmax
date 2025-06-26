@@ -4,13 +4,11 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "build:production": "NUXT_APP_BASE_URL=/curator nuxt build",
     "dev": "nuxt dev --inspect",
     "dev:clean": "rm -rf .nuxt && nuxt dev --inspect",
     "clean": "rm -rf .nuxt node_modules/.cache",
     "dev:fresh": "npm run clean && npm install && nuxt dev",
     "generate": "nuxt generate",
-    "generate:production": "NUXT_APP_BASE_URL=/curator nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
@@ -60,7 +58,6 @@
     "coverage-badges": "^1.0.7",
     "happy-dom": "^17.6.1",
     "playwright-core": "^1.52.0",
-    "vitest": "^3.2.0",
-    "@cloudflare/kv-asset-handler": "^0.3.0"
+    "vitest": "^3.2.0"
   }
 }
