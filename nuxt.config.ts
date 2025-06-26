@@ -11,7 +11,17 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: false,
   nitro: {
-    preset: 'cloudflare-pages'
+    preset: 'cloudflare-pages',
+    experimental: {
+      wasm: true
+    },
+    cloudflare: {
+      pages: {
+        routes: {
+          exclude: ['/favicon.ico']
+        }
+      }
+    }
   },
   app: {
     pageTransition: { name: 'page', mode: 'out-in' }
@@ -56,14 +66,7 @@ export default defineNuxtConfig({
       tailwindcss(),
     ],
     optimizeDeps: {
-      exclude: ['web-tree-sitter', '@huggingface/transformers'],
-      include: ['onnxruntime-common', 'onnxruntime-web']
-    },
-    resolve: {
-      alias: {
-        'onnxruntime-common': 'onnxruntime-common',
-        'onnxruntime-web': 'onnxruntime-web'
-      }
+      exclude: ['web-tree-sitter', '@huggingface/transformers', 'onnxruntime-common', 'onnxruntime-web']
     },
     server: {
       fs: {
@@ -79,13 +82,12 @@ export default defineNuxtConfig({
     },
     build: {
       rollupOptions: {
-        output: {
-          manualChunks: (id) => {
-            // Keep ONNX runtime in main chunk to avoid module resolution issues
-            if (id.includes('onnxruntime-')) return 'vendor'
-            if (id.includes('@huggingface/transformers')) return 'transformers'
-            if (id.includes('node_modules')) return 'vendor'
+        external: (id) => {
+          // Externalize ONNX runtime to avoid circular dependencies
+          if (id.includes('onnxruntime-common') || id.includes('onnxruntime-web')) {
+            return true
           }
+          return false
         }
       }
     }
