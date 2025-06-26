@@ -82,12 +82,10 @@ export default defineNuxtConfig({
     },
     build: {
       rollupOptions: {
-        external: (id) => {
-          // Externalize ONNX runtime to avoid circular dependencies
-          if (id.includes('onnxruntime-common') || id.includes('onnxruntime-web')) {
-            return true
+        output: {
+          manualChunks: {
+            'onnx-runtime': ['onnxruntime-web', 'onnxruntime-common']
           }
-          return false
         }
       }
     }
