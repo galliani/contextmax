@@ -6,14 +6,21 @@
 <template>
   <div class="bg-gradient-surface overflow-hidden backdrop-blur-sm">
     <!-- Header -->
-    <div class="border-b bg-gradient-warm">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="visual-hierarchy-3 pb-3 mb-2 text-mobile-subheading sm:text-lg lg:text-2xl">
+    <div class="border-b bg-gradient-warm px-4 py-3">
+      <div class="flex">
+        <div class="flex items-center space-x-3">
+          <h3 class="visual-hierarchy-4 font-bold mb-2 text-mobile-subheading sm:text-md lg:text-xl">
             Context Sets List
           </h3>
         </div>
       </div>
+
+      <!-- Mode Description -->
+      <p class="text-xs text-muted-foreground">
+        <span>
+          All your context sets are listed here, click to set it as active to start editing.
+        </span>
+      </p>  
     </div>
 
     <!-- Content -->
@@ -72,12 +79,12 @@
         class="space-y-4"
       >
         <!-- Add Button at Top -->
-        <div class="flex justify-end">
+        <div class="flex">
           <Button
-            @click="showCreateModal = true"
             variant="outline"
             size="sm"
             class="flex items-center"
+            @click="showCreateModal = true"
           >
             <Icon name="lucide:plus" class="w-4 h-4 mr-2" aria-hidden="true" />
             Add New Context Set

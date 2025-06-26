@@ -211,9 +211,6 @@
           <p class="visual-hierarchy-caption opacity-75 text-mobile-caption sm:text-sm mb-4">
             Create a new context set to get AI-curated file suggestions
           </p>
-          <p class="text-xs text-muted-foreground">
-            💡 <strong>Tip:</strong> Use descriptive search terms for better results
-          </p>
         </div>
       </div>
 
@@ -222,7 +219,7 @@
         <div
           v-for="(result, index) in filteredSearchResults"
           :key="result.file"
-          class="group relative bg-card rounded-lg border p-4 transition-all duration-200 hover:shadow-elegant"
+          class="group relative bg-card rounded-lg border-b px-0 py-4 transition-all duration-200 hover:shadow-elegant"
         >
           <!-- File Info -->
           <div class="flex items-start justify-between">
@@ -310,7 +307,7 @@
                 </p>
                 <div class="flex flex-wrap gap-1">
                   <div
-                    v-for="(func, funcIndex) in result.relevantFunctions"
+                    v-for="(func, funcIndex) in getUniqueRelevantFunctions(result.relevantFunctions)"
                     :key="funcIndex"
                     class="group relative"
                   >
@@ -319,10 +316,6 @@
                       <span class="text-primary/60">
                         ({{ Math.round(func.relevance * 100) }}%)
                       </span>
-                    </div>
-                    <div v-if="func.reason" 
-                         class="absolute bottom-full left-0 mb-1 p-2 bg-popover text-popover-foreground rounded shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap text-xs">
-                      {{ func.reason }}
                     </div>
                   </div>
                 </div>
@@ -560,6 +553,25 @@ const getClassificationBadgeClasses = (classification: string): string => {
   return classMap[classification] || 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
 }
 
+// Deduplicate relevant functions, keeping only the highest relevance score for each function name
+const getUniqueRelevantFunctions = (functions: any[]): any[] => {
+  if (!functions || !Array.isArray(functions)) return []
+  
+  const functionMap = new Map<string, any>()
+  
+  for (const func of functions) {
+    const existing = functionMap.get(func.name)
+    
+    // If no existing function with this name, or this one has higher relevance, keep it
+    if (!existing || func.relevance > existing.relevance) {
+      functionMap.set(func.name, func)
+    }
+  }
+  
+  // Return as array, sorted by relevance (highest first)
+  return Array.from(functionMap.values()).sort((a, b) => b.relevance - a.relevance)
+}
+
 // Helper function to find a FileTreeItem by path in the file tree
 const findFileInTree = (tree: any[], targetPath: string): any | null => {
   for (const item of tree) {
@@ -629,13 +641,14 @@ const addFileToContext = async (result: any) => {
   }
 
   try {
-    // Prepare function refs from relevant functions (lowered threshold for better inclusion)
-    const functionRefs = result.relevantFunctions
-      ?.filter((func: any) => func.relevance >= 0.3) // Include functions with 30%+ relevance
-      ?.map((func: any) => ({
+    // Prepare function refs from relevant functions (deduplicated and filtered)
+    const uniqueFunctions = getUniqueRelevantFunctions(result.relevantFunctions || [])
+    const functionRefs = uniqueFunctions
+      .filter((func: any) => func.relevance >= 0.3) // Include functions with 30%+ relevance
+      .map((func: any) => ({
         name: func.name,
         comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-      })) || []
+      }))
     
     
     const success = addFileToActiveContextSet(fileItem, {
@@ -671,13 +684,14 @@ const addTopResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
-          // Prepare function refs from relevant functions (lowered threshold for better inclusion)
-          const functionRefs = result.relevantFunctions
-            ?.filter((func: any) => func.relevance >= 0.3)
-            ?.map((func: any) => ({
+          // Prepare function refs from relevant functions (deduplicated and filtered)
+          const uniqueFunctions = getUniqueRelevantFunctions(result.relevantFunctions || [])
+          const functionRefs = uniqueFunctions
+            .filter((func: any) => func.relevance >= 0.3)
+            .map((func: any) => ({
               name: func.name,
               comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-            })) || []
+            }))
           
           const success = addFileToActiveContextSet(fileItem, {
             classification: result.classification,
@@ -691,7 +705,10 @@ const addTopResults = async () => {
     }
   }
   
-  const filesWithFunctions = topResults.filter(r => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
+  const filesWithFunctions = topResults.filter(r => {
+    const uniqueFunctions = getUniqueRelevantFunctions(r.relevantFunctions || [])
+    return uniqueFunctions.some((f: any) => f.relevance >= 0.3)
+  }).length
   const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }
@@ -709,13 +726,14 @@ const addAllResults = async () => {
       const fileItem = findFileInTree(fileTree.value, result.file)
       if (fileItem) {
         try {
-          // Prepare function refs from relevant functions (lowered threshold for better inclusion)
-          const functionRefs = result.relevantFunctions
-            ?.filter((func: any) => func.relevance >= 0.3)
-            ?.map((func: any) => ({
+          // Prepare function refs from relevant functions (deduplicated and filtered)
+          const uniqueFunctions = getUniqueRelevantFunctions(result.relevantFunctions || [])
+          const functionRefs = uniqueFunctions
+            .filter((func: any) => func.relevance >= 0.3)
+            .map((func: any) => ({
               name: func.name,
               comment: func.reason || `AI relevance: ${Math.round(func.relevance * 100)}%`
-            })) || []
+            }))
           
           const success = addFileToActiveContextSet(fileItem, {
             classification: result.classification,
@@ -729,7 +747,10 @@ const addAllResults = async () => {
     }
   }
   
-  const filesWithFunctions = filteredSearchResults.value.filter((r: any) => r.relevantFunctions && r.relevantFunctions.some((f: any) => f.relevance >= 0.3)).length
+  const filesWithFunctions = filteredSearchResults.value.filter((r: any) => {
+    const uniqueFunctions = getUniqueRelevantFunctions(r.relevantFunctions || [])
+    return uniqueFunctions.some((f: any) => f.relevance >= 0.3)
+  }).length
   const funcText = filesWithFunctions > 0 ? ` (${filesWithFunctions} with AI-selected functions)` : ''
   announceStatus(`Added ${addedCount} files to ${activeContextSetName.value}${funcText}`)
 }

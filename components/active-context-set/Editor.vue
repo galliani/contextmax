@@ -9,18 +9,18 @@
     <div class="border-b bg-muted/30 px-4 py-3">
       <div class="flex">
         <div class="flex items-center space-x-3">
-          <h3 class="visual-hierarchy-4 mb-2 text-mobile-subheading sm:text-md lg:text-xl">
+          <h3 class="visual-hierarchy-4 font-bold mb-2 text-mobile-subheading sm:text-md lg:text-xl">
             Editor
           </h3>
         </div>
       </div>
 
-        <!-- Mode Description -->
-        <p class="text-xs text-muted-foreground">
-          <span>
-            Define the inner workings of your context set.
-          </span>
-        </p>      
+      <!-- Mode Description -->
+      <p class="text-xs text-muted-foreground">
+        <span>
+          Define the inner workings of your context set.
+        </span>
+      </p>      
     </div>
 
     <div class="flex-1 overflow-hidden">

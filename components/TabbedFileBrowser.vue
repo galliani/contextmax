@@ -9,7 +9,7 @@
     <div class="border-b border-border bg-card/50 backdrop-blur-sm">
       <div class="content-spacing px-4 py-3">
         <div class="flex items-center justify-between">
-          <h3 class="visual-hierarchy-4 mb-2 text-mobile-subheading sm:text-md lg:text-xl">
+          <h3 class="visual-hierarchy-4 mb-2 font-bold text-mobile-subheading sm:text-md lg:text-xl">
             Explorer
           </h3>
           
