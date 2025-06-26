@@ -112,12 +112,12 @@
             <button
               @click="selectContextSet(setName)"
               class="w-full p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
-              :aria-label="`Select context set: ${setName}${activeContextSetName === setName ? ' (currently active)' : ''}`"
+              :aria-label="`Select context set: ${getDisplayName(setName)}${activeContextSetName === setName ? ' (currently active)' : ''}`"
               :aria-pressed="activeContextSetName === setName"
             >
               <div class="flex items-start justify-between mb-3">
                 <h4 class="font-semibold text-foreground truncate pr-2 text-lg">
-                  {{ setName }}
+                  {{ getDisplayName(setName) }}
                 </h4>
               </div>
                           
@@ -147,7 +147,7 @@
             <button
               @click.stop="confirmDelete(setName)"
               class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 text-destructive hover:text-destructive rounded-lg transition-all duration-200 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1 z-10"
-              :aria-label="`Delete context set: ${setName}`"
+              :aria-label="`Delete context set: ${getDisplayName(setName)}`"
               title="Delete context set"
               tabindex="-1"
             >
@@ -216,6 +216,10 @@ const getContextSetWorkflowStepCount = (setName: string) => {
   return contextSets.value[setName]?.workflows?.length || 0
 }
 
+const getDisplayName = (setName: string) => {
+  return setName.startsWith('context:') ? setName.replace('context:', '') : setName
+}
+
 // Save last selected context set to localStorage
 const saveLastSelectedContextSet = (setName: string) => {
   if (typeof window !== 'undefined') {
@@ -241,7 +245,7 @@ const loadLastSelectedContextSet = (): string | null => {
 const selectContextSet = (setName: string) => {
   const success = setActiveContextSet(setName)
   if (success) {
-    announceStatus(`Selected context set: ${setName}`)
+    announceStatus(`Selected context set: ${getDisplayName(setName)}`)
     saveLastSelectedContextSet(setName)
   }
 }
