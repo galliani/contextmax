@@ -12,6 +12,10 @@ export default defineNuxtConfig({
   ssr: false,
   nitro: {
     preset: 'static',
+    output: {
+      dir: './dist',
+      publicDir: './dist'
+    },
     experimental: {
       wasm: true
     }
