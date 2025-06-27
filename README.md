@@ -4,7 +4,40 @@
 
 ContextMax is a **free, browser-based, privacy-first** tool that empowers developers to create, manage, and share highly-specific, reusable context sets for Large Language Models (LLMs). Guide your AI with pinpoint accuracy to get more relevant, consistent, and architecturally-aware assistance on your most complex projects.
 
-🚀 **[Try ContextMax Live](https://contextmax.dev)** | 📖 **[Documentation](docs/)** | 💬 **[Discord Community](https://discord.gg/contextmax)**
+🚀 **[Try ContextMax Live](https://curator.contextmax.dev)** **[or run it locally using npx](https://npmjs.com/package/contextmax)** | 📖 **[Documentation](docs/)**
+
+
+## 🚀 Quick Start
+
+### Option 1: Using npm package (Recommended)
+
+```bash
+# Install and run directly
+npx contextmax
+# by default it runs on port 3000, but you can specify it like this: `PORT=3005 npx contextmax`
+
+# Or install globally
+npm install -g contextmax
+contextmax
+```
+
+### Option 2: Development setup
+
+```bash
+# Clone and install
+git clone https://github.com/galliani/contextmax.git
+cd contextmax
+npm install
+
+# Start development server
+npm run dev
+```
+
+Open http://localhost:3000 in Chrome/Edge and start creating context sets!
+
+### [QUICKEST] Option 3: Use the hosted version
+
+Go to the [curator app](https://curator.contextmax.dev).
 
 
 ## The Problem: Is Your LLM Lost in Your Code?
@@ -36,19 +69,6 @@ By defining exactly what files, specific line ranges, and operational workflows 
 - ⚡ **Performance Optimized**: IndexedDB caching and WebGPU acceleration for seamless experience.
 
 
-## 🚀 Quick Start
-
-```bash
-# Clone and install
-git clone https://github.com/galliani/contextmax.git
-cd contextmax
-npm install
-
-# Start development server
-npm run dev
-```
-
-Open http://localhost:3000 in Chrome/Edge and start creating context sets!
 
 ## 📖 How It Works
 
@@ -170,8 +190,7 @@ npm run dev:clean    # Clean start (removes .nuxt cache)
 npm run dev:fresh    # Fresh start (clean + reinstall)
 
 # Building
-npm run build        # Build for production
-npm run preview      # Preview production build
+npm run generate     # Build for production
 
 # Testing
 npm run test         # Run tests
@@ -206,7 +225,7 @@ We believe in empowering developers and are excited to build this tool with the 
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-Please ensure all tests pass and maintain our 91%+ coverage requirement.
+Please ensure all tests pass and maintain the coverage.
 
 
 ## 📄 License
@@ -216,5 +235,5 @@ This project is licensed under the Mozilla Public License 2.0. See the [LICENSE]
 ---
 
 <p align="center">
-  Made with ❤️ by the ContextMax team and contributors
+  Made with ❤️ by Galih from <a href="https://51newyork.com">51 New York</a>
 </p>
