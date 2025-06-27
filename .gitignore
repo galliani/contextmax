@@ -18,6 +18,9 @@ logs
 .fleet
 .idea
 
+# NPM package files
+*.tgz
+
 # Local env files
 .env
 .env.*
