@@ -11,16 +11,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: false,
   nitro: {
-    preset: 'cloudflare-pages',
+    preset: 'static',
     experimental: {
       wasm: true
-    },
-    cloudflare: {
-      pages: {
-        routes: {
-          exclude: ['/favicon.ico']
-        }
-      }
     }
   },
   app: {
