@@ -30,21 +30,28 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       
       - name: Install dependencies
-        run: npm install
+        run: npm install --ignore-scripts
+      
+      - name: Rebuild native modules
+        run: |
+          npm rebuild oxc-parser --update-binary
+          npx nuxi prepare || true
       
       - name: Run tests
         run: npm test
       
-      - name: Generate static files
-        run: npm run generate
-      
       - name: Update version (manual trigger)
         if: github.event_name == 'workflow_dispatch'
+        id: version-bump
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          npm version ${{ github.event.inputs.version }} -m "chore: bump version to %s"
-          git push
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version }} -m "chore: bump version to %s" | sed 's/^v//')
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          git push origin HEAD:${{ github.ref_name }}
+      
+      - name: Generate static files
+        run: npm run generate
       
       - name: Publish to NPM
         run: npm publish
@@ -53,11 +60,10 @@ jobs:
       
       - name: Create GitHub Release (manual trigger)
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.package-version.outputs.version }}
-          release_name: Release v${{ steps.package-version.outputs.version }}
-          draft: false
-          prerelease: false
+        run: |
+          gh release create v${{ steps.version-bump.outputs.version }} \
+            --title "Release v${{ steps.version-bump.outputs.version }}" \
+            --notes "Release v${{ steps.version-bump.outputs.version }}" \
+            --draft=false
