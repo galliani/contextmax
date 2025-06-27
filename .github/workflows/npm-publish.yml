@@ -35,7 +35,7 @@ jobs:
       - name: Rebuild native modules
         run: |
           npm rebuild oxc-parser --update-binary
-          npm rebuild rollup --update-binary
+          npm install @rollup/rollup-linux-x64-gnu --save-optional
           npx nuxi prepare || true
       
       - name: Run tests
