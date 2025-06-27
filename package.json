@@ -35,7 +35,6 @@
     "postinstall": "nuxt prepare || true",
     "prepare": "nuxt prepare",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "coverage:badge": "coverage-badges",
