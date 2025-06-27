@@ -36,7 +36,6 @@
     "prepare": "nuxt prepare",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "deploy": "npm run generate && wrangler pages deploy dist",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "coverage:badge": "coverage-badges",
