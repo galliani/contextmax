@@ -49,12 +49,14 @@
     
     <!-- Global UX Systems -->
     <NotificationContainer />
+    <HealthCheck />
   </div>
 </template>
 
 <script setup lang="ts">
 // Import the NotificationContainer component
 import NotificationContainer from './components/ui/NotificationContainer.vue'
+import HealthCheck from './components/HealthCheck.vue'
 
 // Global state for accessibility announcements
 const statusMessage = ref('')

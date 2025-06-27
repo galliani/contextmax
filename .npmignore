@@ -1,0 +1,62 @@
+# Source files (only include built output)
+.nuxt/
+node_modules/
+server/
+pages/
+components/
+composables/
+layouts/
+middleware/
+plugins/
+utils/
+assets/
+static/
+tests/
+coverage/
+
+# Development files
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+*.tmp
+.DS_Store
+.env
+.env.*
+
+# Config files (except necessary ones)
+.eslintrc*
+.prettierrc*
+.gitignore
+.gitlab-ci.yml
+.travis.yml
+tsconfig.json
+vitest.config.ts
+nuxt.config.ts
+tailwind.config.js
+postcss.config.js
+
+# Documentation (keep essential docs)
+docs/
+*.md
+!README.md
+!LICENSE
+
+# Build artifacts we don't need
+.nitro/
+.cache/
+.output/
+
+# Test files
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# Keep only what's needed for npm package
+!dist/
+!cli.js
+!package.json
+!README.md
+!LICENSE
