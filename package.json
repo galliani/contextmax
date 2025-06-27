@@ -1,22 +1,50 @@
 {
-  "name": "nuxt-app",
-  "private": true,
+  "name": "contextmax",
+  "version": "1.0.0-rc.1",
+  "description": "Privacy-first, browser-based tool for creating precise context sets for LLMs",
+  "keywords": ["llm", "context", "ai", "developer-tools", "privacy", "browser-based"],
+  "author": "Galih Muhammad",
+  "license": "MPL-2.0",
   "type": "module",
+  "bin": {
+    "contextmax": "./cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "cli.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/galliani/contextmax.git"
+  },
+  "bugs": {
+    "url": "https://github.com/galliani/contextmax/issues"
+  },
+  "homepage": "https://github.com/galliani/contextmax#readme",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev --inspect",
     "dev:clean": "rm -rf .nuxt && nuxt dev --inspect",
     "clean": "rm -rf .nuxt node_modules/.cache",
     "dev:fresh": "npm run clean && npm install && nuxt dev",
+    "postinstall": "nuxt prepare || true",
+    "prepare": "nuxt prepare",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "deploy": "npm run generate && wrangler pages deploy dist",
-    "postinstall": "nuxt prepare",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "coverage:badge": "coverage-badges"
+    "coverage:badge": "coverage-badges",
+    "prepublishOnly": "npm run generate",
+    "start": "node cli.js"
   },
   "dependencies": {
+    "open": "^10.0.0"
+  },
+  "devDependencies": {
     "@huggingface/transformers": "^3.5.2",
     "@nuxt/content": "^3.5.1",
     "@nuxt/eslint": "^1.4.1",
@@ -49,9 +77,6 @@
     "typescript": "^5.8.3",
     "vue": "^3.5.15",
     "vue-router": "^4.5.1",
-    "web-tree-sitter": "^0.25.6"
-  },
-  "devDependencies": {
     "@iconify-json/lucide": "^1.2.45",
     "@testing-library/vue": "^8.1.0",
     "@vitest/coverage-v8": "^3.2.0",
