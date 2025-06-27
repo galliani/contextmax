@@ -5,7 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import url from 'url';
 import { fileURLToPath } from 'url';
-import open from 'open';
+import { exec } from 'child_process';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,9 +58,33 @@ function getMimeType(filePath) {
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
     '.ttf': 'font/ttf',
-    '.otf': 'font/otf'
+    '.otf': 'font/otf',
+    '.wasm': 'application/wasm'
   };
   return mimeTypes[ext] || 'application/octet-stream';
+}
+
+function openBrowser(url) {
+  const platform = os.platform();
+  let command;
+  
+  switch (platform) {
+    case 'darwin':
+      command = `open "${url}"`;
+      break;
+    case 'win32':
+      command = `start "${url}"`;
+      break;
+    default:
+      // Linux and others
+      command = `xdg-open "${url}" || sensible-browser "${url}" || x-www-browser "${url}" || gnome-open "${url}"`;
+  }
+  
+  exec(command, (err) => {
+    if (err) {
+      console.log('📌 Could not open browser automatically. Please open the URL manually.');
+    }
+  });
 }
 
 function startServer() {
@@ -132,9 +157,7 @@ function startServer() {
       console.log('📋 Press Ctrl+C to stop the server\n');
       
       // Open browser
-      open(serverUrl).catch(() => {
-        console.log('📌 Could not open browser automatically. Please open the URL manually.');
-      });
+      openBrowser(serverUrl);
     });
 
     process.on('SIGINT', () => {

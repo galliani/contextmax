@@ -74,11 +74,6 @@ export async function checkBrowserAPIs(): Promise<HealthCheckResult[]> {
     available: 'Worker' in window
   })
 
-  // Check SharedArrayBuffer (for multi-threading)
-  results.push({
-    feature: 'SharedArrayBuffer',
-    available: 'SharedArrayBuffer' in window
-  })
 
   // Check Browser Type and Version
   const userAgent = navigator.userAgent
