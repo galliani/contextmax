@@ -29,13 +29,13 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-      
-      - name: Rebuild native modules
+      - name: Clean install dependencies
         run: |
-          npm rebuild oxc-parser --update-binary
-          npm install @rollup/rollup-linux-x64-gnu --save-optional
+          # Remove node_modules and package-lock to ensure clean state
+          rm -rf node_modules package-lock.json
+          # Install without ignoring scripts so all binaries are properly installed
+          npm install
+          # Prepare Nuxt
           npx nuxi prepare || true
       
       - name: Run tests
