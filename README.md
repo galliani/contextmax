@@ -4,25 +4,23 @@
 
 ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
 
-🚀 **[Try ContextMax Live](https://curator.contextmax.dev)** **[or run it locally using npx](https://npmjs.com/package/contextmax)** | 📖 **[Documentation](docs/)**
-
+<!-- PLACEHOLDER: Demo video of creating context sets -->
+**📹 [Watch: Creating Context Sets Demo](REPLACE_WITH_DEMO_VIDEO_URL)**
 
 ## 🚀 Quick Start
 
-### [QUICKEST] Option 1: Use the (free, no signup-required) hosted version
+### [QUICKEST] Option 1: Use the hosted version
 
 Go to the [curation tool](https://curator.contextmax.dev).
 
-### Option 2: Using the npm package (Recommended)
+**Privacy Note**: Even on the hosted version, your code stays in your browser. No files are uploaded to our servers.
+
+### Option 2: Run it locally using the npm package (Recommended)
 
 ```bash
-# Install and run directly
 npx contextmax
-# by default it runs on port 3000, but you can specify it like this: `PORT=3005 npx contextmax`
-
-# Or install globally
-npm install -g contextmax
-contextmax
+# by default it runs on port 3000, but you can also specify the port like this: 
+PORT=3005 npx contextmax
 ```
 
 This will automatically run the tool locally and open it on your browser.
@@ -51,6 +49,8 @@ ContextMax helps you create context sets - JSON files that tell your LLM which p
 
 Think of it as creating a map for your LLM to navigate your codebase.
 
+<!-- PLACEHOLDER: Screenshot of the main interface -->
+![ContextMax Interface](static/images/MainInterface.png)
 
 ## Why ContextMax
 
@@ -108,6 +108,7 @@ graph TD
     F --> G[Done - 2k tokens used]
 ```
 
+**📹 [Watch: LLM Performance with vs without Context Sets](https://youtu.be/8T8y31sKncY)**
 
 ## Key Features
 
@@ -129,6 +130,16 @@ graph TD
 3. **Add files and functions** - Pick whole files or specific functions
 4. **Define workflows** - Show how code flows from entry point to completion
 5. **Export context-sets.json** - Use with Cursor, Continue, or any LLM tool
+
+<!-- PLACEHOLDER: Step-by-step screenshots -->
+### Visual Walkthrough
+| Step | Screenshot |
+|------|------------|
+| 1. Project Loading | ![Load Project](REPLACE_WITH_STEP1_SCREENSHOT_URL) |
+| 2. Context Creation | ![Create Context](REPLACE_WITH_STEP2_SCREENSHOT_URL) |
+| 3. Function Selection | ![Select Functions](REPLACE_WITH_STEP3_SCREENSHOT_URL) |
+| 4. Workflow Definition | ![Define Workflow](REPLACE_WITH_STEP4_SCREENSHOT_URL) |
+| 5. Export JSON | ![Export JSON](REPLACE_WITH_STEP5_SCREENSHOT_URL) |
 
 
 ## The context-sets.json Format
