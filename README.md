@@ -11,6 +11,26 @@ ContextMax is a browser-based tool that lets you create context sets for LLMs. D
 <!-- PLACEHOLDER: Demo video of creating context sets -->
 **📹 [Watch: Creating Context Sets Demo](REPLACE_WITH_DEMO_VIDEO_URL)**
 
+## Table of Contents
+
+- [🚀 Quick Start](#-quick-start)
+- [What is ContextMax](#what-is-contextmax)
+- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
+- [Why ContextMax](#why-contextmax)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [Data Flow](#data-flow)
+  - [Component Architecture](#component-architecture)
+  - [Context Processing Flow](#context-processing-flow)
+- [How It Works](#how-it-works)
+- [The context-sets.json Format](#the-context-setsjson-format)
+- [Tech Stack](#tech-stack)
+- [Local AI Models](#local-ai-models)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## 🚀 Quick Start
 
 ### [QUICKEST] Option 1: Use the hosted version
@@ -131,7 +151,7 @@ graph TD
     F --> G[Done - 2k tokens used]
 ```
 
-**📹 [Watch: LLM Performance with vs without Context Sets](https://youtu.be/8T8y31sKncY)**
+<iframe width="560" height="315" src="https://www.youtube.com/embed/8T8y31sKncY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Key Features
 
