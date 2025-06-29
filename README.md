@@ -3,13 +3,13 @@
   
   # ContextMax
 
-  <div align="center">
-    <img src="static/images/context-creation-cut-cropped-3x.gif" alt="Creating Context Sets Demo using contextMax" />
-  </div>
-
   <p align="center">
     <strong>Tell your LLM exactly what parts of your codebase matter for each task.</strong>
   </p>
+
+  <div align="center">
+    <img src="static/images/context-creation-cut-cropped-3x.gif" alt="Creating Context Sets Demo using contextMax" />
+  </div>
 </div>
 
 <h4 align="center">
@@ -29,7 +29,7 @@
   <a href="https://twitter.com/intent/follow?screen_name=_galihm">
     <img src="https://img.shields.io/twitter/follow/GetErgomake.svg?label=Follow%20@_galihm" alt="Follow Me" />
   </a>
-</p>
+</div>
 
 
 <p align="center">
@@ -135,6 +135,7 @@ git clone https://github.com/galliani/contextmax.git
 
 You'll see firsthand how context sets give your LLM laser focus on the right code, reducing token usage by ~80% while getting more accurate answers.
 
+
 ## Why ContextMax
 
 LLMs often fail on real codebases because they:
@@ -191,6 +192,7 @@ graph TD
     E --> F[Generate code using existing patterns]
     F --> G[Done - 2k tokens used]
 ```
+
 
 ## Key Features
 
@@ -400,6 +402,7 @@ sequenceDiagram
     
     Note over User: Use @context:name with any LLM
 ```
+
 
 ## How It Works
 
