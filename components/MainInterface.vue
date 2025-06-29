@@ -45,12 +45,12 @@
           </div>
         </div>
 
-        <!-- Three-Column Content Area -->
-        <div class="grid grid-cols-1 xl:grid-cols-4 gap-0 min-h-[800px]">
-          
-          <!-- Left Column: Context Sets Management (1/4 width) -->
+        <!-- Two-Column Content Area -->
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-0 min-h-[800px]">
+
+          <!-- Left Column: Context Sets Management (1/5 width) -->
           <div class="xl:col-span-1 bg-gradient-surface rounded-bl-lg border border-t-0 border-r-0 shadow-sophisticated backdrop-blur-sm">
-            <div class="p-4 lg:p-6">
+            <div class="p-4 px-0">
               <!-- Context Sets Management -->
               <div role="region" aria-labelledby="context-sets-heading">
                 <h3 id="context-sets-heading" class="sr-only">Context Sets Management</h3>
@@ -59,8 +59,8 @@
             </div>
           </div>
 
-          <!-- Middle Column: Context Set Composition (2/4 width) -->
-          <div class="xl:col-span-3 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
+          <!-- Right Column: Context Set Composition (4/5 width) -->
+          <div class="xl:col-span-4 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
             <ActiveContextComposer />
           </div>
 

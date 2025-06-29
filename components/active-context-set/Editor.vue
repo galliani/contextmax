@@ -17,7 +17,7 @@
           <!-- Mode Description -->
           <p class="text-xs text-muted-foreground">
             <span>
-              Define the inner workings of your context set.
+              Define the inner workings of your context set
             </span>
           </p>      
         </div>

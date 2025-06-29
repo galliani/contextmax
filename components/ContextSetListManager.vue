@@ -18,7 +18,7 @@
       <!-- Mode Description -->
       <p class="text-xs text-muted-foreground">
         <span>
-          Select a context set below to start editing.
+          Select a context set below to start editing
         </span>
       </p>  
     </div>
@@ -120,20 +120,20 @@
               :aria-pressed="activeContextSetName === setName"
             >
               <div class="flex items-start justify-between mb-3">
-                <h4 class="font-semibold truncate pr-2 text-lg" :class="activeContextSetName === setName ? 'text-foreground' : 'text-muted-foreground'">
+                <h4 class="font-bold truncate pr-2 text-sm" :class="activeContextSetName === setName ? 'text-foreground' : 'text-muted-foreground'">
                   {{ getDisplayName(setName) }}
                 </h4>
               </div>
                           
               <div class="flex items-center justify-between text-xs text-muted-foreground">
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
                   <span class="flex items-center">
                     <Icon name="lucide:file" class="w-4 h-4 mr-1.5" aria-hidden="true" />
                     {{ getContextSetFileCount(setName) }} files
                   </span>
                   <span class="flex items-center">
                     <Icon name="lucide:workflow" class="w-4 h-4 mr-1.5" aria-hidden="true" />
-                    {{ getContextSetWorkflowStepCount(setName) }} steps
+                    {{ getContextSetWorkflowStepCount(setName) }} flows
                   </span>
                 </div>
                 
