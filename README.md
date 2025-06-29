@@ -46,11 +46,9 @@
 
 <br>
 
-<div align="center">
-  <a href="https://youtu.be/8T8y31sKncY" target="_blank">
-    <img src="https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg" alt="LLM Performance with vs without Context Sets" />
-  </a>
-</div>
+
+https://github.com/user-attachments/assets/b9d9ba24-2911-4e65-856b-218de3fc0cce
+
 
 
 ## 🚀 Quick Start
