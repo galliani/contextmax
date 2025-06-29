@@ -36,35 +36,19 @@
   ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
 </p>
 
+<br>
+
 <p align="center">
-  <strong>How curated context set helps LLM</strong>
+  <strong>[Youtube Video] How curated context set helps LLM (click to view)</strong>
 </p>
+
+<br>
 
 <div align="center">
   <a href="https://youtu.be/8T8y31sKncY">
     <img src="https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg" alt="LLM Performance with vs without Context Sets" />
   </a>
 </div>
-
-## Table of Contents
-
-- [Quick Start](#-quick-start)
-- [What is ContextMax](#what-is-contextmax)
-- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
-- [Why ContextMax](#why-contextmax)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-  - [System Architecture](#system-architecture)
-  - [Data Flow](#data-flow)
-  - [Component Architecture](#component-architecture)
-  - [Context Processing Flow](#context-processing-flow)
-- [How It Works](#how-it-works)
-- [The context-sets.json Format](#the-context-setsjson-format)
-- [Tech Stack](#tech-stack)
-- [Local AI Models](#local-ai-models)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
 
 
 ## 🚀 Quick Start
@@ -99,6 +83,7 @@ npm run dev
 
 Open http://localhost:3000 in Chrome/Edge and start creating context sets!
 
+<br>
 
 ## What is ContextMax
 
@@ -112,7 +97,20 @@ Think of it as creating a map for your LLM to navigate your codebase.
 <!-- PLACEHOLDER: Screenshot of the main interface -->
 ![ContextMax Interface](static/images/MainInterface.png)
 
-## Try It Yourself: See the Difference
+
+### Key Features
+
+- **Visual Builder**: Create context sets through a UI instead of editing JSON
+- **100% Private**: Everything runs in your browser. No servers, no uploads
+- **Function-Level Context**: Point to specific functions, not just files
+- **Workflow Mapping**: Show how files and functions connect in your data flow
+- **Version Control Ready**: Output is a simple JSON file you can commit
+- **Team Sharing**: Everyone uses the same context definitions
+- **Local AI**: Built-in embeddings model for smart file suggestions
+- **Fast**: Uses IndexedDB caching and WebGPU when available
+
+
+### Try It Yourself: See the Difference
 
 Want proof that context sets work? The contextMax codebase itself uses context sets!
 
@@ -135,6 +133,8 @@ git clone https://github.com/galliani/contextmax.git
 
 You'll see firsthand how context sets give your LLM laser focus on the right code, reducing token usage by ~80% while getting more accurate answers.
 
+
+<br>
 
 ## Why ContextMax
 
@@ -193,17 +193,7 @@ graph TD
     F --> G[Done - 2k tokens used]
 ```
 
-
-## Key Features
-
-- **Visual Builder**: Create context sets through a UI instead of editing JSON
-- **100% Private**: Everything runs in your browser. No servers, no uploads
-- **Function-Level Context**: Point to specific functions, not just files
-- **Workflow Mapping**: Show how files and functions connect in your data flow
-- **Version Control Ready**: Output is a simple JSON file you can commit
-- **Team Sharing**: Everyone uses the same context definitions
-- **Local AI**: Built-in embeddings model for smart file suggestions
-- **Fast**: Uses IndexedDB caching and WebGPU when available
+<br>
 
 ## Architecture
 
@@ -214,7 +204,6 @@ ContextMax is built with a privacy-first, browser-based architecture where all p
 - **🔒 Privacy First**: All processing happens client-side using browser APIs
 - **🤖 AI-Enhanced**: Local embeddings model for intelligent code suggestions  
 - **⚡ Performance**: Multi-tier caching with IndexedDB and OPFS
-- **🧩 Modular**: Clean separation between UI components and business logic
 
 ### System Architecture
 
@@ -404,6 +393,8 @@ sequenceDiagram
 ```
 
 
+<br>
+
 ## How It Works
 
 1. **Open your project folder** - Uses File System Access API (Chrome/Edge)
@@ -422,6 +413,8 @@ sequenceDiagram
 | 4. Workflow Definition | ![Define Workflow](REPLACE_WITH_STEP4_SCREENSHOT_URL) |
 | 5. Export JSON | ![Export JSON](REPLACE_WITH_STEP5_SCREENSHOT_URL) |
 
+
+<br>
 
 ## The context-sets.json Format
 
@@ -484,6 +477,9 @@ ContextMax generates a single JSON file you can commit to your repo:
 - File System Access API, OPFS, IndexedDB
 - Vitest
 
+
+<br>
+
 ## Local AI Models
 
 ContextMax runs AI models directly in your browser:
@@ -504,6 +500,8 @@ const embeddings = await embeddingsModel('your code snippet')
 
 All processing happens locally. No external API calls.
 
+
+<br>
 
 ## Development
 
@@ -537,10 +535,14 @@ ContextMax requires browsers that support:
 - IndexedDB and OPFS
 
 
+<br>
+
 ## Contributing
 
 We welcome contributions from anyone. Please report bugs via GitHub Issues with reproduction steps.
 
+
+<br>
 
 ## License
 
