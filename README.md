@@ -1,31 +1,36 @@
 <div align="center">
   <img src="public/logo-transparent.png" alt="ContextMax Logo" width="120" height="120" />
   
-  # ContextMax ![Coverage Status](badges/coverage.svg)
+  # ContextMax
 
-  > Tell your LLM exactly what parts of your codebase matter for each task.
+  <div align="center">
+    <img src="static/images/context-creation-cut-cropped-3x.gif" alt="Creating Context Sets Demo using contextMax" />
+  </div>
+
+  <p align="center">
+    <strong>Tell your LLM exactly what parts of your codebase matter for each task.</strong>
+  </p>
 </div>
 
 <h4 align="center">
-  <a href="https://contextmax.dev">Home Page</a> |
-  <a href="https://www.npmjs.com/package/contextmax">NPM</a>
+  <a href="https://contextmax.dev">Home Page</a>
 </h4>
 
-<p align="center">
+<div align="center">
+  <a href="https://github.com/galliani/contextmax/blob/main/badges/coverage.svg">
+    <img src="badges/coverage.svg" alt="Coverage Status" />
+  </a>
   <a href="https://github.com/galliani/contextmax/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/galliani/contexmax" alt="contextMax is released under the Mozilla Public License." />
   </a>
-  <a href="https://discord.gg/daGzchUGDt">
-    <img src="https://img.shields.io/discord/1055836143733706874" alt="Discord Chat" />
+  <a href="https://www.npmjs.com/package/contextmax">
+    <img src="https://img.shields.io/npm/v/contextmax" alt="NPM Package" />
   </a>
   <a href="https://twitter.com/intent/follow?screen_name=_galihm">
-    <img src="https://img.shields.io/twitter/follow/GetErgomake.svg?label=Follow%20@Me" alt="Follow Me" />
+    <img src="https://img.shields.io/twitter/follow/GetErgomake.svg?label=Follow%20@_galihm" alt="Follow Me" />
   </a>
 </p>
 
-<div align="center">
-  ![Creating Context Sets Demo](static/images/context-creation-cut-cropped-3x.gif)
-</div>
 
 <p align="center">
   ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
@@ -36,7 +41,9 @@
 </p>
 
 <div align="center">
-  [![LLM Performance with vs without Context Sets](https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg)](https://youtu.be/8T8y31sKncY)
+  <a href="https://youtu.be/8T8y31sKncY">
+    <img src="https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg" alt="LLM Performance with vs without Context Sets" />
+  </a>
 </div>
 
 ## Table of Contents
