@@ -18,7 +18,7 @@
       <!-- Mode Description -->
       <p class="text-xs text-muted-foreground">
         <span>
-          All your context sets are listed here, click to set it as active to start editing.
+          Select a context set below to start editing
         </span>
       </p>  
     </div>
@@ -92,14 +92,16 @@
         </div>
 
         <!-- Context Sets List -->
-        <div 
+        <TransitionGroup
+          name="context-list"
+          tag="div"
           class="grid grid-cols-1 gap-4 sm:gap-6"
           role="list" 
           aria-label="Context sets"
         >
           <!-- Context Set Cards -->
           <div 
-            v-for="setName in contextSetNames" 
+            v-for="setName in sortedContextSetNames" 
             :key="setName"
             class="group relative bg-card rounded-lg border transition-all duration-200 hover:shadow-lg hover:border-primary/50"
             :class="{
@@ -110,26 +112,28 @@
           >
             <!-- Context Set Button -->
             <button
+              :ref="el => { if (activeContextSetName === setName) activeContextButton = el }"
               @click="selectContextSet(setName)"
               class="w-full p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
+              :class="activeContextSetName === setName ? 'cursor-default' : 'cursor-pointer'"
               :aria-label="`Select context set: ${getDisplayName(setName)}${activeContextSetName === setName ? ' (currently active)' : ''}`"
               :aria-pressed="activeContextSetName === setName"
             >
               <div class="flex items-start justify-between mb-3">
-                <h4 class="font-semibold text-foreground truncate pr-2 text-lg">
+                <h4 class="font-bold truncate pr-2 text-sm" :class="activeContextSetName === setName ? 'text-foreground' : 'text-muted-foreground'">
                   {{ getDisplayName(setName) }}
                 </h4>
               </div>
                           
               <div class="flex items-center justify-between text-xs text-muted-foreground">
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
                   <span class="flex items-center">
                     <Icon name="lucide:file" class="w-4 h-4 mr-1.5" aria-hidden="true" />
                     {{ getContextSetFileCount(setName) }} files
                   </span>
                   <span class="flex items-center">
                     <Icon name="lucide:workflow" class="w-4 h-4 mr-1.5" aria-hidden="true" />
-                    {{ getContextSetWorkflowStepCount(setName) }} steps
+                    {{ getContextSetWorkflowStepCount(setName) }} flows
                   </span>
                 </div>
                 
@@ -154,7 +158,7 @@
               <Icon name="lucide:trash-2" class="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
     </div>
 
@@ -205,7 +209,27 @@ const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
 const contextSetToDelete = ref('')
 
+// Template ref for active context button
+let activeContextButton: HTMLButtonElement | null = null
 
+
+
+// Computed property to sort context sets with active one at the top
+const sortedContextSetNames = computed(() => {
+  if (!contextSetNames.value.length) return []
+  
+  const names = [...contextSetNames.value]
+  const active = activeContextSetName.value
+  
+  if (!active) return names
+  
+  // Sort: active context first, then alphabetically
+  return names.sort((a, b) => {
+    if (a === active) return -1
+    if (b === active) return 1
+    return getDisplayName(a).localeCompare(getDisplayName(b))
+  })
+})
 
 // Helper functions
 const getContextSetFileCount = (setName: string) => {
@@ -241,12 +265,28 @@ const loadLastSelectedContextSet = (): string | null => {
   }
 }
 
+// Safe focus helper for test compatibility
+const safeFocus = (element: HTMLButtonElement | null) => {
+  try {
+    element?.focus?.()
+  } catch (error) {
+    // Silently ignore focus errors in test environment
+  }
+}
+
 // Actions
 const selectContextSet = (setName: string) => {
   const success = setActiveContextSet(setName)
   if (success) {
     announceStatus(`Selected context set: ${getDisplayName(setName)}`)
     saveLastSelectedContextSet(setName)
+    
+    // Auto-focus on the active context after transition
+    nextTick(() => {
+      setTimeout(() => {
+        safeFocus(activeContextButton)
+      }, 250) // Wait for most of transition to complete
+    })
   }
 }
 
@@ -254,6 +294,13 @@ const onContextSetCreated = (contextSetName: string) => {
   // Optional: Additional handling when a context set is created
   // The AddNewContext component already handles the creation and activation
   saveLastSelectedContextSet(contextSetName)
+  
+  // Auto-focus on the newly created context
+  nextTick(() => {
+    setTimeout(() => {
+      safeFocus(activeContextButton)
+    }, 100)
+  })
 }
 
 const confirmDelete = (setName: string) => {
@@ -297,5 +344,29 @@ const onDeleteError = (error: string) => {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Smooth transition animations for context list reordering */
+.context-list-move,
+.context-list-enter-active,
+.context-list-leave-active {
+  transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.context-list-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.context-list-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* Ensure leaving items don't affect layout during transition */
+.context-list-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
 }
 </style> 

@@ -6,12 +6,39 @@
 <template>  
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex-1 min-w-0">
-      <h2 id="project-info-heading" class="text-xl lg:text-5xl xl:text-6xl mb-2 font-semibold tracking-tight">
-        {{ selectedFolder?.name || 'Context Sets Manager' }}
-      </h2>
+      <div class="flex items-center gap-0 mb-2">
+        <h2 id="project-info-heading" class="text-xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
+          {{ selectedFolder?.name || 'Context Sets Manager' }}
+        </h2>
+        
+        <!-- Secondary Actions -->
+        <div v-if="selectedFolder" class="flex items-center gap-2">
+          <!-- Refresh Project Button -->
+          <Button
+            variant="outline"
+            size="sm"
+            class="px-3 py-2 hover:shadow-sm transition-all duration-200"
+            :disabled="isRefreshingFiles"
+            :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
+            title="Refresh Project"
+            @click="handleRefreshFiles"
+          >
+            <Icon 
+              :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
+              :class="[
+                'w-4 h-4 mr-0',
+                isRefreshingFiles ? 'animate-spin' : ''
+              ]" 
+              aria-hidden="true" 
+            />
+            {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
+          </Button>
+        </div>
+      </div>
+      
       <p class="text-sm lg:text-sm text-muted-foreground">
         {{ selectedFolder ? 
-          `Project loaded seamlessly from browser cache (OPFS) - no re-uploading needed across sessions` : 
+          `Project auto-loaded from browser cache (OPFS), no re-uploading needed across sessions` : 
           'Create and manage context sets for your codebase' 
         }}
         {{ autoLoadedFromProject ? ' • context-sets.json auto-loaded' : '' }}
@@ -20,132 +47,32 @@
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
       <!-- Primary Actions Group - Download and Preview -->
-      <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">
-        <!-- Download JSON Button - Primary Action -->
-        <Button 
-          variant="default"
-          size="default" 
-          class="font-medium px-5 py-2.5 shadow-md hover:shadow-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground"
-          @click="handleDownloadJSON"
-        >
-          <Icon name="lucide:download" class="w-4 h-4 mr-2" aria-hidden="true" />
-          Download JSON
-        </Button>
+      <div v-if="hasAnyContextSets" class="flex items-center gap-3 p-1 bg-muted/30 rounded-lg border border-muted/50">
+        <!-- Export Label -->
+        <span class="text-sm font-medium text-muted-foreground px-0">Export:</span>
         
         <!-- Preview JSON Button - Secondary Action -->
         <Button 
-          variant="outline"
-          size="default"
-          class="px-4 py-2.5 font-medium hover:bg-muted/50 transition-all duration-200"
+          variant="secondary"
+          size="xl"
+          class="px-4 py-3 font-medium transition-all duration-200 bg-indigo-900 hover:bg-indigo-800 text-white hover:text-white border-indigo-900"
           title="Preview context-sets.json output"
           @click="handlePreviewContextSetsJSON"
         >
           <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
-          Preview JSON
+          Preview/Copy
         </Button>
-      </div>
-      
-      <!-- Secondary Actions Group -->
-      <div class="flex items-center gap-2">
-        <!-- Refresh Project Button -->
-        <Button
-          variant="outline"
-          size="sm"
-          class="px-3 py-2 hover:shadow-sm transition-all duration-200"
-          :disabled="isRefreshingFiles"
-          :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
-          title="Refresh Project"
-          @click="handleRefreshFiles"
+
+        <!-- Download JSON Button - Primary Action -->
+        <Button 
+          variant="default"
+          size="xl" 
+          class="font-medium px-5 py-3 shadow-md hover:shadow-lg transition-all duration-200 bg-indigo-700 hover:bg-indigo-500 text-white border-indigo-700"
+          @click="handleDownloadJSON"
         >
-          <Icon 
-            :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
-            :class="[
-              'w-4 h-4 mr-2',
-              isRefreshingFiles ? 'animate-spin' : ''
-            ]" 
-            aria-hidden="true" 
-          />
-          {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
+          <Icon name="lucide:download" class="w-4 h-4 mr-2" aria-hidden="true" />
+          Download
         </Button>
-        
-        <!-- Force Save Button (when there are unsaved changes) -->
-        <Button
-          v-if="autoSaveState.isDirty"
-          variant="outline"
-          size="sm"
-          class="px-3 py-2 sm:px-4 hover:shadow-sm transition-all duration-200"
-          :disabled="autoSaveState.isSaving"
-          :aria-label="autoSaveState.isSaving ? 'Saving...' : 'Save changes now'"
-          title="Save Now (Ctrl+S)"
-          @click="handleForceSave"
-        >
-          <Icon 
-            :name="autoSaveState.isSaving ? 'lucide:loader-2' : 'lucide:save'" 
-            :class="[
-              'w-4 h-4 mr-2',
-              autoSaveState.isSaving ? 'animate-spin' : ''
-            ]" 
-            aria-hidden="true" 
-          />
-          {{ autoSaveState.isSaving ? 'Saving...' : 'Save' }}
-        </Button>
-        
-        <!-- Clear Project Button -->
-        <Button
-          variant="ghost"
-          size="sm"
-          class="p-2 hover:bg-destructive/10 transition-colors duration-200"
-          :aria-label="`Clear current project`"
-          title="Clear project"
-          @click="handleClearProjectWithConfirmation"
-        >
-          <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
-          <span class="sr-only">Clear project</span>
-        </Button>
-      </div>
-      
-      <!-- Auto-save Status & Secondary Controls -->
-      <div class="hidden lg:flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md text-xs xl:text-sm text-muted-foreground">
-        <div class="flex items-center gap-1">
-          <div 
-            :class="[
-              'w-2 h-2 rounded-full',
-              autoSaveState.isSaving ? 'bg-warning animate-pulse' : 
-              autoSaveState.isDirty ? 'bg-warning' : 'bg-success'
-            ]"
-            :aria-label="autoSaveStatus"
-          />
-          <span>{{ autoSaveStatus }}</span>
-        </div>
-        
-        
-        <div class="w-px h-4 bg-border" aria-hidden="true" />
-        
-        <!-- Undo/Redo Controls -->
-        <div class="flex items-center gap-1">               
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-6 w-6 p-0 text-xs"
-            :disabled="!autoSaveState.canUndo"
-            title="Undo (Ctrl+Z)"
-            :aria-label="autoSaveState.canUndo ? 'Undo last action' : 'No actions to undo'"
-            @click="handleUndo"
-          >
-            <Icon name="lucide:undo" class="w-3 h-3" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-6 w-6 p-0 text-xs"
-            :disabled="!autoSaveState.canRedo"
-            title="Redo (Ctrl+Y)"
-            :aria-label="autoSaveState.canRedo ? 'Redo last action' : 'No actions to redo'"
-            @click="handleRedo"
-          >
-            <Icon name="lucide:redo" class="w-3 h-3" aria-hidden="true" />
-          </Button>
-        </div>
       </div>
     </div>
   </div>
@@ -163,14 +90,6 @@
 
 <script setup lang="ts">
 import { logger } from '~/utils/logger'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 interface Props {
   autoLoadedFromProject?: boolean
@@ -189,10 +108,7 @@ const emit = defineEmits<{
 const {
   selectedFolder,
   contextSets,
-  generateContextSetsJSON,
   generateContextSetsJSONWithPrefix,
-  getExportStatus,
-  hasStableVersionInProject,
   fileTree,
   previewContextSetsJSONWithPrefix
 } = useProjectStore()
@@ -217,22 +133,7 @@ const firstContextSetName = computed(() => {
 })
 
 // Advanced UX Systems
-const { success, warning, info, errorWithRetry } = useNotifications()
-const { state: autoSaveState, forceSave, undo, redo } = useAutoSave(
-  contextSets,
-  {
-    key: 'context-sets',
-    saveInterval: 30000,
-    enableUndo: true,
-    onSave: async (data) => {
-      // Auto-save to localStorage (silent background operation)
-    },
-    onRestore: (_data) => {
-      // Handle restored data
-      info('Draft Restored', 'Your previous work has been restored from auto-save')
-    }
-  }
-)
+const { success, warning, errorWithRetry } = useNotifications()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
@@ -270,19 +171,6 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
 }
 
 
-// Auto-save status indicator
-const autoSaveStatus = computed(() => {
-  if (autoSaveState.value.isSaving) return 'Saving...'
-  if (autoSaveState.value.isDirty) return 'Unsaved changes'
-  if (autoSaveState.value.lastSaved) {
-    const timeSince = Date.now() - autoSaveState.value.lastSaved.getTime()
-    const minutes = Math.floor(timeSince / 60000)
-    if (minutes < 1) return 'Saved just now'
-    if (minutes === 1) return 'Saved 1 minute ago'
-    return `Saved ${minutes} minutes ago`
-  }
-  return 'All changes saved'
-})
 
 
 
@@ -371,68 +259,12 @@ const handleDownloadJSON = async () => {
 
 
 async function handleClearProjectWithConfirmation() {
-  if (autoSaveState.value.isDirty) {
-    warning(
-      'Unsaved Changes', 
-      'You have unsaved changes. Are you sure you want to clear the project?',
-      {
-        persistent: true,
-        actions: [
-          {
-            label: 'Clear Anyway',
-            action: () => {
-              emit('clear-project')
-              success('Project Cleared', 'Project has been cleared successfully')
-              announceStatus('Project cleared')
-            },
-            style: 'primary'
-          },
-          {
-            label: 'Cancel',
-            action: () => {},
-            style: 'secondary'
-          }
-        ]
-      }
-    )
-  } else {
-    emit('clear-project')
-    success('Project Cleared', 'Project has been cleared successfully')
-    announceStatus('Project cleared')
-  }
+  emit('clear-project')
+  success('Project Cleared', 'Project has been cleared successfully')
+  announceStatus('Project cleared')
 }
 
-async function handleForceSave() {
-  try {
-    await forceSave()
-    success('Saved', 'Changes saved successfully')
-    announceStatus('Changes saved manually')
-  } catch {
-    errorWithRetry(
-      'Save Failed',
-      'Could not save your changes. Please try again.',
-      handleForceSave
-    )
-  }
-}
 
-function handleUndo() {
-  if (autoSaveState.value.canUndo) {
-    undo()
-    announceStatus('Action undone')
-  } else {
-    warning('Nothing to Undo', 'No actions available to undo')
-  }
-}
-
-function handleRedo() {
-  if (autoSaveState.value.canRedo) {
-    redo()
-    announceStatus('Action redone')
-  } else {
-    warning('Nothing to Redo', 'No actions available to redo')
-  }
-}
 
 // Preview JSON with context: prefix
 const handlePreviewContextSetsJSON = () => {

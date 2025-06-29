@@ -77,7 +77,7 @@ describe('ActiveContextComposer', () => {
       const wrapper = await mountSuspended(ActiveContextComposer)
       
       expect(wrapper.text()).toContain('Context Set Composer')
-      expect(wrapper.text()).not.toContain('Context Set:')
+      expect(wrapper.text()).not.toContain('Composer:')
     })
 
     it('should render child components even without active context set', async () => {
@@ -123,7 +123,7 @@ describe('ActiveContextComposer', () => {
     it('should display active context set name', async () => {
       const wrapper = await mountSuspended(ActiveContextComposer)
       
-      expect(wrapper.text()).toContain('Context Set: testContextSet')
+      expect(wrapper.text()).toContain('Composer: testContextSet')
     })
 
     it('should display active context set description', async () => {
@@ -174,7 +174,7 @@ describe('ActiveContextComposer', () => {
     it('should enter edit mode when name is clicked', async () => {
       const wrapper = await mountSuspended(ActiveContextComposer)
       
-      const nameElement = findByText(wrapper, 'Context Set: testContextSet', 'h3')
+      const nameElement = findByText(wrapper, 'Composer: testContextSet', 'h3')
       if (nameElement?.exists()) {
         await nameElement.trigger('click')
         
@@ -247,7 +247,7 @@ describe('ActiveContextComposer', () => {
           await input.setValue('newName')
           await input.trigger('keydown.escape')
           
-          expect(wrapper.text()).toContain('Context Set: testContextSet')
+          expect(wrapper.text()).toContain('Composer: testContextSet')
           expect(mockProjectStore.updateActiveContextSet).not.toHaveBeenCalled()
         }
       }
@@ -264,7 +264,7 @@ describe('ActiveContextComposer', () => {
         if (cancelButton?.exists()) {
           await cancelButton.trigger('click')
           
-          expect(wrapper.text()).toContain('Context Set: testContextSet')
+          expect(wrapper.text()).toContain('Composer: testContextSet')
           expect(mockProjectStore.updateActiveContextSet).not.toHaveBeenCalled()
         }
       }
@@ -537,7 +537,7 @@ describe('ActiveContextComposer', () => {
       
       const wrapper = await mountSuspended(ActiveContextComposer)
       
-      expect(wrapper.text()).toContain('Context Set: testContextSet')
+      expect(wrapper.text()).toContain('Composer: testContextSet')
       expect(wrapper.text()).toContain('0 files')
       expect(wrapper.text()).toContain('0 workflows')
     })
@@ -573,7 +573,7 @@ describe('ActiveContextComposer', () => {
       
       await wrapper.vm.$nextTick()
       
-      expect(wrapper.text()).toContain('Context Set: newSet')
+      expect(wrapper.text()).toContain('Composer: newSet')
     })
   })
 }) 

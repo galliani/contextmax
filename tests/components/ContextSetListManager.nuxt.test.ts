@@ -172,11 +172,11 @@ describe('ContextSetListManager', () => {
       const wrapper = await mountSuspended(ContextSetListManager)
       
       expect(wrapper.text()).toContain('2 files')
-      expect(wrapper.text()).toContain('1 steps')
+      expect(wrapper.text()).toContain('1 flows')
       expect(wrapper.text()).toContain('1 files')
-      expect(wrapper.text()).toContain('2 steps')
+      expect(wrapper.text()).toContain('2 flows')
       expect(wrapper.text()).toContain('0 files')
-      expect(wrapper.text()).toContain('0 steps')
+      expect(wrapper.text()).toContain('0 flows')
     })
 
     it('should highlight active context set', async () => {
@@ -493,7 +493,7 @@ describe('ContextSetListManager', () => {
       const wrapper = await mountSuspended(ContextSetListManager)
       
       expect(wrapper.text()).toContain('0 files')
-      expect(wrapper.text()).toContain('0 steps')
+      expect(wrapper.text()).toContain('0 flows')
     })
 
     it('should handle createContextSet throwing error', async () => {

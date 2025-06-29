@@ -14,11 +14,11 @@
         <div class="flex items-start justify-between">
           <div class="flex-1 min-w-0">
             <!-- Editable Context Set Name -->
-            <div v-if="activeContextSetName" class="mt-4 mb-2">
+            <div v-if="activeContextSetName" class="mt-2 mb-0">
               <div v-if="!isEditingName" class="flex items-center group">
                 <Icon name="lucide:folder-open" class="w-12 h-12 mr-2 text-primary" />
                 <h3 class="visual-hierarchy-3 mb-1 text-mobile-subheading sm:text-xl lg:text-3xl font-bold" @click="startEditingName">
-                  Context Set: {{ activeContextSetName }}
+                  Composer: <span class="text-primary font-extrabold bg-primary/10 px-2 py-1 rounded-md border border-primary/20 animate-pulse">{{ getContextDisplayName(activeContextSetName) }}</span>
                 </h3>
                 <Button
                   @click="startEditingName"
@@ -57,7 +57,7 @@
             </h3>
 
             <!-- Editable Context Set Description -->
-            <div v-if="activeContextSetName" class="mb-1">
+            <div v-if="activeContextSetName" class="mb-0">
               <div v-if="!isEditingDescription && activeContextSetDescription" class="flex items-start group">
                 <p class="text-lg text-slate-300 cursor-pointer hover:text-slate-200 transition-colors" @click="startEditingDescription">
                   {{ activeContextSetDescription }}
@@ -66,7 +66,7 @@
                   @click="startEditingDescription"
                   variant="ghost"
                   size="sm"
-                  class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  class="ml-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Edit description"
                 >
                   <Icon name="lucide:edit-2" class="w-3 h-3" aria-hidden="true" />
@@ -77,7 +77,7 @@
                   @click="startEditingDescription"
                   variant="ghost"
                   size="sm"
-                  class="text-muted-foreground hover:text-foreground transition-colors"
+                  class="ml-0 pl-0 text-muted-foreground hover:text-foreground transition-colors"
                   title="Add description"
                 >
                   <Icon name="lucide:plus" class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -106,31 +106,10 @@
               </div>
             </div>
 
-            <!-- Processing Mode Selection -->
-            <div v-if="activeContextSetName" class="mb-4">
-              <div class="flex items-center space-x-3">
-                <label class="text-sm font-medium text-foreground whitespace-nowrap">
-                  Processing Mode
-                </label>
-                <select
-                  v-model="processingMode"
-                  class="w-64 px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                >
-                  <option value="">Not specified</option>
-                  <option value="synchronous">Synchronous - Returns result immediately</option>
-                  <option value="asynchronous">Asynchronous - Processes in background</option>
-                  <option value="streaming">Streaming - Returns data progressively</option>
-                  <option value="batch">Batch - Processes multiple items together</option>
-                </select>
-              </div>
-              <p class="text-xs text-muted-foreground mt-1 ml-0">
-                Defines how the system should handle processing requests
-              </p>
-            </div>
           </div>
           
           <!-- Token Estimation & Export Actions -->
-          <div v-if="activeContextSetName" class="flex flex-col items-end space-y-3 ml-6">
+          <div v-if="activeContextSetName" class="flex flex-col items-end space-y-3 ml-6 mt-2">
             <!-- Token Estimation & Copy Button -->
             <div class="flex items-center space-x-3">
               <p class="text-sm text-muted-foreground">
@@ -139,13 +118,13 @@
               <Button
                 @click="handleExportToClipboard"
                 :disabled="isExporting || !activeContextSet || !activeContextSet.files || activeContextSet.files.length === 0"
-                class="flex items-center space-x-2"
+                class="flex items-center space-x-2 text-xs px-3 py-2.5 font-medium transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg"
                 variant="default"
                 size="sm"
               >
                 <Icon 
                   :name="isExporting ? 'lucide:loader-2' : 'lucide:clipboard-copy'" 
-                  :class="['w-4 h-4', { 'animate-spin': isExporting }]" 
+                  :class="['w-1 h-1', { 'animate-spin': isExporting }]" 
                 />
                 <span>{{ isExporting ? 'Exporting...' : 'Copy as Snippet' }}</span>
               </Button>
@@ -155,9 +134,9 @@
             <div class="text-right">
               <div class="text-sm font-medium text-foreground">
                 {{ activeContextSet?.files?.length || 0 }} files • 
-                {{ activeContextSet?.workflows?.length || 0 }} workflows • 
+                {{ activeContextSet?.workflows?.length || 0 }} workflows
                 <span v-if="activeContextSet?.systemBehavior?.processing?.mode" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                  {{ activeContextSet.systemBehavior.processing.mode }}
+                   • {{ activeContextSet.systemBehavior.processing.mode }}
                 </span>
               </div>
             </div>
@@ -190,6 +169,7 @@
 
 <script setup lang="ts">
 import { logger } from '~/utils/logger'
+import { getContextDisplayName } from '~/utils/contextName'
 import Editor from './active-context-set/Editor.vue'
 import TabbedFileBrowser from './TabbedFileBrowser.vue'
 
@@ -242,18 +222,11 @@ const activeContextSetDescription = computed(() => {
   return activeContextSet.value?.description || ''
 })
 
-// Computed for processing mode
-const processingMode = computed({
-  get: () => activeContextSet.value?.systemBehavior?.processing?.mode || '',
-  set: (value: string) => {
-    updateProcessingMode(value)
-  }
-})
 
 // Methods for editing
 const startEditingName = async () => {
   isEditingName.value = true
-  editingName.value = activeContextSetName.value
+  editingName.value = getContextDisplayName(activeContextSetName.value)
   await nextTick()
   safeFocus(nameInput.value)
   safeSelect(nameInput.value)
@@ -284,7 +257,7 @@ const saveContextSetName = () => {
   try {
     updateActiveContextSet({ name: newName })
     isEditingName.value = false
-    announceStatus(`Context set renamed to: ${newName}`)
+    announceStatus(`Context set renamed to: ${getContextDisplayName(newName)}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to rename context set'
     announceError(message)
@@ -322,24 +295,6 @@ const cancelEditingDescription = () => {
   editingDescription.value = ''
 }
 
-// Update processing mode
-const updateProcessingMode = (mode: string) => {
-  if (!activeContextSet.value) return
-  
-  const newSystemBehavior = (mode && mode.trim()) ? {
-    processing: {
-      mode: mode as 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
-    }
-  } : null
-  
-  try {
-    updateActiveContextSet({ systemBehavior: newSystemBehavior })
-    announceStatus('Processing mode updated')
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update processing mode'
-    announceError(message)
-  }
-}
 
 // Export functionality
 const handleExportToClipboard = async () => {
@@ -390,7 +345,7 @@ const handleExportToClipboard = async () => {
     if (result.success) {
       success(
         'Snippet Copied',
-        `Context set "${prefixedContextSetName}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
+        `Context set "${getContextDisplayName(prefixedContextSetName)}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
       )
       announceStatus(`Context set exported to clipboard with ${result.tokenCount} tokens`)
     } else {

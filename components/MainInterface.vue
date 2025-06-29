@@ -17,13 +17,13 @@
     <!-- Main Content -->
     <div 
       v-show="!showFullScreenLoader" 
-      class="mx-auto px-4 sm:px-6 lg:px-8 mt-12 max-w-full lg:max-w-screen-2xl xl:max-w-screen-2xl space-y-6 lg:space-y-8 py-4 lg:py-6"
+      class="mx-auto px-4 sm:px-6 lg:px-8 mt-16 max-w-full lg:max-w-screen-2xl xl:max-w-screen-2xl space-y-6 lg:space-y-8 py-4 lg:py-6"
     >
       <!-- Two-Column Layout: Project Header + Context Set Composition -->
       <section role="region" aria-labelledby="main-workspace-heading">
         <h2 id="main-workspace-heading" class="sr-only">Main Workspace</h2>
         
-        <div class="bg-gradient-surface rounded-t-lg p-4 lg:p-6 border border-b-0 shadow-sophisticated backdrop-blur-sm">
+        <div class="bg-gradient-surface rounded-t-lg p-4 lg:pt-6 lg:pb-4 border border-b-0 shadow-sophisticated backdrop-blur-sm">
           <!-- Project Header Component -->
           <ProjectHeader 
             :auto-loaded-from-project="autoLoadedFromProject"
@@ -45,12 +45,12 @@
           </div>
         </div>
 
-        <!-- Three-Column Content Area -->
-        <div class="grid grid-cols-1 xl:grid-cols-4 gap-0 min-h-[800px]">
-          
-          <!-- Left Column: Context Sets Management (1/4 width) -->
+        <!-- Two-Column Content Area -->
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-0 min-h-[800px]">
+
+          <!-- Left Column: Context Sets Management (1/5 width) -->
           <div class="xl:col-span-1 bg-gradient-surface rounded-bl-lg border border-t-0 border-r-0 shadow-sophisticated backdrop-blur-sm">
-            <div class="p-4 lg:p-6">
+            <div class="p-4 px-0">
               <!-- Context Sets Management -->
               <div role="region" aria-labelledby="context-sets-heading">
                 <h3 id="context-sets-heading" class="sr-only">Context Sets Management</h3>
@@ -59,8 +59,8 @@
             </div>
           </div>
 
-          <!-- Middle Column: Context Set Composition (2/4 width) -->
-          <div class="xl:col-span-3 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
+          <!-- Right Column: Context Set Composition (4/5 width) -->
+          <div class="xl:col-span-4 bg-card border border-t-0 border-r-0 shadow-lg overflow-hidden">
             <ActiveContextComposer />
           </div>
 
@@ -99,18 +99,6 @@
 
     <!-- File Content Modal -->
     <FileContentModal />
-    
-    <!-- Footer -->
-    <footer class="mt-16 py-8 border-t border-border/20 bg-card/30 backdrop-blur-sm">
-      <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center text-base text-muted-foreground">
-          contextMax 2025, created by 
-          <a href="https://github.com/galihmuhammad" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">Galih</a> 
-          of 
-          <a href="https://51newyork.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">51NewYork</a>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 
