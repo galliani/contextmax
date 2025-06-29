@@ -1,6 +1,10 @@
-# ContextMax ![Coverage Status](badges/coverage.svg)
+<div align="center">
+  <img src="public/logo-transparent.png" alt="ContextMax Logo" width="120" height="120" />
+  
+  # ContextMax ![Coverage Status](badges/coverage.svg)
 
-> Tell your LLM exactly what parts of your codebase matter for each task.
+  > Tell your LLM exactly what parts of your codebase matter for each task.
+</div>
 
 ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
 
@@ -51,6 +55,25 @@ Think of it as creating a map for your LLM to navigate your codebase.
 
 <!-- PLACEHOLDER: Screenshot of the main interface -->
 ![ContextMax Interface](static/images/MainInterface.png)
+
+## Try It Yourself: See the Difference
+
+Want proof that context sets work? The contextMax codebase itself uses context sets!
+
+First, clonde the `contextmax` repo:
+
+`git clone https://github.com/galliani/contextmax.git`, then:
+
+**To get the sense of how the curation tool works**
+1. **Upload the `contextmax` repo** into the tool
+
+**To get the sense of how it works**
+2. **Test with your LLM**:
+   - Ask: "How does @context:embeddingsGeneration work?"
+   - Ask: "Explain the @context:contextCreation flow"
+   - Compare with asking: "How does embedding generation work in this codebase?"
+
+You'll see firsthand how context sets give your LLM laser focus on the right code, reducing token usage by ~80% while getting more accurate answers.
 
 ## Why ContextMax
 

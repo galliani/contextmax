@@ -11,7 +11,7 @@
       </h2>
       <p class="text-sm lg:text-sm text-muted-foreground">
         {{ selectedFolder ? 
-          `Project loaded seamlessly from browser cache (OPFS) - no re-uploading needed across sessions` : 
+          `Project auto-loaded from browser cache (OPFS), no re-uploading needed across sessions` : 
           'Create and manage context sets for your codebase' 
         }}
         {{ autoLoadedFromProject ? ' • context-sets.json auto-loaded' : '' }}
