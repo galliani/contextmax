@@ -192,7 +192,8 @@ graph TB
     AI --> Analyzer
     Analyzer --> Suggestions
     Suggestions --> Store
-    Store --> Storage Layer
+    Store --> OPFS
+    Store --> IDB
     Store --> ContextSets
     ContextSets --> Exporter
     Exporter --> Export
