@@ -80,18 +80,22 @@ Think of it as creating a map for your LLM to navigate your codebase.
 
 Want proof that context sets work? The contextMax codebase itself uses context sets!
 
-First, clonde the `contextmax` repo:
+First, clone the `contextmax` repo:
 
-`git clone https://github.com/galliani/contextmax.git`, then:
+```
+git clone https://github.com/galliani/contextmax.git
+```
 
-**To get the sense of how the curation tool works**
-1. **Upload the `contextmax` repo** into the tool
+**Then, to get the sense of how the curation tool works**
 
-**To get the sense of how it works**
-2. **Test with your LLM**:
-   - Ask: "How does @context:embeddingsGeneration work?"
-   - Ask: "Explain the @context:contextCreation flow"
-   - Compare with asking: "How does embedding generation work in this codebase?"
+- **Upload the `contextmax` repo** into the tool
+
+**Or to get the sense of how it works**
+
+- **Test with your LLM**:
+  - Ask: "How does @context:embeddingsGeneration work?"
+  - Ask: "Explain the @context:contextCreation flow"
+  - Compare with asking: "How does embedding generation work in this codebase?"
 
 You'll see firsthand how context sets give your LLM laser focus on the right code, reducing token usage by ~80% while getting more accurate answers.
 
@@ -106,6 +110,8 @@ LLMs often fail on real codebases because they:
 Even when LLMs succeed, they waste time and tokens searching through your entire codebase, reading irrelevant files to piece together context. With ContextMax, your LLM starts with the exact files and functions it needs, understands the workflow from entry point to completion, and produces accurate results faster with fewer tokens.
 
 ContextMax solves this by letting you define context once and reuse it. Your team gets consistent, accurate AI assistance that actually understands your code structure.
+
+[![LLM Performance with vs without Context Sets](https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg)](https://youtu.be/8T8y31sKncY)
 
 ### Without Context Sets
 
@@ -150,8 +156,6 @@ graph TD
     E --> F[Generate code using existing patterns]
     F --> G[Done - 2k tokens used]
 ```
-
-<iframe width="560" height="315" src="https://www.youtube.com/embed/8T8y31sKncY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Key Features
 
