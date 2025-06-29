@@ -13,7 +13,8 @@
 </div>
 
 <h4 align="center">
-  <a href="https://contextmax.dev">Home Page</a>
+  <a href="https://contextmax.dev">Home Page</a> |
+  <a href="https://curator.contextmax.dev">Try it Yourself</a>
 </h4>
 
 <div align="center">
@@ -31,6 +32,7 @@
   </a>
 </div>
 
+<br>
 
 <p align="center">
   ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
@@ -45,7 +47,7 @@
 <br>
 
 <div align="center">
-  <a href="https://youtu.be/8T8y31sKncY">
+  <a href="https://youtu.be/8T8y31sKncY" target="_blank">
     <img src="https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg" alt="LLM Performance with vs without Context Sets" />
   </a>
 </div>
