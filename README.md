@@ -6,9 +6,58 @@
   > Tell your LLM exactly what parts of your codebase matter for each task.
 </div>
 
-ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
+<h4 align="center">
+  <a href="https://contextmax.dev">Home Page</a> |
+  <a href="https://www.npmjs.com/package/contextmax">NPM</a>
+</h4>
 
-![Creating Context Sets Demo](static/images/context-creation-cut-cropped-3x.gif)
+<p align="center">
+  <a href="https://github.com/galliani/contextmax/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/galliani/contexmax" alt="contextMax is released under the Mozilla Public License." />
+  </a>
+  <a href="https://discord.gg/daGzchUGDt">
+    <img src="https://img.shields.io/discord/1055836143733706874" alt="Discord Chat" />
+  </a>
+  <a href="https://twitter.com/intent/follow?screen_name=_galihm">
+    <img src="https://img.shields.io/twitter/follow/GetErgomake.svg?label=Follow%20@Me" alt="Follow Me" />
+  </a>
+</p>
+
+<div align="center">
+  ![Creating Context Sets Demo](static/images/context-creation-cut-cropped-3x.gif)
+</div>
+
+<p align="center">
+  ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
+</p>
+
+<p align="center">
+  <strong>How curated context set helps LLM</strong>
+</p>
+
+<div align="center">
+  [![LLM Performance with vs without Context Sets](https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg)](https://youtu.be/8T8y31sKncY)
+</div>
+
+## Table of Contents
+
+- [Quick Start](#-quick-start)
+- [What is ContextMax](#what-is-contextmax)
+- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
+- [Why ContextMax](#why-contextmax)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [Data Flow](#data-flow)
+  - [Component Architecture](#component-architecture)
+  - [Context Processing Flow](#context-processing-flow)
+- [How It Works](#how-it-works)
+- [The context-sets.json Format](#the-context-setsjson-format)
+- [Tech Stack](#tech-stack)
+- [Local AI Models](#local-ai-models)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 
 ## 🚀 Quick Start
@@ -43,25 +92,6 @@ npm run dev
 
 Open http://localhost:3000 in Chrome/Edge and start creating context sets!
 
-
-## Table of Contents
-
-- [What is ContextMax](#what-is-contextmax)
-- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
-- [Why ContextMax](#why-contextmax)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-  - [System Architecture](#system-architecture)
-  - [Data Flow](#data-flow)
-  - [Component Architecture](#component-architecture)
-  - [Context Processing Flow](#context-processing-flow)
-- [How It Works](#how-it-works)
-- [The context-sets.json Format](#the-context-setsjson-format)
-- [Tech Stack](#tech-stack)
-- [Local AI Models](#local-ai-models)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## What is ContextMax
 
@@ -110,7 +140,6 @@ Even when LLMs succeed, they waste time and tokens searching through your entire
 
 ContextMax solves this by letting you define context once and reuse it. Your team gets consistent, accurate AI assistance that actually understands your code structure.
 
-[![LLM Performance with vs without Context Sets](https://img.youtube.com/vi/8T8y31sKncY/maxresdefault.jpg)](https://youtu.be/8T8y31sKncY)
 
 ### Without Context Sets
 
