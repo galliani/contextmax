@@ -39,11 +39,17 @@
     </div>
     
     <!-- Application Footer -->
-    <footer role="contentinfo" class="app-footer sr-only">
-      <div class="container mx-auto px-4 py-4">
-        <p class="text-sm text-muted-foreground text-center">
-          contextMax - Enhancing LLM workflows with curated context
-        </p>
+    <footer role="contentinfo" class="app-footer bg-background/90 backdrop-blur-sm py-8">
+      <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-center gap-3">
+          <img src="/logo-transparent.png" alt="ContextMax Logo" class="w-5 h-5" />
+          <p class="text-sm text-muted-foreground text-center">
+            contextMax 2025, created by 
+            <a href="https://github.com/galliani" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">Galih</a> 
+            of 
+            <a href="https://51newyork.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80 transition-colors duration-200">51NewYork</a>            
+          </p>
+        </div>
       </div>
     </footer>
     

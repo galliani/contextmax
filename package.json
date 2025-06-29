@@ -25,7 +25,7 @@
   "bugs": {
     "url": "https://github.com/galliani/contextmax/issues"
   },
-  "homepage": "https://github.com/galliani/contextmax#readme",
+  "homepage": "https://contextmax.dev",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev --inspect",

@@ -1,27 +1,35 @@
-# ContextMax ![Coverage Status](badges/coverage.svg)
+<div align="center">
+  <img src="public/logo-transparent.png" alt="ContextMax Logo" width="120" height="120" />
+  
+  # ContextMax ![Coverage Status](badges/coverage.svg)
 
-> Stop AI Guesswork. Make Your LLM Finally Understand Your Complex, Mature Codebase.
+  > Tell your LLM exactly what parts of your codebase matter for each task.
+</div>
 
-ContextMax is a **free, browser-based, privacy-first** tool that empowers developers to create, manage, and share highly-specific, reusable context sets for Large Language Models (LLMs). Guide your AI with pinpoint accuracy to get more relevant, consistent, and architecturally-aware assistance on your most complex projects.
+ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
 
-🚀 **[Try ContextMax Live](https://curator.contextmax.dev)** **[or run it locally using npx](https://npmjs.com/package/contextmax)** | 📖 **[Documentation](docs/)**
-
+<!-- PLACEHOLDER: Demo video of creating context sets -->
+**📹 [Watch: Creating Context Sets Demo](REPLACE_WITH_DEMO_VIDEO_URL)**
 
 ## 🚀 Quick Start
 
-### Option 1: Using npm package (Recommended)
+### [QUICKEST] Option 1: Use the hosted version
+
+Go to the [curation tool](https://curator.contextmax.dev).
+
+**Privacy Note**: Even on the hosted version, your code stays in your browser. No files are uploaded to our servers.
+
+### Option 2: Run it locally using the npm package (Recommended)
 
 ```bash
-# Install and run directly
 npx contextmax
-# by default it runs on port 3000, but you can specify it like this: `PORT=3005 npx contextmax`
-
-# Or install globally
-npm install -g contextmax
-contextmax
+# by default it runs on port 3000, but you can also specify the port like this: 
+PORT=3005 npx contextmax
 ```
 
-### Option 2: Development setup
+This will automatically run the tool locally and open it on your browser.
+
+### Option 3: Development setup
 
 ```bash
 # Clone and install
@@ -35,53 +43,326 @@ npm run dev
 
 Open http://localhost:3000 in Chrome/Edge and start creating context sets!
 
-### [QUICKEST] Option 3: Use the hosted version
 
-Go to the [curator app](https://curator.contextmax.dev).
+## What is ContextMax
+
+ContextMax helps you create context sets - JSON files that tell your LLM which parts of your codebase to focus on. Instead of dumping your entire project into an LLM, you specify:
+- Which files are relevant
+- Which specific functions matter
+- How different parts connect (workflows)
+
+Think of it as creating a map for your LLM to navigate your codebase.
+
+<!-- PLACEHOLDER: Screenshot of the main interface -->
+![ContextMax Interface](static/images/MainInterface.png)
+
+## Try It Yourself: See the Difference
+
+Want proof that context sets work? The contextMax codebase itself uses context sets!
+
+First, clonde the `contextmax` repo:
+
+`git clone https://github.com/galliani/contextmax.git`, then:
+
+**To get the sense of how the curation tool works**
+1. **Upload the `contextmax` repo** into the tool
+
+**To get the sense of how it works**
+2. **Test with your LLM**:
+   - Ask: "How does @context:embeddingsGeneration work?"
+   - Ask: "Explain the @context:contextCreation flow"
+   - Compare with asking: "How does embedding generation work in this codebase?"
+
+You'll see firsthand how context sets give your LLM laser focus on the right code, reducing token usage by ~80% while getting more accurate answers.
+
+## Why ContextMax
+
+LLMs often fail on real codebases because they:
+- Generate code that ignores your existing patterns
+- Miss critical dependencies and relationships
+- Suggest solutions that don't fit your architecture
+- Force you to repeatedly explain the same context
+
+Even when LLMs succeed, they waste time and tokens searching through your entire codebase, reading irrelevant files to piece together context. With ContextMax, your LLM starts with the exact files and functions it needs, understands the workflow from entry point to completion, and produces accurate results faster with fewer tokens.
+
+ContextMax solves this by letting you define context once and reuse it. Your team gets consistent, accurate AI assistance that actually understands your code structure.
+
+### Without Context Sets
+
+```mermaid
+graph TD
+    A[Prompt: Fix login bug] --> B[LLM searches codebase]
+    B --> C[Grep through all files]
+    C --> D[Read many files]
+    D --> E[Infer relationships]
+    E --> F[Assume architecture]
+    F --> G[Generate code]
+    G --> H{Code works?}
+    H -->|No| I[User provides more context]
+    I --> B
+    H -->|Yes| J[Done - 10k+ tokens used]
+```
+
+### With Manual File Lists
+
+```mermaid
+graph TD
+    A[User lists: login.vue, auth.controller.ts, user.model.ts] --> B[LLM reads files]
+    B --> C[Reads complete files - 3k tokens]
+    C --> D[No function targeting]
+    D --> E[Identifies relevant functions]
+    E --> F[Missing: middleware, validators, utils]
+    F --> G[No workflow information]
+    G --> H[Generate code]
+    H --> I[User adds missing files]
+    I --> J[Include more context]
+    J --> B
+```
+
+### With Context Sets
+
+```mermaid
+graph TD
+    A[Prompt: Fix login bug] --> B[LLM loads context:UserAuth_Flow]
+    B --> C[Read 5 specified files]
+    C --> D[Target validatePassword function]
+    D --> E[Follow workflow: login → validatePassword → generateToken]
+    E --> F[Generate code using existing patterns]
+    F --> G[Done - 2k tokens used]
+```
+
+**📹 [Watch: LLM Performance with vs without Context Sets](https://youtu.be/8T8y31sKncY)**
+
+## Key Features
+
+- **Visual Builder**: Create context sets through a UI instead of editing JSON
+- **100% Private**: Everything runs in your browser. No servers, no uploads
+- **Function-Level Context**: Point to specific functions, not just files
+- **Workflow Mapping**: Show how files and functions connect in your data flow
+- **Version Control Ready**: Output is a simple JSON file you can commit
+- **Team Sharing**: Everyone uses the same context definitions
+- **Local AI**: Built-in embeddings model for smart file suggestions
+- **Fast**: Uses IndexedDB caching and WebGPU when available
+
+## Architecture
+
+ContextMax is built with a privacy-first, browser-based architecture where all processing happens in your browser. No code ever leaves your machine.
+
+### Key Architecture Highlights
+
+- **🔒 Privacy First**: All processing happens client-side using browser APIs
+- **🤖 AI-Enhanced**: Local embeddings model for intelligent code suggestions  
+- **⚡ Performance**: Multi-tier caching with IndexedDB and OPFS
+- **🧩 Modular**: Clean separation between UI components and business logic
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "User's Browser"
+        UI[Vue/Nuxt UI Layer]
+        Store[Project Store<br/>useProjectStore.ts]
+        
+        subgraph "Processing Layer"
+            Parser[Code Parser<br/>Regex-based]
+            AI[Local AI Models<br/>Jina Embeddings + Flan-T5]
+            Analyzer[Project Analyzer<br/>useProjectAnalysis.ts]
+            Suggestions[Smart Suggestions<br/>useSmartContextSuggestions.ts]
+        end
+        
+        subgraph "Storage Layer"
+            OPFS[Origin Private<br/>File System]
+            IDB[IndexedDB Cache<br/>useIndexedDBCache.ts]
+            FS[File System API<br/>useFileSystem.ts]
+        end
+        
+        subgraph "Context Management"
+            ContextSets[Context Sets<br/>useContextSets.ts]
+            Exporter[Context Exporter<br/>useContextSetExporter.ts]
+        end
+    end
+    
+    LocalFiles[Local Project Files]
+    Export[context-sets.json]
+    
+    LocalFiles --> FS
+    UI --> Store
+    Store --> Parser
+    Parser --> AI
+    AI --> Analyzer
+    Analyzer --> Suggestions
+    Suggestions --> Store
+    Store --> Storage Layer
+    Store --> ContextSets
+    ContextSets --> Exporter
+    Exporter --> Export
+    
+    style UI fill:#e1f5fe
+    style AI fill:#fff9c4
+    style Export fill:#c8e6c9
+```
+
+### Data Flow
+
+```mermaid
+graph LR
+    subgraph "Input Phase"
+        PF[Project Files]
+        User[User Actions]
+    end
+    
+    subgraph "Processing Phase"
+        Load[File Loader<br/>buildFilteredFileTree]
+        Parse[Parse & Index<br/>prepareFilesForEmbedding]
+        Embed[Generate Embeddings<br/>generateEmbeddingsOnDemand]
+        Cache[Cache Manager<br/>storeCachedEmbedding]
+        Search[Tri-Model Search<br/>performTriModelSearch]
+    end
+    
+    subgraph "Context Creation Phase"
+        Select[File/Function Selection<br/>ActiveContextComposer.vue]
+        Define[Define Workflows<br/>WorkflowPointEditor.vue]
+        Relate[Set Relationships<br/>ChildContextsList.vue]
+        Functions[Function Specification<br/>FunctionSelectorModal.vue]
+    end
+    
+    subgraph "Output Phase"
+        JSON[context-sets.json<br/>Export with useContextSetExporter]
+        LLM[To Any LLM<br/>@context:references]
+    end
+    
+    PF --> Load
+    Load --> Parse
+    Parse --> Embed
+    Embed --> Cache
+    Cache --> Search
+    User --> Select
+    Search --> Select
+    Select --> Functions
+    Functions --> Define
+    Define --> Relate
+    Relate --> JSON
+    JSON --> LLM
+    
+    style Search fill:#fff9c4
+    style JSON fill:#c8e6c9
+```
+
+### Component Architecture
+
+```mermaid
+graph TD
+    App[App.vue]
+    App --> Header[ProjectHeader.vue<br/>Export Controls]
+    App --> FileExplorer[ProjectFileBrowser]
+    App --> ContextManager[ContextSetListManager.vue<br/>Context Creation]
+    App --> ActiveContext[ActiveContextComposer.vue<br/>Context Specification]
+    
+    FileExplorer --> Search[Search.vue<br/>File Search]
+    FileExplorer --> Assisted[AssistedCuration.vue<br/>AI-Assisted Search]
+    
+    ContextManager --> AddNew[AddNewContext.vue<br/>Create New Context]
+    ContextManager --> ContextList[Context List<br/>Manage Existing]
+    
+    ActiveContext --> FilesList[FilesList.vue<br/>Selected Files]
+    ActiveContext --> Workflows[WorkflowPointEditor.vue<br/>Define Flows]
+    ActiveContext --> Functions[FunctionSelectorModal.vue<br/>Pick Functions]
+    ActiveContext --> ChildContexts[ChildContextsList.vue<br/>Dependencies]
+    
+    subgraph "Core Composables"
+        Store[useProjectStore<br/>Central State]
+        FS[useFileSystem<br/>File Access]
+        Export[useContextSetExporter<br/>JSON Export]
+        AI[useSmartContextSuggestions<br/>AI Features]
+        Cache[useIndexedDBCache<br/>Performance]
+        Analysis[useProjectAnalysis<br/>Code Analysis]
+        Sets[useContextSets<br/>Context Logic]
+    end
+    
+    Header -.-> Export
+    FileExplorer -.-> FS
+    FileExplorer -.-> AI
+    ContextManager -.-> Store
+    ActiveContext -.-> Store
+    ActiveContext -.-> Sets
+    Assisted -.-> AI
+    AI -.-> Cache
+    
+    style Header fill:#e1f5fe
+    style Assisted fill:#fff9c4
+    style ActiveContext fill:#f3e5f5
+```
+
+### Context Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant Store as useProjectStore
+    participant AI as AI Models
+    participant Cache as IndexedDB
+    participant Export as Exporter
+    
+    User->>UI: Select project folder
+    UI->>Store: Load files via useFileSystem
+    Store->>Cache: Check cached embeddings
+    
+    alt No cache exists
+        Store->>AI: prepareFilesForEmbedding()
+        AI->>AI: generateEmbeddingsOnDemand()
+        AI->>Cache: storeCachedEmbedding()
+    end
+    
+    User->>UI: Search for files/functions
+    UI->>AI: performTriModelSearch()
+    AI-->>UI: Return suggestions
+    
+    User->>UI: Create context set
+    UI->>Store: createContextSet()
+    
+    User->>UI: Add files to context
+    UI->>Store: Add file references
+    
+    User->>UI: Specify functions
+    UI->>Store: Add functionRefs
+    
+    User->>UI: Define workflows
+    UI->>Store: Store workflow start/end
+    
+    User->>UI: Set relationships (uses)
+    UI->>Store: Update context dependencies
+    
+    User->>UI: Export context
+    UI->>Export: Generate JSON
+    Export->>Store: Gather all contexts
+    Export->>User: context-sets.json
+    
+    Note over User: Use @context:name with any LLM
+```
+
+## How It Works
+
+1. **Open your project folder** - Uses File System Access API (Chrome/Edge)
+2. **Create context sets** - Name them based on features or workflows (e.g., "UserAuth_Flow")
+3. **Add files and functions** - Pick whole files or specific functions
+4. **Define workflows** - Show how code flows from entry point to completion
+5. **Export context-sets.json** - Use with Cursor, Continue, or any LLM tool
+
+<!-- PLACEHOLDER: Step-by-step screenshots -->
+### Visual Walkthrough
+| Step | Screenshot |
+|------|------------|
+| 1. Project Loading | ![Load Project](REPLACE_WITH_STEP1_SCREENSHOT_URL) |
+| 2. Context Creation | ![Create Context](REPLACE_WITH_STEP2_SCREENSHOT_URL) |
+| 3. Function Selection | ![Select Functions](REPLACE_WITH_STEP3_SCREENSHOT_URL) |
+| 4. Workflow Definition | ![Define Workflow](REPLACE_WITH_STEP4_SCREENSHOT_URL) |
+| 5. Export JSON | ![Export JSON](REPLACE_WITH_STEP5_SCREENSHOT_URL) |
 
 
-## The Problem: Is Your LLM Lost in Your Code?
+## The context-sets.json Format
 
-Even the most powerful LLMs can struggle when faced with large, mature, or domain-specific codebases. Without deep, specific knowledge, AI assistants often provide:
-
-- **Generic**, unhelpful suggestions that miss the nuances of your architecture.
-- **Inconsistent code** that doesn't follow your established patterns.
-- Responses that **require you to waste valuable time re-explaining context** or correcting mistakes.
-
-Your team's expertise and your project's architectural integrity are your most valuable assets. Your AI tools should respect and leverage them, not ignore them.
-
-## The Solution: You Conduct the AI
-
-ContextMax puts your project experts in control. It allows your most knowledgeable developers to visually create "Context Sets"—precise instruction packets that act as a guidebook for your AI assistant.
-
-By defining exactly what files, specific line ranges, and operational workflows are relevant for a given task, you transform your LLM from a generalist into a specialized, highly effective partner for your unique codebase.
-
-
-## ✨ Key Features
-
-- 🎨 **Visual Context Builder**: Intuitively create and manage context-sets.json files without writing JSON by hand.
-- 🔒 **Privacy First**: Runs entirely in your browser using the File System Access API. Your code is never uploaded and never leaves your machine.
-- 🎯 **Pinpoint Accuracy**: Go beyond whole-file context. Select multiple, non-contiguous line ranges across different files to give the LLM surgical focus.
-- 🔄 **Workflow Definition**: Explain complex processes by mapping out the sequence of file interactions, helping the AI understand data flow and interdependencies.
-- 📦 **Reusable & Shareable Context**: The output is a clean context-sets.json file that you can commit to your repository. This allows your entire team to provide consistent, expert-level context to their LLMs.
-- 🗂️ **Auto-Generated Indexes**: Automatically creates a filesManifest for robust file referencing and a fileContextsIndex to help other tools understand how files and context sets relate.
-- 🤖 **Built-in AI Models**: Two local LLMs for enhanced code understanding without external API calls.
-- ⚡ **Performance Optimized**: IndexedDB caching and WebGPU acceleration for seamless experience.
-
-
-
-## 📖 How It Works
-
-1. **Load Your Project**: Open the ContextMax web app and select your local project folder. Your code stays local.
-2. **Define Context Sets**: Visually create named sets (e.g., "UserAuth_Flow"). Add relevant files to each set, implicitly populating a central filesManifest.
-3. **Refine with Precision**: For each file in a set, specify whether to include the whole file or pinpoint exact line ranges.
-4. **Map Workflows**: Define step-by-step workflows to explain how different code parts work together.
-5. **Export & Use**: Download your context-sets.json file. Use it with your favorite IDE and LLM (e.g., via .cursorrules in Cursor) to provide powerful, curated context in your prompts.
-
-
-## 📋 The context-sets.json Format
-
-The core output of ContextMax is a single, version-controllable JSON file:
+ContextMax generates a single JSON file you can commit to your repo:
 
 ```json
 {
@@ -131,57 +412,44 @@ The core output of ContextMax is a single, version-controllable JSON file:
 ```
 
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-- **Framework**: Nuxt.js 3 (Vue.js 3) with TypeScript
-- **Styling**: Tailwind CSS v4, Reka UI, shadcn-nuxt
-- **AI/ML**: @huggingface/transformers with WebGPU acceleration
-- **Code Parsing**: using Regex
-- **Storage**: File System Access API, OPFS, IndexedDB
-- **Testing**: Vitest with coverage and badge generation
-- **Package Manager**: npm
+- Nuxt.js 3 + Vue 3 + TypeScript
+- Tailwind CSS v4, Reka UI, shadcn-nuxt
+- @huggingface/transformers (WebGPU)
+- Regex-based code parsing
+- File System Access API, OPFS, IndexedDB
+- Vitest
 
-## 🤖 Local AI Model
+## Local AI Models
 
-ContextMax includes a powerful LLM model that runs entirely in your browser:
+ContextMax runs AI models directly in your browser:
 
-### Embeddings Model: `jinaai/jina-embeddings-v2-base-code` (~300MB)
-- **Purpose**: Semantic search, code understanding, and intelligent file classification
-- **Use Case**: Powers the smart search functionality to find relevant files and code sections based on meaning rather than just keywords. Also classifies files into categories (entry-point, core-logic, helper, config) using embedding similarity.
-- **Technology**: Feature extraction using WebGPU acceleration
-- **Benefits**: Helps you discover related code patterns and dependencies you might miss with traditional text search, while providing intelligent file categorization without needing a separate classification model
+### Embeddings: `jinaai/jina-embeddings-v2-base-code` (~300MB)
+- Semantic code search (finds code by meaning, not just text)
+- Auto-classifies files (entry-point, core-logic, helper, config)
+- Suggests related files and patterns
+- Uses WebGPU for speed
 
-#### Using the Model
-
-The model is automatically downloaded and cached on first use. You can access it programmatically:
+Models download automatically on first use. For programmatic access:
 
 ```typescript
-// Access the embeddings model (for semantic search and classification)
 const { getModel } = useLLMLoader()
 const embeddingsModel = await getModel('embeddings')
 const embeddings = await embeddingsModel('your code snippet')
-
-// Check model status
-const { getModelState } = useLLMLoader()
-const embeddingsReady = getModelState('embeddings').value.status === 'ready'
-
-// Initialize the model
-const { initializeModel } = useLLMLoader()
-await initializeModel('embeddings')
 ```
 
-**Privacy**: The model runs completely offline in your browser. No code or data is ever sent to external servers.
+All processing happens locally. No external API calls.
 
 
-## 💻 Development
+## Development
 
-### Prerequisites
+### Requirements
 
-- Node.js v18.x or later
-- Chrome/Edge browser (for File System Access API)
-- npm (comes with Node.js)
+- Node.js 18+
+- Chrome/Edge (for File System Access API)
 
-### Available Commands
+### Commands
 
 ```bash
 # Development
@@ -206,34 +474,15 @@ ContextMax requires browsers that support:
 - IndexedDB and OPFS
 
 
-## 🤝 Contributing
+## Contributing
 
-We believe in empowering developers and are excited to build this tool with the community. Contributions are welcome!
-
-### Ways to Contribute
-
-- 🐛 **Report Bugs**: Use GitHub Issues with detailed reproduction steps
-- 💡 **Suggest Features**: Open a discussion in GitHub Discussions
-- 📝 **Improve Documentation**: PRs for docs are always appreciated
-- 🔧 **Submit Code**: Follow our coding standards and include tests
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure all tests pass and maintain the coverage.
+We welcome contributions from anyone. Please report bugs via GitHub Issues with reproduction steps.
 
 
-## 📄 License
+## License
 
-This project is licensed under the Mozilla Public License 2.0. See the [LICENSE](LICENSE) file for details.
+Mozilla Public License 2.0 - see [LICENSE](LICENSE)
 
 ---
 
-<p align="center">
-  Made with ❤️ by Galih from <a href="https://51newyork.com">51 New York</a>
-</p>
+Made by [Galih](https://github.com/galliani) from [51 New York](https://51newyork.com)

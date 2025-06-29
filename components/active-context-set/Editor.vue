@@ -7,20 +7,50 @@
   <div>
     <!-- Active Context Set Sub-header -->
     <div class="border-b bg-muted/30 px-4 py-3">
-      <div class="flex">
-        <div class="flex items-center space-x-3">
-          <h3 class="visual-hierarchy-4 font-bold mb-2 text-mobile-subheading sm:text-md lg:text-xl">
-            Editor
-          </h3>
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center space-x-3">
+            <h3 class="visual-hierarchy-4 font-bold mb-2 text-mobile-subheading sm:text-md lg:text-xl">
+              Editor
+            </h3>
+          </div>
+          <!-- Mode Description -->
+          <p class="text-xs text-muted-foreground">
+            <span>
+              Define the inner workings of your context set
+            </span>
+          </p>      
+        </div>
+        
+        <!-- Processing Mode Selection -->
+        <div v-if="activeContextSet" class="flex items-center space-x-2">
+          <select
+            v-model="processingMode"
+            class="w-46 px-2 py-1 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            <option value="">Specify processing mode</option>
+            <option value="synchronous">Synchronous processing</option>
+            <option value="asynchronous">Asynchronous processing</option>
+            <option value="streaming">Streaming processing</option>
+            <option value="batch">Batch processing</option>
+          </select>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Icon name="lucide:info" class="w-3 h-3" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Defines how the system should handle processing requests</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
-
-      <!-- Mode Description -->
-      <p class="text-xs text-muted-foreground">
-        <span>
-          Define the inner workings of your context set.
-        </span>
-      </p>      
     </div>
 
     <div class="flex-1 overflow-hidden">
@@ -111,6 +141,12 @@
 import type { WorkflowStep } from '~/composables/useProjectStore'
 import FilesList from './FilesList.vue'
 import ChildContextsList from './ChildContextsList.vue'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const {
   activeContextSet,
@@ -122,6 +158,33 @@ const { announceStatus, announceError } = useAccessibility()
 
 // Tab management
 const activeTab = ref('files')
+
+// Update processing mode function (defined first)
+const updateProcessingMode = (mode: string) => {
+  if (!activeContextSet.value) return
+  
+  const newSystemBehavior = (mode && mode.trim()) ? {
+    processing: {
+      mode: mode as 'synchronous' | 'asynchronous' | 'streaming' | 'batch'
+    }
+  } : null
+  
+  try {
+    updateActiveContextSet({ systemBehavior: newSystemBehavior })
+    announceStatus('Processing mode updated')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update processing mode'
+    announceError(message)
+  }
+}
+
+// Processing mode computed property (defined after the function it uses)
+const processingMode = computed({
+  get: () => activeContextSet.value?.systemBehavior?.processing?.mode || '',
+  set: (value: string) => {
+    updateProcessingMode(value)
+  }
+})
 
 
 // Computed tabs with counts
