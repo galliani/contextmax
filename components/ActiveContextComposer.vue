@@ -118,13 +118,13 @@
               <Button
                 @click="handleExportToClipboard"
                 :disabled="isExporting || !activeContextSet || !activeContextSet.files || activeContextSet.files.length === 0"
-                class="flex items-center space-x-2 text-xs"
+                class="flex items-center space-x-2 text-xs px-3 py-2.5 font-medium transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg"
                 variant="default"
                 size="sm"
               >
                 <Icon 
                   :name="isExporting ? 'lucide:loader-2' : 'lucide:clipboard-copy'" 
-                  :class="['w-4 h-4', { 'animate-spin': isExporting }]" 
+                  :class="['w-1 h-1', { 'animate-spin': isExporting }]" 
                 />
                 <span>{{ isExporting ? 'Exporting...' : 'Copy as Snippet' }}</span>
               </Button>

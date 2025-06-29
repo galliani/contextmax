@@ -47,28 +47,31 @@
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
       <!-- Primary Actions Group - Download and Preview -->
-      <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">        
+      <div v-if="hasAnyContextSets" class="flex items-center gap-3 p-1 bg-muted/30 rounded-lg border border-muted/50">
+        <!-- Export Label -->
+        <span class="text-sm font-medium text-muted-foreground px-0">Export:</span>
+        
         <!-- Preview JSON Button - Secondary Action -->
         <Button 
           variant="secondary"
-          size="default"
-          class="px-4 py-2.5 font-medium transition-all duration-200 bg-gray-600 hover:bg-gray-500 text-white hover:text-white border-gray-600"
+          size="xl"
+          class="px-4 py-3 font-medium transition-all duration-200 bg-indigo-900 hover:bg-indigo-800 text-white hover:text-white border-indigo-900"
           title="Preview context-sets.json output"
           @click="handlePreviewContextSetsJSON"
         >
           <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
-          Preview JSON
+          Preview/Copy
         </Button>
 
         <!-- Download JSON Button - Primary Action -->
         <Button 
           variant="default"
-          size="default" 
-          class="font-medium px-5 py-2.5 shadow-md hover:shadow-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground"
+          size="xl" 
+          class="font-medium px-5 py-3 shadow-md hover:shadow-lg transition-all duration-200 bg-indigo-700 hover:bg-indigo-500 text-white border-indigo-700"
           @click="handleDownloadJSON"
         >
           <Icon name="lucide:download" class="w-4 h-4 mr-2" aria-hidden="true" />
-          Download JSON
+          Download
         </Button>
       </div>
     </div>
