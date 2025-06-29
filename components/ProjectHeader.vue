@@ -68,27 +68,6 @@
           {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
         </Button>
         
-        <!-- Force Save Button (when there are unsaved changes) -->
-        <Button
-          v-if="autoSaveState.isDirty"
-          variant="outline"
-          size="sm"
-          class="px-3 py-2 sm:px-4 hover:shadow-sm transition-all duration-200"
-          :disabled="autoSaveState.isSaving"
-          :aria-label="autoSaveState.isSaving ? 'Saving...' : 'Save changes now'"
-          title="Save Now (Ctrl+S)"
-          @click="handleForceSave"
-        >
-          <Icon 
-            :name="autoSaveState.isSaving ? 'lucide:loader-2' : 'lucide:save'" 
-            :class="[
-              'w-4 h-4 mr-2',
-              autoSaveState.isSaving ? 'animate-spin' : ''
-            ]" 
-            aria-hidden="true" 
-          />
-          {{ autoSaveState.isSaving ? 'Saving...' : 'Save' }}
-        </Button>
         
         <!-- Clear Project Button -->
         <Button
@@ -102,50 +81,6 @@
           <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
           <span class="sr-only">Clear project</span>
         </Button>
-      </div>
-      
-      <!-- Auto-save Status & Secondary Controls -->
-      <div class="hidden lg:flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md text-xs xl:text-sm text-muted-foreground">
-        <div class="flex items-center gap-1">
-          <div 
-            :class="[
-              'w-2 h-2 rounded-full',
-              autoSaveState.isSaving ? 'bg-warning animate-pulse' : 
-              autoSaveState.isDirty ? 'bg-warning' : 'bg-success'
-            ]"
-            :aria-label="autoSaveStatus"
-          />
-          <span>{{ autoSaveStatus }}</span>
-        </div>
-        
-        
-        <div class="w-px h-4 bg-border" aria-hidden="true" />
-        
-        <!-- Undo/Redo Controls -->
-        <div class="flex items-center gap-1">               
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-6 w-6 p-0 text-xs"
-            :disabled="!autoSaveState.canUndo"
-            title="Undo (Ctrl+Z)"
-            :aria-label="autoSaveState.canUndo ? 'Undo last action' : 'No actions to undo'"
-            @click="handleUndo"
-          >
-            <Icon name="lucide:undo" class="w-3 h-3" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-6 w-6 p-0 text-xs"
-            :disabled="!autoSaveState.canRedo"
-            title="Redo (Ctrl+Y)"
-            :aria-label="autoSaveState.canRedo ? 'Redo last action' : 'No actions to redo'"
-            @click="handleRedo"
-          >
-            <Icon name="lucide:redo" class="w-3 h-3" aria-hidden="true" />
-          </Button>
-        </div>
       </div>
     </div>
   </div>
@@ -163,14 +98,6 @@
 
 <script setup lang="ts">
 import { logger } from '~/utils/logger'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 interface Props {
   autoLoadedFromProject?: boolean
@@ -189,10 +116,7 @@ const emit = defineEmits<{
 const {
   selectedFolder,
   contextSets,
-  generateContextSetsJSON,
   generateContextSetsJSONWithPrefix,
-  getExportStatus,
-  hasStableVersionInProject,
   fileTree,
   previewContextSetsJSONWithPrefix
 } = useProjectStore()
@@ -217,22 +141,7 @@ const firstContextSetName = computed(() => {
 })
 
 // Advanced UX Systems
-const { success, warning, info, errorWithRetry } = useNotifications()
-const { state: autoSaveState, forceSave, undo, redo } = useAutoSave(
-  contextSets,
-  {
-    key: 'context-sets',
-    saveInterval: 30000,
-    enableUndo: true,
-    onSave: async (data) => {
-      // Auto-save to localStorage (silent background operation)
-    },
-    onRestore: (_data) => {
-      // Handle restored data
-      info('Draft Restored', 'Your previous work has been restored from auto-save')
-    }
-  }
-)
+const { success, warning, errorWithRetry } = useNotifications()
 
 // Accessibility support
 const { announceStatus, announceError } = useAccessibility()
@@ -270,19 +179,6 @@ async function prepareFilesForEmbedding(fileTree: any[]): Promise<Array<{ path: 
 }
 
 
-// Auto-save status indicator
-const autoSaveStatus = computed(() => {
-  if (autoSaveState.value.isSaving) return 'Saving...'
-  if (autoSaveState.value.isDirty) return 'Unsaved changes'
-  if (autoSaveState.value.lastSaved) {
-    const timeSince = Date.now() - autoSaveState.value.lastSaved.getTime()
-    const minutes = Math.floor(timeSince / 60000)
-    if (minutes < 1) return 'Saved just now'
-    if (minutes === 1) return 'Saved 1 minute ago'
-    return `Saved ${minutes} minutes ago`
-  }
-  return 'All changes saved'
-})
 
 
 
@@ -371,68 +267,12 @@ const handleDownloadJSON = async () => {
 
 
 async function handleClearProjectWithConfirmation() {
-  if (autoSaveState.value.isDirty) {
-    warning(
-      'Unsaved Changes', 
-      'You have unsaved changes. Are you sure you want to clear the project?',
-      {
-        persistent: true,
-        actions: [
-          {
-            label: 'Clear Anyway',
-            action: () => {
-              emit('clear-project')
-              success('Project Cleared', 'Project has been cleared successfully')
-              announceStatus('Project cleared')
-            },
-            style: 'primary'
-          },
-          {
-            label: 'Cancel',
-            action: () => {},
-            style: 'secondary'
-          }
-        ]
-      }
-    )
-  } else {
-    emit('clear-project')
-    success('Project Cleared', 'Project has been cleared successfully')
-    announceStatus('Project cleared')
-  }
+  emit('clear-project')
+  success('Project Cleared', 'Project has been cleared successfully')
+  announceStatus('Project cleared')
 }
 
-async function handleForceSave() {
-  try {
-    await forceSave()
-    success('Saved', 'Changes saved successfully')
-    announceStatus('Changes saved manually')
-  } catch {
-    errorWithRetry(
-      'Save Failed',
-      'Could not save your changes. Please try again.',
-      handleForceSave
-    )
-  }
-}
 
-function handleUndo() {
-  if (autoSaveState.value.canUndo) {
-    undo()
-    announceStatus('Action undone')
-  } else {
-    warning('Nothing to Undo', 'No actions available to undo')
-  }
-}
-
-function handleRedo() {
-  if (autoSaveState.value.canRedo) {
-    redo()
-    announceStatus('Action redone')
-  } else {
-    warning('Nothing to Redo', 'No actions available to redo')
-  }
-}
 
 // Preview JSON with context: prefix
 const handlePreviewContextSetsJSON = () => {

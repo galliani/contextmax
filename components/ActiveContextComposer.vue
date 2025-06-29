@@ -126,7 +126,7 @@
                   :name="isExporting ? 'lucide:loader-2' : 'lucide:clipboard-copy'" 
                   :class="['w-4 h-4', { 'animate-spin': isExporting }]" 
                 />
-                <span>{{ isExporting ? 'Exporting...' : 'Copy as Snippet' }}</span>
+                <span>{{ isExporting ? 'Exporting...' : 'Copy Context Set as Snippet' }}</span>
               </Button>
             </div>
             
