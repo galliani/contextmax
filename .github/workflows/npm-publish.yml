@@ -3,17 +3,6 @@ name: Publish to NPM
 on:
   release:
     types: [created]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version type (patch, minor, major)'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
 
 jobs:
   publish:
@@ -41,15 +30,10 @@ jobs:
       - name: Run tests
         run: npm test
       
-      - name: Update version (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        id: version-bump
+      - name: Update version from release tag
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          NEW_VERSION=$(npm version ${{ github.event.inputs.version }} -m "chore: bump version to %s" | sed 's/^v//')
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          git push origin HEAD:${{ github.ref_name }}
+          RELEASE_VERSION=$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')
+          npm version $RELEASE_VERSION --no-git-tag-version
       
       - name: Generate static files
         run: npm run generate
@@ -58,13 +42,3 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-      
-      - name: Create GitHub Release (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create v${{ steps.version-bump.outputs.version }} \
-            --title "Release v${{ steps.version-bump.outputs.version }}" \
-            --notes "Release v${{ steps.version-bump.outputs.version }}" \
-            --draft=false
