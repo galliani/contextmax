@@ -18,7 +18,7 @@
       <!-- Mode Description -->
       <p class="text-xs text-muted-foreground">
         <span>
-          All your context sets are listed here, click to set it as active to start editing.
+          Select a context set below to start editing.
         </span>
       </p>  
     </div>
