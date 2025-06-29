@@ -144,7 +144,202 @@ graph TD
 - **Local AI**: Built-in embeddings model for smart file suggestions
 - **Fast**: Uses IndexedDB caching and WebGPU when available
 
+## Architecture
 
+ContextMax is built with a privacy-first, browser-based architecture where all processing happens in your browser. No code ever leaves your machine.
+
+### Key Architecture Highlights
+
+- **🔒 Privacy First**: All processing happens client-side using browser APIs
+- **🤖 AI-Enhanced**: Local embeddings model for intelligent code suggestions  
+- **⚡ Performance**: Multi-tier caching with IndexedDB and OPFS
+- **🧩 Modular**: Clean separation between UI components and business logic
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "User's Browser"
+        UI[Vue/Nuxt UI Layer]
+        Store[Project Store<br/>useProjectStore.ts]
+        
+        subgraph "Processing Layer"
+            Parser[Code Parser<br/>Regex-based]
+            AI[Local AI Models<br/>Jina Embeddings + Flan-T5]
+            Analyzer[Project Analyzer<br/>useProjectAnalysis.ts]
+            Suggestions[Smart Suggestions<br/>useSmartContextSuggestions.ts]
+        end
+        
+        subgraph "Storage Layer"
+            OPFS[Origin Private<br/>File System]
+            IDB[IndexedDB Cache<br/>useIndexedDBCache.ts]
+            FS[File System API<br/>useFileSystem.ts]
+        end
+        
+        subgraph "Context Management"
+            ContextSets[Context Sets<br/>useContextSets.ts]
+            Exporter[Context Exporter<br/>useContextSetExporter.ts]
+        end
+    end
+    
+    LocalFiles[Local Project Files]
+    Export[context-sets.json]
+    
+    LocalFiles --> FS
+    UI --> Store
+    Store --> Parser
+    Parser --> AI
+    AI --> Analyzer
+    Analyzer --> Suggestions
+    Suggestions --> Store
+    Store --> Storage Layer
+    Store --> ContextSets
+    ContextSets --> Exporter
+    Exporter --> Export
+    
+    style UI fill:#e1f5fe
+    style AI fill:#fff9c4
+    style Export fill:#c8e6c9
+```
+
+### Data Flow
+
+```mermaid
+graph LR
+    subgraph "Input Phase"
+        PF[Project Files]
+        User[User Actions]
+    end
+    
+    subgraph "Processing Phase"
+        Load[File Loader<br/>buildFilteredFileTree]
+        Parse[Parse & Index<br/>prepareFilesForEmbedding]
+        Embed[Generate Embeddings<br/>generateEmbeddingsOnDemand]
+        Cache[Cache Manager<br/>storeCachedEmbedding]
+        Search[Tri-Model Search<br/>performTriModelSearch]
+    end
+    
+    subgraph "Context Creation Phase"
+        Select[File/Function Selection<br/>ActiveContextComposer.vue]
+        Define[Define Workflows<br/>WorkflowPointEditor.vue]
+        Relate[Set Relationships<br/>ChildContextsList.vue]
+        Functions[Function Specification<br/>FunctionSelectorModal.vue]
+    end
+    
+    subgraph "Output Phase"
+        JSON[context-sets.json<br/>Export with useContextSetExporter]
+        LLM[To Any LLM<br/>@context:references]
+    end
+    
+    PF --> Load
+    Load --> Parse
+    Parse --> Embed
+    Embed --> Cache
+    Cache --> Search
+    User --> Select
+    Search --> Select
+    Select --> Functions
+    Functions --> Define
+    Define --> Relate
+    Relate --> JSON
+    JSON --> LLM
+    
+    style Search fill:#fff9c4
+    style JSON fill:#c8e6c9
+```
+
+### Component Architecture
+
+```mermaid
+graph TD
+    App[App.vue]
+    App --> Header[ProjectHeader.vue<br/>Export Controls]
+    App --> FileExplorer[ProjectFileBrowser]
+    App --> ContextManager[ContextSetListManager.vue<br/>Context Creation]
+    App --> ActiveContext[ActiveContextComposer.vue<br/>Context Specification]
+    
+    FileExplorer --> Search[Search.vue<br/>File Search]
+    FileExplorer --> Assisted[AssistedCuration.vue<br/>AI-Assisted Search]
+    
+    ContextManager --> AddNew[AddNewContext.vue<br/>Create New Context]
+    ContextManager --> ContextList[Context List<br/>Manage Existing]
+    
+    ActiveContext --> FilesList[FilesList.vue<br/>Selected Files]
+    ActiveContext --> Workflows[WorkflowPointEditor.vue<br/>Define Flows]
+    ActiveContext --> Functions[FunctionSelectorModal.vue<br/>Pick Functions]
+    ActiveContext --> ChildContexts[ChildContextsList.vue<br/>Dependencies]
+    
+    subgraph "Core Composables"
+        Store[useProjectStore<br/>Central State]
+        FS[useFileSystem<br/>File Access]
+        Export[useContextSetExporter<br/>JSON Export]
+        AI[useSmartContextSuggestions<br/>AI Features]
+        Cache[useIndexedDBCache<br/>Performance]
+        Analysis[useProjectAnalysis<br/>Code Analysis]
+        Sets[useContextSets<br/>Context Logic]
+    end
+    
+    Header -.-> Export
+    FileExplorer -.-> FS
+    FileExplorer -.-> AI
+    ContextManager -.-> Store
+    ActiveContext -.-> Store
+    ActiveContext -.-> Sets
+    Assisted -.-> AI
+    AI -.-> Cache
+    
+    style Header fill:#e1f5fe
+    style Assisted fill:#fff9c4
+    style ActiveContext fill:#f3e5f5
+```
+
+### Context Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant Store as useProjectStore
+    participant AI as AI Models
+    participant Cache as IndexedDB
+    participant Export as Exporter
+    
+    User->>UI: Select project folder
+    UI->>Store: Load files via useFileSystem
+    Store->>Cache: Check cached embeddings
+    
+    alt No cache exists
+        Store->>AI: prepareFilesForEmbedding()
+        AI->>AI: generateEmbeddingsOnDemand()
+        AI->>Cache: storeCachedEmbedding()
+    end
+    
+    User->>UI: Search for files/functions
+    UI->>AI: performTriModelSearch()
+    AI-->>UI: Return suggestions
+    
+    User->>UI: Create context set
+    UI->>Store: createContextSet()
+    
+    User->>UI: Add files to context
+    UI->>Store: Add file references
+    
+    User->>UI: Specify functions
+    UI->>Store: Add functionRefs
+    
+    User->>UI: Define workflows
+    UI->>Store: Store workflow start/end
+    
+    User->>UI: Set relationships (uses)
+    UI->>Store: Update context dependencies
+    
+    User->>UI: Export context
+    UI->>Export: Generate JSON
+    Export->>Store: Gather all contexts
+    Export->>User: context-sets.json
+    
+    Note over User: Use @context:name with any LLM
+```
 
 ## How It Works
 
