@@ -6,7 +6,7 @@
 <template>
   <!-- Enhanced Floating Navbar with Navigation -->
   <nav class="absolute top-6 left-1/2 transform -translate-x-1/2 z-50 bg-card/90 backdrop-blur-xl border border-muted-foreground/20 rounded-full shadow-2xl max-w-4xl">
-    <div class="flex items-center justify-between px-8 py-4 gap-12">
+    <div class="flex items-center justify-between px-8 py-4 gap-8">
       <!-- Logo/Brand and AI Status -->
       <div class="flex items-center gap-4">
         <a 
@@ -83,6 +83,18 @@
         >
           <Icon name="lucide:plus" class="w-4 h-4 mr-2" />
           Add
+        </Button>
+        
+        <!-- Remove Project Button -->
+        <Button
+          v-if="selectedFolder"
+          @click="handleClearProjectWithConfirmation"
+          variant="outline"
+          size="sm"
+          class="px-3 py-2 bg-destructive/5 hover:bg-destructive/10 border-destructive/20 text-destructive hover:text-destructive"
+        >
+          <Icon name="lucide:trash-2" class="w-4 h-4 mr-2" />
+          Remove
         </Button>
       </div>
     </div>
@@ -165,6 +177,7 @@ const _props = withDefaults(defineProps<Props>(), {
 
 const _emit = defineEmits<{
   (e: 'select-project'): void
+  (e: 'clear-project'): void
 }>()
 
 // Use the project store
@@ -335,6 +348,13 @@ const getModelTooltip = (modelKey: string) => {
     default:
       return `${displayName}: Unknown status`
   }
+}
+
+// Handle clear project
+const handleClearProjectWithConfirmation = () => {
+  _emit('clear-project')
+  success('Project Cleared', 'Project has been cleared successfully')
+  announceStatus('Project cleared')
 }
 </script>
 

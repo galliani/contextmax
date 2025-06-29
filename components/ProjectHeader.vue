@@ -6,9 +6,36 @@
 <template>  
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex-1 min-w-0">
-      <h2 id="project-info-heading" class="text-xl lg:text-5xl xl:text-6xl mb-2 font-semibold tracking-tight">
-        {{ selectedFolder?.name || 'Context Sets Manager' }}
-      </h2>
+      <div class="flex items-center gap-0 mb-2">
+        <h2 id="project-info-heading" class="text-xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
+          {{ selectedFolder?.name || 'Context Sets Manager' }}
+        </h2>
+        
+        <!-- Secondary Actions -->
+        <div v-if="selectedFolder" class="flex items-center gap-2">
+          <!-- Refresh Project Button -->
+          <Button
+            variant="outline"
+            size="sm"
+            class="px-3 py-2 hover:shadow-sm transition-all duration-200"
+            :disabled="isRefreshingFiles"
+            :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
+            title="Refresh Project"
+            @click="handleRefreshFiles"
+          >
+            <Icon 
+              :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
+              :class="[
+                'w-4 h-4 mr-0',
+                isRefreshingFiles ? 'animate-spin' : ''
+              ]" 
+              aria-hidden="true" 
+            />
+            {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
+          </Button>
+        </div>
+      </div>
+      
       <p class="text-sm lg:text-sm text-muted-foreground">
         {{ selectedFolder ? 
           `Project auto-loaded from browser cache (OPFS), no re-uploading needed across sessions` : 
@@ -20,7 +47,19 @@
     
     <div class="flex flex-wrap items-center gap-2 sm:gap-3" role="toolbar" aria-label="Project actions">
       <!-- Primary Actions Group - Download and Preview -->
-      <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">
+      <div v-if="hasAnyContextSets" class="flex items-center gap-2 p-1 bg-muted/30 rounded-lg border border-muted/50">        
+        <!-- Preview JSON Button - Secondary Action -->
+        <Button 
+          variant="secondary"
+          size="default"
+          class="px-4 py-2.5 font-medium transition-all duration-200 bg-gray-600 hover:bg-gray-500 text-white hover:text-white border-gray-600"
+          title="Preview context-sets.json output"
+          @click="handlePreviewContextSetsJSON"
+        >
+          <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
+          Preview JSON
+        </Button>
+
         <!-- Download JSON Button - Primary Action -->
         <Button 
           variant="default"
@@ -30,56 +69,6 @@
         >
           <Icon name="lucide:download" class="w-4 h-4 mr-2" aria-hidden="true" />
           Download JSON
-        </Button>
-        
-        <!-- Preview JSON Button - Secondary Action -->
-        <Button 
-          variant="outline"
-          size="default"
-          class="px-4 py-2.5 font-medium hover:bg-muted/50 transition-all duration-200"
-          title="Preview context-sets.json output"
-          @click="handlePreviewContextSetsJSON"
-        >
-          <Icon name="lucide:eye" class="w-4 h-4 mr-2" aria-hidden="true" />
-          Preview JSON
-        </Button>
-      </div>
-      
-      <!-- Secondary Actions Group -->
-      <div class="flex items-center gap-2">
-        <!-- Refresh Project Button -->
-        <Button
-          variant="outline"
-          size="sm"
-          class="px-3 py-2 hover:shadow-sm transition-all duration-200"
-          :disabled="isRefreshingFiles"
-          :aria-label="isRefreshingFiles ? 'Reloading files...' : 'Refresh project from local folder'"
-          title="Refresh Project"
-          @click="handleRefreshFiles"
-        >
-          <Icon 
-            :name="isRefreshingFiles ? 'lucide:loader-2' : 'lucide:refresh-cw'" 
-            :class="[
-              'w-4 h-4 mr-2',
-              isRefreshingFiles ? 'animate-spin' : ''
-            ]" 
-            aria-hidden="true" 
-          />
-          {{ isRefreshingFiles ? 'Reloading...' : 'Reload Files' }}
-        </Button>
-        
-        
-        <!-- Clear Project Button -->
-        <Button
-          variant="ghost"
-          size="sm"
-          class="p-2 hover:bg-destructive/10 transition-colors duration-200"
-          :aria-label="`Clear current project`"
-          title="Clear project"
-          @click="handleClearProjectWithConfirmation"
-        >
-          <Icon name="lucide:trash-2" class="w-5 h-5" aria-hidden="true" />
-          <span class="sr-only">Clear project</span>
         </Button>
       </div>
     </div>
