@@ -1,6 +1,6 @@
 {
   "name": "contextmax",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "Privacy-first, browser-based tool for creating precise context sets for LLMs",
   "keywords": ["llm", "context", "ai", "developer-tools", "privacy", "browser-based"],
   "author": "Galih Muhammad",
