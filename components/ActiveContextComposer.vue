@@ -18,7 +18,7 @@
               <div v-if="!isEditingName" class="flex items-center group">
                 <Icon name="lucide:folder-open" class="w-12 h-12 mr-2 text-primary" />
                 <h3 class="visual-hierarchy-3 mb-1 text-mobile-subheading sm:text-xl lg:text-3xl font-bold" @click="startEditingName">
-                  Context Set: {{ activeContextSetName }}
+                  Composer: <span class="text-primary font-extrabold bg-primary/10 px-2 py-1 rounded-md border border-primary/20 animate-pulse">{{ getContextDisplayName(activeContextSetName) }}</span>
                 </h3>
                 <Button
                   @click="startEditingName"
@@ -155,9 +155,9 @@
             <div class="text-right">
               <div class="text-sm font-medium text-foreground">
                 {{ activeContextSet?.files?.length || 0 }} files • 
-                {{ activeContextSet?.workflows?.length || 0 }} workflows • 
+                {{ activeContextSet?.workflows?.length || 0 }} workflows
                 <span v-if="activeContextSet?.systemBehavior?.processing?.mode" class="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                  {{ activeContextSet.systemBehavior.processing.mode }}
+                   • {{ activeContextSet.systemBehavior.processing.mode }}
                 </span>
               </div>
             </div>
@@ -190,6 +190,7 @@
 
 <script setup lang="ts">
 import { logger } from '~/utils/logger'
+import { getContextDisplayName } from '~/utils/contextName'
 import Editor from './active-context-set/Editor.vue'
 import TabbedFileBrowser from './TabbedFileBrowser.vue'
 
@@ -253,7 +254,7 @@ const processingMode = computed({
 // Methods for editing
 const startEditingName = async () => {
   isEditingName.value = true
-  editingName.value = activeContextSetName.value
+  editingName.value = getContextDisplayName(activeContextSetName.value)
   await nextTick()
   safeFocus(nameInput.value)
   safeSelect(nameInput.value)
@@ -284,7 +285,7 @@ const saveContextSetName = () => {
   try {
     updateActiveContextSet({ name: newName })
     isEditingName.value = false
-    announceStatus(`Context set renamed to: ${newName}`)
+    announceStatus(`Context set renamed to: ${getContextDisplayName(newName)}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to rename context set'
     announceError(message)
@@ -390,7 +391,7 @@ const handleExportToClipboard = async () => {
     if (result.success) {
       success(
         'Snippet Copied',
-        `Context set "${prefixedContextSetName}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
+        `Context set "${getContextDisplayName(prefixedContextSetName)}" copied to clipboard as Markdown (${result.tokenCount.toLocaleString()} tokens)`
       )
       announceStatus(`Context set exported to clipboard with ${result.tokenCount} tokens`)
     } else {

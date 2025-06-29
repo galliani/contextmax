@@ -1,8 +1,8 @@
-/*
+<!--
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- */
+-->
 <template>
   <div class="space-y-4">
     <!-- Header with Add Button -->
@@ -56,7 +56,7 @@
         <div class="flex items-center space-x-3">
           <Icon name="lucide:link" class="w-4 h-4 text-primary" />
           <div>
-            <p class="font-medium">{{ childContext }}</p>
+            <p class="font-medium">{{ getContextDisplayName(childContext) }}</p>
             <p class="text-xs text-muted-foreground">
               {{ getContextDescription(childContext) || 'No description' }}
             </p>
@@ -103,7 +103,7 @@
               class="flex items-start justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
             >
               <div class="flex-1 min-w-0">
-                <p class="font-medium truncate">{{ contextName }}</p>
+                <p class="font-medium truncate">{{ getContextDisplayName(contextName) }}</p>
                 <p class="text-xs text-muted-foreground mt-1">
                   {{ getContextDescription(contextName) || 'No description' }}
                 </p>
@@ -133,6 +133,8 @@
 </template>
 
 <script setup lang="ts">
+import { getContextDisplayName } from '~/utils/contextName'
+
 const {
   activeContextSet,
   updateActiveContextSet,
@@ -189,13 +191,13 @@ const addChildContext = (contextName: string) => {
   try {
     const currentUses = activeContextSet.value.uses || []
     if (currentUses.includes(contextName)) {
-      error('Context Already Added', `"${contextName}" is already a child context`)
+      error('Context Already Added', `"${getContextDisplayName(contextName)}" is already a child context`)
       return
     }
     
     // Check for circular dependencies
     if (wouldCreateCircularDependency(contextName)) {
-      error('Circular Dependency', `Adding "${contextName}" would create a circular dependency`)
+      error('Circular Dependency', `Adding "${getContextDisplayName(contextName)}" would create a circular dependency`)
       return
     }
     
@@ -207,8 +209,8 @@ const addChildContext = (contextName: string) => {
       uses: newUses
     })
     
-    success('Child Context Added', `"${contextName}" has been added as a child context`)
-    announceStatus(`Added ${contextName} as child context`)
+    success('Child Context Added', `"${getContextDisplayName(contextName)}" has been added as a child context`)
+    announceStatus(`Added ${getContextDisplayName(contextName)} as child context`)
     
     showAddDialog.value = false
     searchQuery.value = ''
@@ -233,8 +235,8 @@ const removeChildContext = (contextName: string) => {
       uses: newUses
     })
     
-    success('Child Context Removed', `"${contextName}" has been removed from child contexts`)
-    announceStatus(`Removed ${contextName} from child contexts`)
+    success('Child Context Removed', `"${getContextDisplayName(contextName)}" has been removed from child contexts`)
+    announceStatus(`Removed ${getContextDisplayName(contextName)} from child contexts`)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to remove child context'
     error('Failed to Remove', message)
