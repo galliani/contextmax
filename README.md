@@ -8,28 +8,8 @@
 
 ContextMax is a browser-based tool that lets you create context sets for LLMs. Define which files, functions, and workflows are relevant for specific tasks. Get assistance from the embedded LLM to assist in your search. Your code never leaves your browser.
 
-<!-- PLACEHOLDER: Demo video of creating context sets -->
-**📹 [Watch: Creating Context Sets Demo](REPLACE_WITH_DEMO_VIDEO_URL)**
+![Creating Context Sets Demo](static/images/context-creation-cut-cropped-3x.gif)
 
-## Table of Contents
-
-- [🚀 Quick Start](#-quick-start)
-- [What is ContextMax](#what-is-contextmax)
-- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
-- [Why ContextMax](#why-contextmax)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-  - [System Architecture](#system-architecture)
-  - [Data Flow](#data-flow)
-  - [Component Architecture](#component-architecture)
-  - [Context Processing Flow](#context-processing-flow)
-- [How It Works](#how-it-works)
-- [The context-sets.json Format](#the-context-setsjson-format)
-- [Tech Stack](#tech-stack)
-- [Local AI Models](#local-ai-models)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## 🚀 Quick Start
 
@@ -63,6 +43,25 @@ npm run dev
 
 Open http://localhost:3000 in Chrome/Edge and start creating context sets!
 
+
+## Table of Contents
+
+- [What is ContextMax](#what-is-contextmax)
+- [Try It Yourself: See the Difference](#try-it-yourself-see-the-difference)
+- [Why ContextMax](#why-contextmax)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+  - [System Architecture](#system-architecture)
+  - [Data Flow](#data-flow)
+  - [Component Architecture](#component-architecture)
+  - [Context Processing Flow](#context-processing-flow)
+- [How It Works](#how-it-works)
+- [The context-sets.json Format](#the-context-setsjson-format)
+- [Tech Stack](#tech-stack)
+- [Local AI Models](#local-ai-models)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## What is ContextMax
 
